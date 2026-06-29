@@ -1,0 +1,56 @@
+import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import { useAuthStore } from "../store/authStore";
+import api from "../lib/api";
+import type { User } from "../types";
+
+interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+interface LoginResponse {
+  user: User;
+  token: string;
+  data?: { user: User; token: string };
+}
+
+export function useAuth() {
+  const { user, token, isAuthenticated, setAuth, logout } = useAuthStore();
+  const navigate = useNavigate();
+
+  const loginMutation = useMutation({
+    mutationFn: async (payload: LoginPayload) => {
+      const res = (await api.post(
+        "/auth/login",
+        payload,
+      )) as unknown as LoginResponse;
+      return res.data ?? res;
+    },
+    onSuccess: (data) => {
+      setAuth(data.user, data.token);
+      toast.success(`Welcome back, ${data.user.firstName}!`);
+      navigate("/dashboard");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message ?? "Login failed");
+    },
+  });
+
+  const logoutFn = () => {
+    logout();
+    navigate("/login");
+    toast.success("Logged out successfully");
+  };
+
+  return {
+    user,
+    token,
+    isAuthenticated,
+    login: loginMutation.mutate,
+    isLoggingIn: loginMutation.isPending,
+    loginError: loginMutation.error,
+    logout: logoutFn,
+  };
+}

@@ -1,0 +1,565 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  firstName     String
+  lastName      String
+  role          String    @default("technician")
+  phone         String?
+  avatar        String?
+  isActive      Boolean   @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  technician       Technician?
+  createdJobs      Job[]           @relation("JobCreatedBy")
+  createdEstimates Estimate[]      @relation("EstimateCreatedBy")
+  createdInvoices  Invoice[]       @relation("InvoiceCreatedBy")
+  calls            Call[]
+  notifications    Notification[]
+  timeEntries      TimeEntry[]
+}
+
+model Customer {
+  id             String   @id @default(uuid())
+  customerNumber String   @unique
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String
+  mobilePhone    String?
+  type           String   @default("residential")
+  companyName    String?
+  tags           String?
+  source         String?
+  notes          String?
+  doNotContact   Boolean  @default(false)
+  creditLimit    Float?
+  balance        Float    @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  locations         Location[]
+  jobs              Job[]
+  estimates         Estimate[]
+  invoices          Invoice[]
+  calls             Call[]
+  contacts          Contact[]
+  serviceAgreements ServiceAgreement[]
+  payments          Payment[]
+}
+
+model Contact {
+  id         String   @id @default(uuid())
+  customerId String
+  firstName  String
+  lastName   String
+  email      String?
+  phone      String?
+  role       String?
+  isPrimary  Boolean  @default(false)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model Location {
+  id         String   @id @default(uuid())
+  customerId String
+  name       String?
+  address    String
+  city       String
+  state      String
+  zip        String
+  country    String   @default("US")
+  lat        Float?
+  lng        Float?
+  type       String   @default("service")
+  notes      String?
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer  Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  jobs      Job[]
+  equipment Equipment[]
+}
+
+model Technician {
+  id             String    @id @default(uuid())
+  userId         String    @unique
+  employeeId     String    @unique
+  skills         String?
+  zones          String?
+  vehicleId      String?
+  currentLat     Float?
+  currentLng     Float?
+  lastLocationAt DateTime?
+  isAvailable    Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user        User            @relation(fields: [userId], references: [id])
+  jobs        JobTechnician[]
+  timeEntries TimeEntry[]
+  vehicle     Vehicle?        @relation(fields: [vehicleId], references: [id])
+}
+
+model Vehicle {
+  id           String   @id @default(uuid())
+  name         String
+  make         String?
+  model        String?
+  year         Int?
+  vin          String?
+  licensePlate String?
+  color        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  technicians Technician[]
+}
+
+model Job {
+  id              String    @id @default(uuid())
+  jobNumber       String    @unique
+  customerId      String
+  locationId      String?
+  type            String    @default("service")
+  status          String    @default("scheduled")
+  priority        String    @default("normal")
+  summary         String
+  description     String?
+  scheduledStart  DateTime?
+  scheduledEnd    DateTime?
+  actualStart     DateTime?
+  actualEnd       DateTime?
+  duration        Int?
+  businessUnit    String?
+  campaignId      String?
+  callId          String?
+  tags            String?
+  notes           String?
+  techNotes       String?
+  completionNotes String?
+  createdById     String
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  followUpDate    DateTime?
+  totalAmount     Float     @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  customer    Customer        @relation(fields: [customerId], references: [id])
+  location    Location?       @relation(fields: [locationId], references: [id])
+  createdBy   User            @relation("JobCreatedBy", fields: [createdById], references: [id])
+  technicians JobTechnician[]
+  estimates   Estimate[]
+  invoices    Invoice[]
+  equipment   Equipment[]
+  forms       JobForm[]
+  timeEntries TimeEntry[]
+  call        Call?           @relation(fields: [callId], references: [id])
+}
+
+model JobTechnician {
+  id           String    @id @default(uuid())
+  jobId        String
+  technicianId String
+  isLead       Boolean   @default(false)
+  status       String    @default("assigned")
+  arrivedAt    DateTime?
+  departedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  job        Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  technician Technician @relation(fields: [technicianId], references: [id])
+
+  @@unique([jobId, technicianId])
+}
+
+model Estimate {
+  id              String    @id @default(uuid())
+  estimateNumber  String    @unique
+  customerId      String
+  jobId           String?
+  status          String    @default("draft")
+  title           String
+  summary         String?
+  validUntil      DateTime?
+  subtotal        Float     @default(0)
+  discountType    String?
+  discountValue   Float     @default(0)
+  taxRate         Float     @default(0)
+  taxAmount       Float     @default(0)
+  total           Float     @default(0)
+  notes           String?
+  terms           String?
+  sentAt          DateTime?
+  viewedAt        DateTime?
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  rejectionReason String?
+  signatureUrl    String?
+  createdById     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  customer  Customer           @relation(fields: [customerId], references: [id])
+  job       Job?               @relation(fields: [jobId], references: [id])
+  createdBy User               @relation("EstimateCreatedBy", fields: [createdById], references: [id])
+  lineItems EstimateLineItem[]
+  invoice   Invoice?
+}
+
+model EstimateLineItem {
+  id              String   @id @default(uuid())
+  estimateId      String
+  type            String   @default("service")
+  name            String
+  description     String?
+  quantity        Float    @default(1)
+  unitPrice       Float    @default(0)
+  total           Float    @default(0)
+  sortOrder       Int      @default(0)
+  pricebookItemId String?
+  createdAt       DateTime @default(now())
+
+  estimate Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id            String    @id @default(uuid())
+  invoiceNumber String    @unique
+  customerId    String
+  jobId         String?
+  estimateId    String?   @unique
+  status        String    @default("draft")
+  dueDate       DateTime?
+  subtotal      Float     @default(0)
+  discountType  String?
+  discountValue Float     @default(0)
+  taxRate       Float     @default(0)
+  taxAmount     Float     @default(0)
+  total         Float     @default(0)
+  amountPaid    Float     @default(0)
+  balance       Float     @default(0)
+  notes         String?
+  terms         String?
+  sentAt        DateTime?
+  paidAt        DateTime?
+  voidedAt      DateTime?
+  voidReason    String?
+  createdById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  customer  Customer          @relation(fields: [customerId], references: [id])
+  job       Job?              @relation(fields: [jobId], references: [id])
+  estimate  Estimate?         @relation(fields: [estimateId], references: [id])
+  createdBy User              @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  lineItems InvoiceLineItem[]
+  payments  Payment[]
+}
+
+model InvoiceLineItem {
+  id              String   @id @default(uuid())
+  invoiceId       String
+  type            String   @default("service")
+  name            String
+  description     String?
+  quantity        Float    @default(1)
+  unitPrice       Float    @default(0)
+  total           Float    @default(0)
+  sortOrder       Int      @default(0)
+  pricebookItemId String?
+  createdAt       DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id              String    @id @default(uuid())
+  invoiceId       String
+  customerId      String
+  amount          Float
+  method          String
+  status          String    @default("completed")
+  referenceNumber String?
+  notes           String?
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  invoice  Invoice  @relation(fields: [invoiceId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+}
+
+model PricebookCategory {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  parentId    String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent   PricebookCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children PricebookCategory[] @relation("CategoryHierarchy")
+  items    PricebookItem[]
+}
+
+model PricebookItem {
+  id               String   @id @default(uuid())
+  categoryId       String?
+  sku              String?  @unique
+  name             String
+  description      String?
+  type             String   @default("service")
+  unitCost         Float    @default(0)
+  unitPrice        Float    @default(0)
+  unit             String?
+  taxable          Boolean  @default(true)
+  isActive         Boolean  @default(true)
+  imageUrl         String?
+  warrantyMonths   Int?
+  vendorPartNumber String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  category       PricebookCategory? @relation(fields: [categoryId], references: [id])
+  inventoryItems InventoryItem[]
+}
+
+model Warehouse {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  items InventoryItem[]
+}
+
+model InventoryItem {
+  id              String   @id @default(uuid())
+  warehouseId     String
+  pricebookItemId String?
+  name            String
+  sku             String?
+  quantity        Float    @default(0)
+  reorderPoint    Float    @default(0)
+  reorderQuantity Float    @default(0)
+  unitCost        Float    @default(0)
+  location        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  warehouse     Warehouse      @relation(fields: [warehouseId], references: [id])
+  pricebookItem PricebookItem? @relation(fields: [pricebookItemId], references: [id])
+  transactions  InventoryTransaction[]
+}
+
+model InventoryTransaction {
+  id        String   @id @default(uuid())
+  itemId    String
+  type      String
+  quantity  Float
+  unitCost  Float?
+  reference String?
+  jobId     String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  item InventoryItem @relation(fields: [itemId], references: [id])
+}
+
+model ServiceAgreement {
+  id               String    @id @default(uuid())
+  agreementNumber  String    @unique
+  customerId       String
+  name             String
+  status           String    @default("active")
+  startDate        DateTime
+  endDate          DateTime
+  billingFrequency String
+  amount           Float
+  autoRenew        Boolean   @default(false)
+  terms            String?
+  notes            String?
+  nextBillingDate  DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  customer Customer         @relation(fields: [customerId], references: [id])
+  visits   AgreementVisit[]
+}
+
+model AgreementVisit {
+  id            String    @id @default(uuid())
+  agreementId   String
+  name          String
+  scheduledDate DateTime?
+  completedDate DateTime?
+  jobId         String?
+  status        String    @default("pending")
+  notes         String?
+
+  agreement ServiceAgreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+}
+
+model Equipment {
+  id             String    @id @default(uuid())
+  customerId     String?
+  locationId     String?
+  jobId          String?
+  name           String
+  type           String?
+  manufacturer   String?
+  model          String?
+  serialNumber   String?
+  installDate    DateTime?
+  warrantyExpiry DateTime?
+  condition      String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  location Location? @relation(fields: [locationId], references: [id])
+  job      Job?      @relation(fields: [jobId], references: [id])
+}
+
+model Call {
+  id           String   @id @default(uuid())
+  customerId   String?
+  direction    String
+  status       String
+  fromNumber   String?
+  toNumber     String?
+  duration     Int?
+  recordingUrl String?
+  reason       String?
+  campaignId   String?
+  handledById  String?
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  customer  Customer? @relation(fields: [customerId], references: [id])
+  handledBy User?     @relation(fields: [handledById], references: [id])
+  jobs      Job[]
+}
+
+model Campaign {
+  id             String    @id @default(uuid())
+  name           String
+  type           String
+  status         String    @default("active")
+  budget         Float?
+  startDate      DateTime?
+  endDate        DateTime?
+  trackingNumber String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model JobForm {
+  id          String    @id @default(uuid())
+  jobId       String
+  name        String
+  formData    String
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+model TimeEntry {
+  id           String    @id @default(uuid())
+  technicianId String?
+  userId       String
+  jobId        String?
+  type         String    @default("work")
+  startTime    DateTime
+  endTime      DateTime?
+  duration     Int?
+  notes        String?
+  createdAt    DateTime  @default(now())
+
+  technician Technician? @relation(fields: [technicianId], references: [id])
+  user       User        @relation(fields: [userId], references: [id])
+  job        Job?        @relation(fields: [jobId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("info")
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CompanySettings {
+  id                 String   @id @default(uuid())
+  name               String   @default("PulseService")
+  logo               String?
+  address            String?
+  city               String?
+  state              String?
+  zip                String?
+  phone              String?
+  email              String?
+  website            String?
+  taxRate            Float    @default(0.085)
+  currency           String   @default("USD")
+  timezone           String   @default("America/New_York")
+  invoiceTerms       String?
+  estimateTerms      String?
+  jobPrefix          String   @default("JOB")
+  invoicePrefix      String   @default("INV")
+  estimatePrefix     String   @default("EST")
+  customerPrefix     String   @default("CUST")
+  nextJobNumber      Int      @default(1001)
+  nextInvoiceNumber  Int      @default(1001)
+  nextEstimateNumber Int      @default(1001)
+  nextCustomerNumber Int      @default(1001)
+  updatedAt          DateTime @updatedAt
+}
+
+model BusinessUnit {
+  id        String   @id @default(uuid())
+  name      String
+  type      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Zone {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  color       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}

@@ -1,0 +1,297 @@
+const prisma = require('../config/database');
+const { paginate, paginatedResponse, generateNumber } = require('../utils/helpers');
+
+const STATUS_TRANSITIONS = {
+  new: ['scheduled', 'cancelled'],
+  scheduled: ['in_progress', 'cancelled'],
+  in_progress: ['completed', 'on_hold', 'cancelled'],
+  on_hold: ['in_progress', 'cancelled'],
+  completed: [],
+  cancelled: [],
+};
+
+const list = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, search, status, type, dateFrom, dateTo, technicianId } = req.query;
+    const { skip, take } = paginate(page, limit);
+
+    const where = {};
+    if (status) where.status = status;
+    if (type) where.type = type;
+    if (technicianId) {
+      where.technicians = { some: { technicianId } };
+    }
+    if (dateFrom || dateTo) {
+      where.scheduledStart = {};
+      if (dateFrom) where.scheduledStart.gte = new Date(dateFrom);
+      if (dateTo) where.scheduledStart.lte = new Date(dateTo);
+    }
+    if (search) {
+      where.OR = [
+        { jobNumber: { contains: search } },
+        { summary: { contains: search } },
+        { customer: { firstName: { contains: search } } },
+        { customer: { lastName: { contains: search } } },
+        { customer: { companyName: { contains: search } } },
+      ];
+    }
+
+    const [jobs, total] = await Promise.all([
+      prisma.job.findMany({
+        where,
+        skip,
+        take,
+        include: {
+          customer: {
+            select: { id: true, firstName: true, lastName: true, phone: true, companyName: true, type: true },
+          },
+          location: { select: { id: true, address: true, city: true, state: true, zip: true } },
+          technicians: {
+            include: {
+              technician: {
+                include: {
+                  user: { select: { id: true, firstName: true, lastName: true, avatar: true } },
+                },
+              },
+            },
+          },
+        },
+        orderBy: [{ scheduledStart: 'asc' }, { createdAt: 'desc' }],
+      }),
+      prisma.job.count({ where }),
+    ]);
+
+    return res.json({ success: true, ...paginatedResponse(jobs, total, page, limit) });
+  } catch (err) {
+    console.error('jobs.list error:', err);
+    return res.status(500).json({ success: false, error: 'Server error' });
+  }
+};
+
+const get = async (req, res) => {
+  try {
+    const job = await prisma.job.findUnique({
+      where: { id: req.params.id },
+      include: {
+        customer: true,
+        location: true,
+        createdBy: { select: { id: true, firstName: true, lastName: true } },
+        technicians: {
+          include: {
+            technician: {
+              include: {
+                user: {
+                  select: { id: true, firstName: true, lastName: true, phone: true, avatar: true },
+                },
+                vehicle: true,
+              },
+            },
+          },
+        },
+        estimates: { select: { id: true, estimateNumber: true, status: true, total: true } },
+        invoices: { select: { id: true, invoiceNumber: true, status: true, total: true, balance: true } },
+        equipment: true,
+        forms: true,
+        timeEntries: {
+          include: { user: { select: { id: true, firstName: true, lastName: true } } },
+          orderBy: { startTime: 'desc' },
+        },
+        call: { select: { id: true, fromNumber: true, reason: true } },
+      },
+    });
+
+    if (!job) return res.status(404).json({ success: false, error: 'Job not found' });
+    return res.json({ success: true, data: job });
+  } catch (err) {
+    console.error('jobs.get error:', err);
+    return res.status(500).json({ success: false, error: 'Server error' });
+  }
+};
+
+const create = async (req, res) => {
+  try {
+    const settings = await prisma.companySettings.findFirst();
+    if (!settings) {
+      return res.status(500).json({ success: false, error: 'Company settings not found' });
+    }
+
+    const jobNumber = generateNumber(settings.jobPrefix, settings.nextJobNumber);
+    await prisma.companySettings.updateMany({
+      data: { nextJobNumber: { increment: 1 } },
+    });
+
+    const { technicianIds, ...jobData } = req.body;
+
+    const job = await prisma.job.create({
+      data: {
+        ...jobData,
+        jobNumber,
+        createdById: req.user.id,
+        ...(technicianIds && technicianIds.length > 0 && {
+          technicians: {
+            create: technicianIds.map((tid, i) => ({
+              technicianId: tid,
+              isLead: i === 0,
+            })),
+          },
+        }),
+      },
+      include: {
+        customer: { select: { id: true, firstName: true, lastName: true } },
+        location: true,
+        technicians: {
+          include: {
+            technician: { include: { user: { select: { firstName: true, lastName: true } } } },
+          },
+        },
+      },
+    });
+
+    const io = req.app.get('io');
+    if (io && job.scheduledStart) {
+      const date = new Date(job.scheduledStart).toISOString().split('T')[0];
+      io.to(`dispatch:${date}`).emit('job:created', job);
+    }
+
+    return res.status(201).json({ success: true, data: job });
+  } catch (err) {
+    console.error('jobs.create error:', err);
+    return res.status(500).json({ success: false, error: 'Server error' });
+  }
+};
+
+const update = async (req, res) => {
+  try {
+    const { id: _id, jobNumber: _jn, createdAt: _ca, updatedAt: _ua, technicians: _t, ...data } = req.body;
+
+    const job = await prisma.job.update({
+      where: { id: req.params.id },
+      data,
+      include: {
+        customer: { select: { id: true, firstName: true, lastName: true } },
+        technicians: {
+          include: {
+            technician: { include: { user: { select: { firstName: true, lastName: true } } } },
+          },
+        },
+      },
+    });
+
+    const io = req.app.get('io');
+    if (io && job.scheduledStart) {
+      const date = new Date(job.scheduledStart).toISOString().split('T')[0];
+      io.to(`dispatch:${date}`).emit('job:updated', job);
+    }
+
+    return res.json({ success: true, data: job });
+  } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ success: false, error: 'Job not found' });
+    }
+    console.error('jobs.update error:', err);
+    return res.status(500).json({ success: false, error: 'Server error' });
+  }
+};
+
+const updateStatus = async (req, res) => {
+  try {
+    const { status, cancelReason, completionNotes } = req.body;
+
+    const job = await prisma.job.findUnique({ where: { id: req.params.id } });
+    if (!job) return res.status(404).json({ success: false, error: 'Job not found' });
+
+    const allowed = STATUS_TRANSITIONS[job.status] || [];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot transition from "${job.status}" to "${status}". Allowed: ${allowed.join(', ') || 'none'}`,
+      });
+    }
+
+    const data = { status };
+    if (status === 'completed') {
+      data.completedAt = new Date();
+      if (!job.actualStart) data.actualStart = new Date();
+      data.actualEnd = new Date();
+      if (completionNotes) data.completionNotes = completionNotes;
+    }
+    if (status === 'cancelled') {
+      data.cancelledAt = new Date();
+      if (cancelReason) data.cancelReason = cancelReason;
+    }
+    if (status === 'in_progress' && !job.actualStart) {
+      data.actualStart = new Date();
+    }
+
+    const updated = await prisma.job.update({ where: { id: req.params.id }, data });
+
+    const io = req.app.get('io');
+    if (io && (updated.scheduledStart || job.scheduledStart)) {
+      const src = updated.scheduledStart || job.scheduledStart;
+      const date = new Date(src).toISOString().split('T')[0];
+      io.to(`dispatch:${date}`).emit('job:statusChanged', { id: updated.id, status: updated.status });
+    }
+
+    return res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error('jobs.updateStatus error:', err);
+    return res.status(500).json({ success: false, error: 'Server error' });
+  }
+};
+
+const assignTechnician = async (req, res) => {
+  try {
+    const { technicianId, isLead = false } = req.body;
+    if (!technicianId) {
+      return res.status(400).json({ success: false, error: 'technicianId is required' });
+    }
+
+    const assignment = await prisma.jobTechnician.upsert({
+      where: { jobId_technicianId: { jobId: req.params.id, technicianId } },
+      create: { jobId: req.params.id, technicianId, isLead },
+      update: { isLead },
+    });
+
+    const job = await prisma.job.findUnique({ where: { id: req.params.id } });
+    const io = req.app.get('io');
+    if (io && job?.scheduledStart) {
+      const date = new Date(job.scheduledStart).toISOString().split('T')[0];
+      io.to(`dispatch:${date}`).emit('job:technicianAssigned', { jobId: req.params.id, technicianId });
+    }
+
+    return res.json({ success: true, data: assignment });
+  } catch (err) {
+    console.error('jobs.assignTechnician error:', err);
+    return res.status(500).json({ success: false, error: 'Server error' });
+  }
+};
+
+const removeTechnician = async (req, res) => {
+  try {
+    await prisma.jobTechnician.delete({
+      where: {
+        jobId_technicianId: { jobId: req.params.id, technicianId: req.params.techId },
+      },
+    });
+
+    const job = await prisma.job.findUnique({ where: { id: req.params.id } });
+    const io = req.app.get('io');
+    if (io && job?.scheduledStart) {
+      const date = new Date(job.scheduledStart).toISOString().split('T')[0];
+      io.to(`dispatch:${date}`).emit('job:technicianRemoved', {
+        jobId: req.params.id,
+        technicianId: req.params.techId,
+      });
+    }
+
+    return res.json({ success: true, message: 'Technician removed from job' });
+  } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ success: false, error: 'Assignment not found' });
+    }
+    console.error('jobs.removeTechnician error:', err);
+    return res.status(500).json({ success: false, error: 'Server error' });
+  }
+};
+
+module.exports = { list, get, create, update, updateStatus, assignTechnician, removeTechnician };
