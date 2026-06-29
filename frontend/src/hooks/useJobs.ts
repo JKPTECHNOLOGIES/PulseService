@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
-import { Job, PaginatedResponse } from "../types";
+import { getErrorMessage } from "../lib/errors";
+import type { ApiResponse, Job, PaginatedResponse } from "../types";
 import toast from "react-hot-toast";
 
 interface JobsParams {
@@ -15,10 +16,7 @@ interface JobsParams {
 export function useJobs(params: JobsParams = {}) {
   return useQuery({
     queryKey: ["jobs", params],
-    queryFn: async () => {
-      const data = await api.get("/jobs", { params });
-      return data as unknown as PaginatedResponse<Job>;
-    },
+    queryFn: () => api.get<PaginatedResponse<Job>>("/jobs", { params }),
   });
 }
 
@@ -26,8 +24,8 @@ export function useJob(id: string) {
   return useQuery({
     queryKey: ["job", id],
     queryFn: async () => {
-      const data = await api.get(`/jobs/${id}`);
-      return (data as any).data as Job;
+      const res = await api.get<ApiResponse<Job>>(`/jobs/${id}`);
+      return res.data;
     },
     enabled: !!id,
   });
@@ -37,13 +35,13 @@ export function useCreateJob() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: Partial<Job>) =>
-      api.post("/jobs", payload) as Promise<any>,
+      api.post<ApiResponse<Job>>("/jobs", payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["jobs"] });
+      void qc.invalidateQueries({ queryKey: ["jobs"] });
       toast.success("Job created successfully");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || "Failed to create job");
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to create job"));
     },
   });
 }
@@ -52,14 +50,14 @@ export function useUpdateJob() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...payload }: Partial<Job> & { id: string }) =>
-      api.put(`/jobs/${id}`, payload) as Promise<any>,
+      api.put<ApiResponse<Job>>(`/jobs/${id}`, payload),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ["jobs"] });
-      qc.invalidateQueries({ queryKey: ["job", vars.id] });
+      void qc.invalidateQueries({ queryKey: ["jobs"] });
+      void qc.invalidateQueries({ queryKey: ["job", vars.id] });
       toast.success("Job updated successfully");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || "Failed to update job");
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to update job"));
     },
   });
 }
@@ -75,14 +73,14 @@ export function useUpdateJobStatus() {
       id: string;
       status: string;
       notes?: string;
-    }) => api.patch(`/jobs/${id}/status`, { status, notes }) as Promise<any>,
+    }) => api.patch<ApiResponse<Job>>(`/jobs/${id}/status`, { status, notes }),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ["jobs"] });
-      qc.invalidateQueries({ queryKey: ["job", vars.id] });
+      void qc.invalidateQueries({ queryKey: ["jobs"] });
+      void qc.invalidateQueries({ queryKey: ["job", vars.id] });
       toast.success("Job status updated");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || "Failed to update status");
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to update status"));
     },
   });
 }
@@ -99,17 +97,17 @@ export function useAssignTechnician() {
       technicianId: string;
       isLead?: boolean;
     }) =>
-      api.post(`/jobs/${jobId}/technicians`, {
+      api.post<ApiResponse<Job>>(`/jobs/${jobId}/technicians`, {
         technicianId,
         isLead,
-      }) as Promise<any>,
+      }),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ["job", vars.jobId] });
-      qc.invalidateQueries({ queryKey: ["dispatch"] });
+      void qc.invalidateQueries({ queryKey: ["job", vars.jobId] });
+      void qc.invalidateQueries({ queryKey: ["dispatch"] });
       toast.success("Technician assigned");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || "Failed to assign technician");
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to assign technician"));
     },
   });
 }

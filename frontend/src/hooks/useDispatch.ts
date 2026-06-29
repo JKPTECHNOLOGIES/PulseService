@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
-import { Technician, Job } from "../types";
+import { getErrorMessage } from "../lib/errors";
+import type { ApiResponse, Technician, Job } from "../types";
 import toast from "react-hot-toast";
 
 interface DispatchBoard {
@@ -12,8 +13,10 @@ export function useDispatchBoard(date: string) {
   return useQuery({
     queryKey: ["dispatch", date],
     queryFn: async () => {
-      const data = await api.get("/dispatch/board", { params: { date } });
-      return (data as any).data as DispatchBoard;
+      const res = await api.get<ApiResponse<DispatchBoard>>("/dispatch/board", {
+        params: { date },
+      });
+      return res.data;
     },
     enabled: !!date,
   });
@@ -30,14 +33,16 @@ export function useReassignJob() {
       technicianId: string;
       date: string;
     }) =>
-      api.post(`/jobs/${jobId}/technicians`, { technicianId }) as Promise<any>,
+      api.post<ApiResponse<Job>>(`/jobs/${jobId}/technicians`, {
+        technicianId,
+      }),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ["dispatch", vars.date] });
-      qc.invalidateQueries({ queryKey: ["job", vars.jobId] });
+      void qc.invalidateQueries({ queryKey: ["dispatch", vars.date] });
+      void qc.invalidateQueries({ queryKey: ["job", vars.jobId] });
       toast.success("Job reassigned");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || "Failed to reassign job");
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to reassign job"));
     },
   });
 }

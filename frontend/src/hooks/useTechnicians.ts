@@ -1,23 +1,23 @@
-import { useQuery } from '@tanstack/react-query';
-import api from '../lib/api';
-import { Technician, PaginatedResponse } from '../types';
+import { useQuery } from "@tanstack/react-query";
+import api from "../lib/api";
+import type { ApiResponse, Technician, PaginatedResponse } from "../types";
 
 export function useTechnicians() {
   return useQuery({
-    queryKey: ['technicians'],
-    queryFn: async () => {
-      const data = await api.get('/technicians', { params: { limit: 100 } });
-      return data as unknown as PaginatedResponse<Technician>;
-    },
+    queryKey: ["technicians"],
+    queryFn: () =>
+      api.get<PaginatedResponse<Technician>>("/technicians", {
+        params: { limit: 100 },
+      }),
   });
 }
 
 export function useTechnician(id: string) {
   return useQuery({
-    queryKey: ['technician', id],
+    queryKey: ["technician", id],
     queryFn: async () => {
-      const data = await api.get(`/technicians/${id}`);
-      return (data as any).data as Technician;
+      const res = await api.get<ApiResponse<Technician>>(`/technicians/${id}`);
+      return res.data;
     },
     enabled: !!id,
   });

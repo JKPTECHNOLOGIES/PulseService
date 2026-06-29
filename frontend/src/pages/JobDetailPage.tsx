@@ -1,47 +1,64 @@
-import { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   PencilIcon,
   ChevronRightIcon,
   UserPlusIcon,
   CheckCircleIcon,
-} from '@heroicons/react/24/outline';
-import clsx from 'clsx';
-import { useJob } from '../hooks/useJobs';
-import { useUpdateJobStatus, useAssignTechnician } from '../hooks/useJobs';
-import { useTechnicians } from '../hooks/useTechnicians';
-import Button from '../components/ui/Button';
-import { StatusBadge } from '../components/ui/Badge';
-import Modal from '../components/ui/Modal';
-import { PageSpinner } from '../components/ui/Spinner';
-import { formatCurrency, formatDateTime, formatDate, capitalize } from '../utils/formatters';
-
-const STATUSES = ['new', 'scheduled', 'dispatched', 'in_progress', 'on_hold', 'completed', 'cancelled'];
+} from "@heroicons/react/24/outline";
+import clsx from "clsx";
+import { useJob } from "../hooks/useJobs";
+import { useUpdateJobStatus, useAssignTechnician } from "../hooks/useJobs";
+import { useTechnicians } from "../hooks/useTechnicians";
+import { useLookup } from "../hooks/useMetadata";
+import Button from "../components/ui/Button";
+import { StatusBadge } from "../components/ui/Badge";
+import Modal from "../components/ui/Modal";
+import { PageSpinner } from "../components/ui/Spinner";
+import {
+  formatCurrency,
+  formatDateTime,
+  formatDate,
+  capitalize,
+} from "../utils/formatters";
 
 const PRIORITY_COLORS: Record<string, string> = {
-  low: 'text-gray-500',
-  normal: 'text-blue-600',
-  high: 'text-orange-600',
-  urgent: 'text-red-600 font-semibold',
+  low: "text-gray-500",
+  normal: "text-blue-600",
+  high: "text-orange-600",
+  urgent: "text-red-600 font-semibold",
 };
 
-function TimelineStep({ label, done, active }: { label: string; done: boolean; active: boolean }) {
+function TimelineStep({
+  label,
+  done,
+  active,
+}: {
+  label: string;
+  done: boolean;
+  active: boolean;
+}) {
   return (
     <div className="flex flex-col items-center gap-1">
       <div
         className={clsx(
-          'h-7 w-7 rounded-full border-2 flex items-center justify-center transition-colors',
+          "h-7 w-7 rounded-full border-2 flex items-center justify-center transition-colors",
           done
-            ? 'bg-primary-600 border-primary-600'
+            ? "bg-primary-600 border-primary-600"
             : active
-            ? 'bg-white border-primary-600'
-            : 'bg-white border-gray-200'
+              ? "bg-white border-primary-600"
+              : "bg-white border-gray-200",
         )}
       >
         {done && <CheckCircleIcon className="h-4 w-4 text-white" />}
         {active && <div className="h-2.5 w-2.5 rounded-full bg-primary-600" />}
       </div>
-      <span className={clsx('text-xs text-center', done || active ? 'text-gray-900' : 'text-gray-400')}>
+      <span
+        className={clsx(
+          "text-xs text-center",
+          done || active ? "text-gray-900" : "text-gray-400",
+        )}
+      >
         {label}
       </span>
     </div>
@@ -53,33 +70,44 @@ export default function JobDetailPage() {
   const navigate = useNavigate();
   const [statusModal, setStatusModal] = useState(false);
   const [assignModal, setAssignModal] = useState(false);
-  const [newStatus, setNewStatus] = useState('');
-  const [selectedTech, setSelectedTech] = useState('');
+  const [newStatus, setNewStatus] = useState("");
+  const [selectedTech, setSelectedTech] = useState("");
 
-  const { data: job, isLoading } = useJob(id!);
+  const { data: job, isLoading } = useJob(id ?? "");
   const { data: techsData } = useTechnicians();
   const updateStatus = useUpdateJobStatus();
   const assignTech = useAssignTechnician();
+  const { options: jobStatusOptions } = useLookup("jobStatus");
 
   if (isLoading) return <PageSpinner />;
-  if (!job) return <div className="text-center py-12 text-gray-500">Job not found</div>;
+  if (!job)
+    return <div className="text-center py-12 text-gray-500">Job not found</div>;
 
-  const techs = techsData?.data || [];
-  const timelineSteps = ['new', 'scheduled', 'dispatched', 'in_progress', 'completed'];
+  const techs = techsData?.data ?? [];
+  const timelineSteps = [
+    "new",
+    "scheduled",
+    "dispatched",
+    "in_progress",
+    "completed",
+  ];
   const currentIdx = timelineSteps.indexOf(job.status);
 
   const handleStatusUpdate = async () => {
     if (newStatus) {
-      await updateStatus.mutateAsync({ id: id!, status: newStatus });
+      await updateStatus.mutateAsync({ id: id ?? "", status: newStatus });
       setStatusModal(false);
     }
   };
 
   const handleAssign = async () => {
     if (selectedTech) {
-      await assignTech.mutateAsync({ jobId: id!, technicianId: selectedTech });
+      await assignTech.mutateAsync({
+        jobId: id ?? "",
+        technicianId: selectedTech,
+      });
       setAssignModal(false);
-      setSelectedTech('');
+      setSelectedTech("");
     }
   };
 
@@ -87,7 +115,9 @@ export default function JobDetailPage() {
     <div className="space-y-5">
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-sm text-gray-500">
-        <Link to="/jobs" className="hover:text-primary-600">Jobs</Link>
+        <Link to="/jobs" className="hover:text-primary-600">
+          Jobs
+        </Link>
         <ChevronRightIcon className="h-3.5 w-3.5" />
         <span className="text-gray-900 font-medium">#{job.jobNumber}</span>
       </div>
@@ -97,9 +127,16 @@ export default function JobDetailPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-xl font-bold text-gray-900">Job #{job.jobNumber}</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                Job #{job.jobNumber}
+              </h2>
               <StatusBadge status={job.status} type="job" />
-              <span className={clsx('text-sm capitalize', PRIORITY_COLORS[job.priority])}>
+              <span
+                className={clsx(
+                  "text-sm capitalize",
+                  PRIORITY_COLORS[job.priority],
+                )}
+              >
                 {job.priority} priority
               </span>
             </div>
@@ -109,7 +146,10 @@ export default function JobDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => { setNewStatus(job.status); setStatusModal(true); }}
+              onClick={() => {
+                setNewStatus(job.status);
+                setStatusModal(true);
+              }}
             >
               Update Status
             </Button>
@@ -117,7 +157,9 @@ export default function JobDetailPage() {
               variant="secondary"
               size="sm"
               icon={<PencilIcon className="h-4 w-4" />}
-              onClick={() => navigate(`/jobs/${id}/edit`)}
+              onClick={() => {
+                navigate(`/jobs/${id ?? ""}/edit`);
+              }}
             >
               Edit
             </Button>
@@ -157,7 +199,9 @@ export default function JobDetailPage() {
                     >
                       {job.customer.firstName} {job.customer.lastName}
                     </Link>
-                  ) : '-'}
+                  ) : (
+                    "-"
+                  )}
                 </dd>
               </div>
               <div>
@@ -165,34 +209,49 @@ export default function JobDetailPage() {
                 <dd className="text-sm font-medium text-gray-900 mt-0.5">
                   {job.location
                     ? `${job.location.address}, ${job.location.city}`
-                    : 'No location'}
+                    : "No location"}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs text-gray-500">Job Type</dt>
-                <dd className="text-sm font-medium text-gray-900 capitalize mt-0.5">{job.type}</dd>
+                <dd className="text-sm font-medium text-gray-900 capitalize mt-0.5">
+                  {job.type}
+                </dd>
               </div>
               <div>
                 <dt className="text-xs text-gray-500">Priority</dt>
-                <dd className={clsx('text-sm font-medium capitalize mt-0.5', PRIORITY_COLORS[job.priority])}>
+                <dd
+                  className={clsx(
+                    "text-sm font-medium capitalize mt-0.5",
+                    PRIORITY_COLORS[job.priority],
+                  )}
+                >
                   {job.priority}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs text-gray-500">Scheduled Start</dt>
-                <dd className="text-sm font-medium text-gray-900 mt-0.5">{formatDateTime(job.scheduledStart)}</dd>
+                <dd className="text-sm font-medium text-gray-900 mt-0.5">
+                  {formatDateTime(job.scheduledStart)}
+                </dd>
               </div>
               <div>
                 <dt className="text-xs text-gray-500">Scheduled End</dt>
-                <dd className="text-sm font-medium text-gray-900 mt-0.5">{formatDateTime(job.scheduledEnd)}</dd>
+                <dd className="text-sm font-medium text-gray-900 mt-0.5">
+                  {formatDateTime(job.scheduledEnd)}
+                </dd>
               </div>
               <div>
                 <dt className="text-xs text-gray-500">Created</dt>
-                <dd className="text-sm font-medium text-gray-900 mt-0.5">{formatDate(job.createdAt)}</dd>
+                <dd className="text-sm font-medium text-gray-900 mt-0.5">
+                  {formatDate(job.createdAt)}
+                </dd>
               </div>
               <div>
                 <dt className="text-xs text-gray-500">Total Amount</dt>
-                <dd className="text-sm font-bold text-gray-900 mt-0.5">{formatCurrency(job.totalAmount)}</dd>
+                <dd className="text-sm font-bold text-gray-900 mt-0.5">
+                  {formatCurrency(job.totalAmount)}
+                </dd>
               </div>
             </dl>
           </div>
@@ -201,7 +260,9 @@ export default function JobDetailPage() {
           {job.description && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold text-gray-900 mb-2">Description</h3>
-              <p className="text-sm text-gray-600 whitespace-pre-line">{job.description}</p>
+              <p className="text-sm text-gray-600 whitespace-pre-line">
+                {job.description}
+              </p>
             </div>
           )}
 
@@ -210,15 +271,23 @@ export default function JobDetailPage() {
             <h3 className="font-semibold text-gray-900 mb-4">Notes</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Office Notes</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Office Notes
+                </label>
                 <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 min-h-[60px]">
-                  {job.notes || <span className="text-gray-400">No office notes</span>}
+                  {job.notes ?? (
+                    <span className="text-gray-400">No office notes</span>
+                  )}
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Tech Notes</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Tech Notes
+                </label>
                 <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 min-h-[60px]">
-                  {job.techNotes || <span className="text-gray-400">No tech notes</span>}
+                  {job.techNotes ?? (
+                    <span className="text-gray-400">No tech notes</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -232,7 +301,9 @@ export default function JobDetailPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-900">Technicians</h3>
               <button
-                onClick={() => setAssignModal(true)}
+                onClick={() => {
+                  setAssignModal(true);
+                }}
                 className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
               >
                 <UserPlusIcon className="h-3.5 w-3.5" />
@@ -247,16 +318,18 @@ export default function JobDetailPage() {
                       <span className="text-xs font-semibold text-gray-600">
                         {jt.technician?.user
                           ? `${jt.technician.user.firstName.charAt(0)}${jt.technician.user.lastName.charAt(0)}`
-                          : '?'}
+                          : "?"}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">
                         {jt.technician?.user
                           ? `${jt.technician.user.firstName} ${jt.technician.user.lastName}`
-                          : 'Unknown'}
+                          : "Unknown"}
                       </p>
-                      {jt.isLead && <p className="text-xs text-primary-600">Lead</p>}
+                      {jt.isLead && (
+                        <p className="text-xs text-primary-600">Lead</p>
+                      )}
                     </div>
                     <StatusBadge status={jt.status} type="job" />
                   </div>
@@ -273,7 +346,9 @@ export default function JobDetailPage() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Total Amount</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(job.totalAmount)}</span>
+                <span className="font-semibold text-gray-900">
+                  {formatCurrency(job.totalAmount)}
+                </span>
               </div>
             </div>
           </div>
@@ -281,23 +356,47 @@ export default function JobDetailPage() {
       </div>
 
       {/* Update Status Modal */}
-      <Modal isOpen={statusModal} onClose={() => setStatusModal(false)} title="Update Job Status">
+      <Modal
+        isOpen={statusModal}
+        onClose={() => {
+          setStatusModal(false);
+        }}
+        title="Update Job Status"
+      >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">New Status</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              New Status
+            </label>
             <select
               value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value)}
+              onChange={(e) => {
+                setNewStatus(e.target.value);
+              }}
               className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
             >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>{capitalize(s)}</option>
+              {jobStatusOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
               ))}
             </select>
           </div>
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setStatusModal(false)}>Cancel</Button>
-            <Button onClick={handleStatusUpdate} loading={updateStatus.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setStatusModal(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                void handleStatusUpdate();
+              }}
+              loading={updateStatus.isPending}
+            >
               Update Status
             </Button>
           </div>
@@ -305,13 +404,23 @@ export default function JobDetailPage() {
       </Modal>
 
       {/* Assign Tech Modal */}
-      <Modal isOpen={assignModal} onClose={() => setAssignModal(false)} title="Assign Technician">
+      <Modal
+        isOpen={assignModal}
+        onClose={() => {
+          setAssignModal(false);
+        }}
+        title="Assign Technician"
+      >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Technician</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Technician
+            </label>
             <select
               value={selectedTech}
-              onChange={(e) => setSelectedTech(e.target.value)}
+              onChange={(e) => {
+                setSelectedTech(e.target.value);
+              }}
               className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
             >
               <option value="">Choose a technician...</option>
@@ -323,8 +432,21 @@ export default function JobDetailPage() {
             </select>
           </div>
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setAssignModal(false)}>Cancel</Button>
-            <Button onClick={handleAssign} loading={assignTech.isPending} disabled={!selectedTech}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAssignModal(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                void handleAssign();
+              }}
+              loading={assignTech.isPending}
+              disabled={!selectedTech}
+            >
               Assign
             </Button>
           </div>

@@ -10,13 +10,13 @@ const list = async (req, res) => {
     if (type) where.type = type;
     if (search) {
       where.OR = [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { email: { contains: search } },
-        { phone: { contains: search } },
-        { mobilePhone: { contains: search } },
-        { companyName: { contains: search } },
-        { customerNumber: { contains: search } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+        { mobilePhone: { contains: search, mode: 'insensitive' } },
+        { companyName: { contains: search, mode: 'insensitive' } },
+        { customerNumber: { contains: search, mode: 'insensitive' } },
       ];
     }
 

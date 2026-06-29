@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../store/authStore";
 import api from "../lib/api";
+import { getErrorMessage } from "../lib/errors";
 import type { User } from "../types";
 
 interface LoginPayload {
@@ -22,10 +23,7 @@ export function useAuth() {
 
   const loginMutation = useMutation({
     mutationFn: async (payload: LoginPayload) => {
-      const res = (await api.post(
-        "/auth/login",
-        payload,
-      )) as unknown as LoginResponse;
+      const res = await api.post<LoginResponse>("/auth/login", payload);
       return res.data ?? res;
     },
     onSuccess: (data) => {
@@ -33,8 +31,8 @@ export function useAuth() {
       toast.success(`Welcome back, ${data.user.firstName}!`);
       navigate("/dashboard");
     },
-    onError: (err: any) => {
-      toast.error(err?.message ?? "Login failed");
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Login failed"));
     },
   });
 

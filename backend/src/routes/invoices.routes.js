@@ -1,16 +1,26 @@
-const router = require('express').Router();
-const auth = require('../middleware/auth.middleware');
-const c = require('../controllers/invoices.controller');
+const router = require("express").Router();
+const auth = require("../middleware/auth.middleware");
+const validateLookups = require("../middleware/validateLookups.middleware");
+const c = require("../controllers/invoices.controller");
 
 router.use(auth);
 
-router.get('/', c.list);
-router.post('/', c.create);
-router.get('/:id', c.get);
-router.put('/:id', c.update);
+const validateInvoice = validateLookups({
+  status: "invoiceStatus",
+  discountType: "discountType",
+});
 
-router.post('/:id/send', c.send);
-router.post('/:id/payment', c.recordPayment);
-router.post('/:id/void', c['void']);
+router.get("/", c.list);
+router.post("/", validateInvoice, c.create);
+router.get("/:id", c.get);
+router.put("/:id", validateInvoice, c.update);
+
+router.post("/:id/send", c.send);
+router.post(
+  "/:id/payments",
+  validateLookups({ method: "paymentMethod" }),
+  c.recordPayment,
+);
+router.post("/:id/void", c["void"]);
 
 module.exports = router;

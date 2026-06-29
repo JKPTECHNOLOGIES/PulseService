@@ -106,7 +106,7 @@ export default function Header() {
               <Menu.Item>
                 {({ active }) => (
                   <button
-                    onClick={() => navigate('/settings')}
+                    onClick={() => { navigate('/settings'); }}
                     className={clsx(
                       'w-full text-left px-4 py-2 text-sm',
                       active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'

@@ -8,7 +8,7 @@ function calculateTotals(lineItems, discountType, discountValue, taxRate) {
     0,
   );
   let discount = 0;
-  if (discountType === "percent") {
+  if (discountType === "percentage") {
     discount = subtotal * (discountValue / 100);
   } else if (discountType === "fixed") {
     discount = discountValue;

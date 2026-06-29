@@ -24,7 +24,7 @@ PulseService gives contracting businesses everything they need to run operations
 
 ## Tech Stack
 
-**Backend** — Node.js, Express, Prisma ORM (SQLite by default), JWT auth, Socket.io, bcrypt
+**Backend** — Node.js, Express, Prisma ORM (PostgreSQL), JWT auth, Socket.io, bcrypt
 **Frontend** — React 18 + TypeScript, Vite, Tailwind CSS, TanStack Query, Zustand, React Hook Form + Zod, Recharts, dnd-kit, Headless UI, Heroicons
 
 ## Project Structure
@@ -52,21 +52,24 @@ PulseService/
 
 ## Running with Docker (recommended)
 
-The entire stack is containerized. With Docker Desktop running:
+The entire stack is containerized (PostgreSQL + backend API + nginx frontend). With Docker Desktop running:
 
 ```bash
-# (optional) copy env defaults and adjust secrets
+# (optional) copy env defaults and adjust secrets / DB credentials
 cp .env.example .env
 
-# build and start backend + frontend
+# build and start db + backend + frontend
 docker compose up --build
 ```
+
+The `db` service is `postgres:16-alpine`. The backend waits for it to become healthy (compose `depends_on: condition: service_healthy`) before applying the Prisma schema.
 
 Then open **http://localhost:8080** and log in with `admin@pulseservice.com` / `admin123`.
 
 - Frontend (nginx) is served on `http://localhost:8080` and proxies `/api` and `/socket.io` to the backend container.
 - Backend API is also exposed directly on `http://localhost:5000`.
-- On first boot the backend automatically applies the Prisma schema and seeds demo data. The SQLite database is persisted in the `backend-data` Docker volume, so seeding only runs once.
+- On first boot the backend automatically applies the Prisma schema (`prisma db push`) and seeds demo data. Postgres data is persisted in the `postgres-data` Docker volume; seeding is idempotent (it checks the database for existing users via `prisma/seed-check.js`), so it only runs on an empty database.
+- The Postgres instance is also exposed on `localhost:5432` (user/password/db default to `pulseservice`).
 
 Useful commands:
 
@@ -80,6 +83,10 @@ docker compose down -v           # stop and wipe the database volume (re-seeds n
 ## Getting Started (local, without Docker)
 
 ### 1. Backend
+
+Requires a running PostgreSQL instance. Set `DATABASE_URL` in `backend/.env`, e.g.
+`postgresql://pulseservice:pulseservice@localhost:5432/pulseservice?schema=public`
+(the quickest option is `docker compose up -d db`).
 
 ```bash
 cd backend
@@ -113,13 +120,29 @@ Open `http://localhost:3000` and sign in with the seeded admin account:
 
 Other seeded accounts (password `pass123`): `dispatcher@pulseservice.com`, `tech1@pulseservice.com`, `tech2@pulseservice.com`, `tech3@pulseservice.com`, `csr@pulseservice.com`.
 
-## Switching to PostgreSQL
+## DB-driven metadata (single source of truth for enums)
 
-SQLite is used for zero-config local development. To use PostgreSQL in production:
+Every enumerated value (statuses, types, roles, priorities, payment methods, ...) is defined once in `backend/src/constants/lookups.js`, seeded into the `Lookup` table, and served to the frontend from the database via `GET /api/v1/metadata`. Each entry carries its `value`, display `label`, and (where relevant) a `color` for status badges.
 
-1. In `backend/prisma/schema.prisma`, change the datasource `provider` to `"postgresql"`.
-2. Set `DATABASE_URL` in `backend/.env` to your Postgres connection string.
-3. Run `npx prisma db push` (or generate a migration) and re-seed.
+The frontend consumes this through the `useMetadata` / `useLookup` hooks and the shared `LookupSelect` and `StatusBadge` components — so dropdown options, labels, and badge colors are never hardcoded in the UI.
+
+**Write-path enforcement:** create/update routes validate incoming enum fields (status, type, priority, discountType, payment method, customer type, ...) against the `Lookup` table via `validateLookups` middleware (`src/middleware/validateLookups.middleware.js`) backed by a cached `lookups.service.js`. Invalid values are rejected with a `400`, so the database is the source of truth on writes as well as reads.
+
+To add or change an enum value, edit `lookups.js` and re-seed (`npm run db:seed`, or `docker compose down -v` for a fresh start).
+
+## Linting
+
+Both packages ship a strict ESLint flat config:
+
+```bash
+# backend (eslint:recommended + strict rules, CommonJS)
+cd backend && npm run lint
+
+# frontend (typescript-eslint strict-type-checked + react-hooks)
+cd frontend && npm run lint
+```
+
+Use `npm run lint:fix` to auto-fix what's mechanically fixable.
 
 ## API
 

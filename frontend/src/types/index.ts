@@ -317,6 +317,42 @@ export interface BusinessUnit {
   isActive: boolean;
 }
 
+// ── Metadata / lookups (DB-driven single source of truth for enums) ──────────
+export interface LookupOption {
+  value: string;
+  label: string;
+  color?: string | null;
+  sortOrder: number;
+}
+
+/** Known lookup categories served by GET /api/v1/metadata. */
+export type LookupCategory =
+  | "jobStatus"
+  | "jobPriority"
+  | "jobType"
+  | "jobTechnicianStatus"
+  | "estimateStatus"
+  | "invoiceStatus"
+  | "paymentMethod"
+  | "paymentStatus"
+  | "userRole"
+  | "customerType"
+  | "locationType"
+  | "lineItemType"
+  | "discountType"
+  | "agreementStatus"
+  | "billingFrequency"
+  | "agreementVisitStatus"
+  | "campaignType"
+  | "campaignStatus"
+  | "callDirection"
+  | "callStatus"
+  | "inventoryTransactionType"
+  | "pricebookItemType"
+  | "notificationType";
+
+export type Metadata = Partial<Record<LookupCategory, LookupOption[]>>;
+
 export interface ApiResponse<T> {
   success: boolean;
   data: T;

@@ -1,24 +1,32 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '../lib/api';
-import { PricebookCategory, PricebookItem } from '../types';
-import toast from 'react-hot-toast';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api from "../lib/api";
+import { getErrorMessage } from "../lib/errors";
+import type { ApiResponse, PricebookCategory, PricebookItem } from "../types";
+import toast from "react-hot-toast";
 
 export function usePricebookCategories() {
   return useQuery({
-    queryKey: ['pricebook', 'categories'],
+    queryKey: ["pricebook", "categories"],
     queryFn: async () => {
-      const data = await api.get('/pricebook/categories');
-      return (data as any).data as PricebookCategory[];
+      const res = await api.get<ApiResponse<PricebookCategory[]>>(
+        "/pricebook/categories",
+      );
+      return res.data;
     },
   });
 }
 
-export function usePricebookItems(params: { categoryId?: string; search?: string } = {}) {
+export function usePricebookItems(
+  params: { categoryId?: string; search?: string } = {},
+) {
   return useQuery({
-    queryKey: ['pricebook', 'items', params],
+    queryKey: ["pricebook", "items", params],
     queryFn: async () => {
-      const data = await api.get('/pricebook/items', { params });
-      return (data as any).data as PricebookItem[];
+      const res = await api.get<ApiResponse<PricebookItem[]>>(
+        "/pricebook/items",
+        { params },
+      );
+      return res.data;
     },
   });
 }
@@ -27,13 +35,13 @@ export function useCreatePricebookItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: Partial<PricebookItem>) =>
-      api.post('/pricebook/items', payload) as Promise<any>,
+      api.post<ApiResponse<PricebookItem>>("/pricebook/items", payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['pricebook'] });
-      toast.success('Item created successfully');
+      void qc.invalidateQueries({ queryKey: ["pricebook"] });
+      toast.success("Item created successfully");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || 'Failed to create item');
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to create item"));
     },
   });
 }
@@ -42,13 +50,13 @@ export function useUpdatePricebookItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...payload }: Partial<PricebookItem> & { id: string }) =>
-      api.put(`/pricebook/items/${id}`, payload) as Promise<any>,
+      api.put<ApiResponse<PricebookItem>>(`/pricebook/items/${id}`, payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['pricebook'] });
-      toast.success('Item updated successfully');
+      void qc.invalidateQueries({ queryKey: ["pricebook"] });
+      toast.success("Item updated successfully");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || 'Failed to update item');
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to update item"));
     },
   });
 }
@@ -57,13 +65,16 @@ export function useCreatePricebookCategory() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: Partial<PricebookCategory>) =>
-      api.post('/pricebook/categories', payload) as Promise<any>,
+      api.post<ApiResponse<PricebookCategory>>(
+        "/pricebook/categories",
+        payload,
+      ),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['pricebook', 'categories'] });
-      toast.success('Category created');
+      void qc.invalidateQueries({ queryKey: ["pricebook", "categories"] });
+      toast.success("Category created");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || 'Failed to create category');
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to create category"));
     },
   });
 }

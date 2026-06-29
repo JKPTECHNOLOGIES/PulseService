@@ -16,9 +16,6 @@ COPY . .
 # Generate the Prisma client into the image
 RUN npx prisma generate
 
-# Data directory for the SQLite database (mounted as a volume in compose)
-RUN mkdir -p /app/data
-
 ENV NODE_ENV=production
 ENV PORT=5000
 EXPOSE 5000

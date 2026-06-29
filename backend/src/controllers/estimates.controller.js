@@ -111,7 +111,7 @@ const update = async (req, res) => {
       ...estimateData
     } = req.body;
 
-    let updateData = { ...estimateData, discountType, discountValue, taxRate };
+    const updateData = { ...estimateData, discountType, discountValue, taxRate };
 
     if (lineItems) {
       const totals = calculateTotals(lineItems, discountType, discountValue, taxRate);

@@ -1,4 +1,7 @@
+import type { ReactNode } from "react";
 import clsx from "clsx";
+import { useLookup } from "../../hooks/useMetadata";
+import type { LookupCategory } from "../../types";
 import {
   getJobStatusColor,
   getInvoiceStatusColor,
@@ -7,7 +10,7 @@ import {
 } from "../../utils/formatters";
 
 interface BadgeProps {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }
 
@@ -24,18 +27,45 @@ export default function Badge({ children, className }: BadgeProps) {
   );
 }
 
+const TYPE_TO_CATEGORY = {
+  job: "jobStatus",
+  invoice: "invoiceStatus",
+  estimate: "estimateStatus",
+} as const satisfies Record<string, LookupCategory>;
+
+type StatusBadgeType = keyof typeof TYPE_TO_CATEGORY;
+
 interface StatusBadgeProps {
   status: string;
-  type: "job" | "invoice" | "estimate";
+  /** Convenience prop kept for existing call sites. */
+  type?: StatusBadgeType;
+  /** Any lookup category (preferred for new usage). */
+  category?: LookupCategory;
 }
 
-export function StatusBadge({ status, type }: StatusBadgeProps) {
-  const colorFn =
-    type === "job"
-      ? getJobStatusColor
-      : type === "invoice"
-        ? getInvoiceStatusColor
-        : getEstimateStatusColor;
+/**
+ * Renders a colored status pill. Label and color are resolved from the
+ * DB-driven metadata (see useMetadata); the legacy formatter functions are used
+ * only as an offline fallback before metadata has loaded.
+ */
+export function StatusBadge({
+  status,
+  type = "job",
+  category,
+}: StatusBadgeProps) {
+  const resolvedCategory: LookupCategory = category ?? TYPE_TO_CATEGORY[type];
+  const { options } = useLookup(resolvedCategory);
+  const option = options.find((o) => o.value === status);
 
-  return <Badge className={colorFn(status)}>{capitalize(status)}</Badge>;
+  const fallbackColor =
+    type === "invoice"
+      ? getInvoiceStatusColor(status)
+      : type === "estimate"
+        ? getEstimateStatusColor(status)
+        : getJobStatusColor(status);
+
+  const color = option?.color ?? fallbackColor;
+  const label = option?.label ?? capitalize(status);
+
+  return <Badge className={color}>{label}</Badge>;
 }

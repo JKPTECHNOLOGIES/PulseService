@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import clsx from 'clsx';
+import { useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import clsx from "clsx";
 import {
   HomeIcon,
   UsersIcon,
@@ -18,47 +18,49 @@ import {
   Cog6ToothIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  ArrowRightOnRectangleIcon,
+  ArrowRightStartOnRectangleIcon,
   BoltIcon,
-} from '@heroicons/react/24/outline';
-import { useAuthStore } from '../../store/authStore';
+} from "@heroicons/react/24/outline";
+import { useAuthStore } from "../../store/authStore";
+import { useLookup } from "../../hooks/useMetadata";
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: HomeIcon },
-  { to: '/customers', label: 'Customers', icon: UsersIcon },
-  { to: '/jobs', label: 'Jobs', icon: BriefcaseIcon },
-  { to: '/dispatch', label: 'Dispatch', icon: MapIcon },
-  { to: '/estimates', label: 'Estimates', icon: DocumentTextIcon },
-  { to: '/invoices', label: 'Invoices', icon: DocumentDuplicateIcon },
-  { to: '/payments', label: 'Payments', icon: CreditCardIcon },
-  { to: '/technicians', label: 'Technicians', icon: WrenchScrewdriverIcon },
-  { to: '/pricebook', label: 'Pricebook', icon: BookOpenIcon },
-  { to: '/inventory', label: 'Inventory', icon: ArchiveBoxIcon },
-  { to: '/agreements', label: 'Agreements', icon: ClipboardDocumentCheckIcon },
-  { to: '/marketing', label: 'Marketing', icon: MegaphoneIcon },
-  { to: '/reports', label: 'Reports', icon: ChartBarIcon },
-  { to: '/settings', label: 'Settings', icon: Cog6ToothIcon },
+  { to: "/dashboard", label: "Dashboard", icon: HomeIcon },
+  { to: "/customers", label: "Customers", icon: UsersIcon },
+  { to: "/jobs", label: "Jobs", icon: BriefcaseIcon },
+  { to: "/dispatch", label: "Dispatch", icon: MapIcon },
+  { to: "/estimates", label: "Estimates", icon: DocumentTextIcon },
+  { to: "/invoices", label: "Invoices", icon: DocumentDuplicateIcon },
+  { to: "/payments", label: "Payments", icon: CreditCardIcon },
+  { to: "/technicians", label: "Technicians", icon: WrenchScrewdriverIcon },
+  { to: "/pricebook", label: "Pricebook", icon: BookOpenIcon },
+  { to: "/inventory", label: "Inventory", icon: ArchiveBoxIcon },
+  { to: "/agreements", label: "Agreements", icon: ClipboardDocumentCheckIcon },
+  { to: "/marketing", label: "Marketing", icon: MegaphoneIcon },
+  { to: "/reports", label: "Reports", icon: ChartBarIcon },
+  { to: "/settings", label: "Settings", icon: Cog6ToothIcon },
 ];
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const { getLabel: getRoleLabel } = useLookup("userRole");
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   const initials = user
     ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`
-    : 'U';
+    : "U";
 
   return (
     <div
       className={clsx(
-        'flex flex-col bg-white border-r border-gray-200 transition-all duration-300 shrink-0',
-        collapsed ? 'w-16' : 'w-60'
+        "flex flex-col bg-white border-r border-gray-200 transition-all duration-300 shrink-0",
+        collapsed ? "w-16" : "w-60",
       )}
     >
       {/* Logo */}
@@ -68,7 +70,9 @@ export default function Sidebar() {
             <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center">
               <BoltIcon className="h-5 w-5 text-white" />
             </div>
-            <span className="font-bold text-gray-900 text-sm">PulseService</span>
+            <span className="font-bold text-gray-900 text-sm">
+              PulseService
+            </span>
           </div>
         )}
         {collapsed && (
@@ -77,10 +81,12 @@ export default function Sidebar() {
           </div>
         )}
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={() => {
+            setCollapsed(!collapsed);
+          }}
           className={clsx(
-            'p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0',
-            collapsed && 'mx-auto'
+            "p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0",
+            collapsed && "mx-auto",
           )}
         >
           {collapsed ? (
@@ -100,11 +106,11 @@ export default function Sidebar() {
             title={collapsed ? label : undefined}
             className={({ isActive }) =>
               clsx(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors group',
+                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors group",
                 isActive
-                  ? 'bg-primary-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-                collapsed && 'justify-center px-2'
+                  ? "bg-primary-600 text-white"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                collapsed && "justify-center px-2",
               )
             }
           >
@@ -119,20 +125,24 @@ export default function Sidebar() {
         {!collapsed ? (
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
-              <span className="text-xs font-semibold text-primary-700">{initials}</span>
+              <span className="text-xs font-semibold text-primary-700">
+                {initials}
+              </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-gray-900 truncate">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+              <p className="text-xs text-gray-500">
+                {getRoleLabel(user?.role)}
+              </p>
             </div>
             <button
               onClick={handleLogout}
               title="Logout"
               className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
             >
-              <ArrowRightOnRectangleIcon className="h-4 w-4" />
+              <ArrowRightStartOnRectangleIcon className="h-4 w-4" />
             </button>
           </div>
         ) : (
@@ -141,7 +151,7 @@ export default function Sidebar() {
             title="Logout"
             className="w-full flex items-center justify-center p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
           >
-            <ArrowRightOnRectangleIcon className="h-4 w-4" />
+            <ArrowRightStartOnRectangleIcon className="h-4 w-4" />
           </button>
         )}
       </div>

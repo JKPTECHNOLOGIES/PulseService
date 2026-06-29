@@ -1,13 +1,13 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { Notification } from '../types';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { Notification } from "../types";
 
 interface UiState {
   sidebarOpen: boolean;
   sidebarCollapsed: boolean;
   notifications: Notification[];
   unreadCount: number;
-  theme: 'light' | 'dark';
+  theme: "light" | "dark";
 
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -17,57 +17,70 @@ interface UiState {
   markNotificationRead: (id: string) => void;
   markAllRead: () => void;
   clearNotifications: () => void;
-  setTheme: (theme: 'light' | 'dark') => void;
+  setTheme: (theme: "light" | "dark") => void;
 }
 
 export const useUiStore = create<UiState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       sidebarOpen: true,
       sidebarCollapsed: false,
       notifications: [],
       unreadCount: 0,
-      theme: 'light',
+      theme: "light",
 
-      setSidebarOpen: (open) => set({ sidebarOpen: open }),
-      toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
-      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
-      toggleSidebarCollapsed: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+      setSidebarOpen: (open) => {
+        set({ sidebarOpen: open });
+      },
+      toggleSidebar: () => {
+        set((s) => ({ sidebarOpen: !s.sidebarOpen }));
+      },
+      setSidebarCollapsed: (collapsed) => {
+        set({ sidebarCollapsed: collapsed });
+      },
+      toggleSidebarCollapsed: () => {
+        set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed }));
+      },
 
-      addNotification: (notification) =>
+      addNotification: (notification) => {
         set((s) => ({
           notifications: [notification, ...s.notifications].slice(0, 50),
           unreadCount: s.unreadCount + (notification.isRead ? 0 : 1),
-        })),
+        }));
+      },
 
-      markNotificationRead: (id) =>
+      markNotificationRead: (id) => {
         set((s) => {
           const notifications = s.notifications.map((n) =>
-            n.id === id ? { ...n, isRead: true } : n
+            n.id === id ? { ...n, isRead: true } : n,
           );
           const unreadCount = notifications.filter((n) => !n.isRead).length;
           return { notifications, unreadCount };
-        }),
+        });
+      },
 
-      markAllRead: () =>
+      markAllRead: () => {
         set((s) => ({
           notifications: s.notifications.map((n) => ({ ...n, isRead: true })),
           unreadCount: 0,
-        })),
+        }));
+      },
 
-      clearNotifications: () => set({ notifications: [], unreadCount: 0 }),
+      clearNotifications: () => {
+        set({ notifications: [], unreadCount: 0 });
+      },
 
       setTheme: (theme) => {
         set({ theme });
-        document.documentElement.classList.toggle('dark', theme === 'dark');
+        document.documentElement.classList.toggle("dark", theme === "dark");
       },
     }),
     {
-      name: 'ps_ui',
+      name: "ps_ui",
       partialize: (state) => ({
         sidebarCollapsed: state.sidebarCollapsed,
         theme: state.theme,
       }),
-    }
-  )
+    },
+  ),
 );

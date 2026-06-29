@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
-import { Estimate, PaginatedResponse } from "../types";
+import { getErrorMessage } from "../lib/errors";
+import type { ApiResponse, Estimate, PaginatedResponse } from "../types";
 import toast from "react-hot-toast";
 
 interface EstimatesParams {
@@ -14,10 +15,8 @@ interface EstimatesParams {
 export function useEstimates(params: EstimatesParams = {}) {
   return useQuery({
     queryKey: ["estimates", params],
-    queryFn: async () => {
-      const data = await api.get("/estimates", { params });
-      return data as unknown as PaginatedResponse<Estimate>;
-    },
+    queryFn: () =>
+      api.get<PaginatedResponse<Estimate>>("/estimates", { params }),
   });
 }
 
@@ -25,8 +24,8 @@ export function useEstimate(id: string) {
   return useQuery({
     queryKey: ["estimate", id],
     queryFn: async () => {
-      const data = await api.get(`/estimates/${id}`);
-      return (data as any).data as Estimate;
+      const res = await api.get<ApiResponse<Estimate>>(`/estimates/${id}`);
+      return res.data;
     },
     enabled: !!id,
   });
@@ -35,14 +34,14 @@ export function useEstimate(id: string) {
 export function useCreateEstimate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Partial<Estimate> & { lineItems?: any[] }) =>
-      api.post("/estimates", payload) as Promise<any>,
+    mutationFn: (payload: Partial<Estimate> & { lineItems?: unknown[] }) =>
+      api.post<ApiResponse<Estimate>>("/estimates", payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["estimates"] });
+      void qc.invalidateQueries({ queryKey: ["estimates"] });
       toast.success("Estimate created successfully");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || "Failed to create estimate");
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to create estimate"));
     },
   });
 }
@@ -53,15 +52,15 @@ export function useUpdateEstimate() {
     mutationFn: ({
       id,
       ...payload
-    }: Partial<Estimate> & { id: string; lineItems?: any[] }) =>
-      api.put(`/estimates/${id}`, payload) as Promise<any>,
+    }: Partial<Estimate> & { id: string; lineItems?: unknown[] }) =>
+      api.put<ApiResponse<Estimate>>(`/estimates/${id}`, payload),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ["estimates"] });
-      qc.invalidateQueries({ queryKey: ["estimate", vars.id] });
+      void qc.invalidateQueries({ queryKey: ["estimates"] });
+      void qc.invalidateQueries({ queryKey: ["estimate", vars.id] });
       toast.success("Estimate updated successfully");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || "Failed to update estimate");
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to update estimate"));
     },
   });
 }
@@ -70,14 +69,14 @@ export function useSendEstimate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      api.post(`/estimates/${id}/send`) as Promise<any>,
+      api.post<ApiResponse<Estimate>>(`/estimates/${id}/send`),
     onSuccess: (_data, id) => {
-      qc.invalidateQueries({ queryKey: ["estimate", id] });
-      qc.invalidateQueries({ queryKey: ["estimates"] });
+      void qc.invalidateQueries({ queryKey: ["estimate", id] });
+      void qc.invalidateQueries({ queryKey: ["estimates"] });
       toast.success("Estimate sent to customer");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || "Failed to send estimate");
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to send estimate"));
     },
   });
 }
@@ -86,14 +85,14 @@ export function useApproveEstimate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      api.post(`/estimates/${id}/approve`) as Promise<any>,
+      api.post<ApiResponse<Estimate>>(`/estimates/${id}/approve`),
     onSuccess: (_data, id) => {
-      qc.invalidateQueries({ queryKey: ["estimate", id] });
-      qc.invalidateQueries({ queryKey: ["estimates"] });
+      void qc.invalidateQueries({ queryKey: ["estimate", id] });
+      void qc.invalidateQueries({ queryKey: ["estimates"] });
       toast.success("Estimate approved");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || "Failed to approve estimate");
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to approve estimate"));
     },
   });
 }
@@ -102,14 +101,14 @@ export function useConvertToInvoice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      api.post(`/estimates/${id}/convert`) as Promise<any>,
+      api.post<ApiResponse<Estimate>>(`/estimates/${id}/convert`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["estimates"] });
-      qc.invalidateQueries({ queryKey: ["invoices"] });
+      void qc.invalidateQueries({ queryKey: ["estimates"] });
+      void qc.invalidateQueries({ queryKey: ["invoices"] });
       toast.success("Estimate converted to invoice");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || "Failed to convert estimate");
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to convert estimate"));
     },
   });
 }

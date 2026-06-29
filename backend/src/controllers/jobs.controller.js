@@ -28,11 +28,11 @@ const list = async (req, res) => {
     }
     if (search) {
       where.OR = [
-        { jobNumber: { contains: search } },
-        { summary: { contains: search } },
-        { customer: { firstName: { contains: search } } },
-        { customer: { lastName: { contains: search } } },
-        { customer: { companyName: { contains: search } } },
+        { jobNumber: { contains: search, mode: 'insensitive' } },
+        { summary: { contains: search, mode: 'insensitive' } },
+        { customer: { firstName: { contains: search, mode: 'insensitive' } } },
+        { customer: { lastName: { contains: search, mode: 'insensitive' } } },
+        { customer: { companyName: { contains: search, mode: 'insensitive' } } },
       ];
     }
 

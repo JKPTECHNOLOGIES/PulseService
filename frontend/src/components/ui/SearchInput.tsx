@@ -19,8 +19,8 @@ export default function SearchInput({
 
   const debouncedOnChange = useCallback(
     (val: string) => {
-      const timer = setTimeout(() => onChange(val), 300);
-      return () => clearTimeout(timer);
+      const timer = setTimeout(() => { onChange(val); }, 300);
+      return () => { clearTimeout(timer); };
     },
     [onChange]
   );
@@ -40,7 +40,7 @@ export default function SearchInput({
       <input
         type="text"
         value={localValue}
-        onChange={(e) => setLocalValue(e.target.value)}
+        onChange={(e) => { setLocalValue(e.target.value); }}
         placeholder={placeholder}
         className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-lg bg-white
           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent

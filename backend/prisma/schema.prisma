@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -562,4 +562,22 @@ model Zone {
   color       String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
+}
+
+// DB-driven single source of truth for enumerated values (statuses, types,
+// roles, priorities, etc.). Seeded from src/constants/lookups.js and served to
+// the frontend via GET /api/v1/metadata.
+model Lookup {
+  id        String   @id @default(uuid())
+  category  String
+  value     String
+  label     String
+  color     String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([category, value])
+  @@index([category])
 }
