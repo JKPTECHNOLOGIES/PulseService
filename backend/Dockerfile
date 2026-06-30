@@ -17,8 +17,8 @@ COPY . .
 RUN npx prisma generate
 
 ENV NODE_ENV=production
-ENV PORT=5000
-EXPOSE 5000
+ENV PORT=3000
+EXPOSE 3000
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 # Strip any CRLF line endings (in case the host is Windows) and make executable

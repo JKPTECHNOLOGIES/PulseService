@@ -8,10 +8,22 @@ const morgan = require("morgan");
 
 const app = express();
 const server = http.createServer(app);
+
+// CORS configuration - allow frontend URLs (localhost + network IPs)
+const corsOrigin =
+  process.env.NODE_ENV === "production"
+    ? process.env.FRONTEND_URL || "http://localhost:8080"
+    : [
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        /^http:\/\/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:8080$/,
+      ];
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: corsOrigin,
     methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
@@ -19,7 +31,7 @@ const io = new Server(server, {
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: corsOrigin,
     credentials: true,
   }),
 );
@@ -31,6 +43,183 @@ app.use(express.urlencoded({ extended: true }));
 app.set("io", io);
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+// Root endpoint - HTML home page
+app.get("/", (req, res) => {
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>PulseService API</title>
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+        .container {
+          background: white;
+          border-radius: 10px;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          max-width: 800px;
+          width: 100%;
+          padding: 40px;
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 40px;
+        }
+        .logo {
+          font-size: 48px;
+          margin-bottom: 10px;
+        }
+        h1 {
+          color: #333;
+          font-size: 32px;
+          margin-bottom: 10px;
+        }
+        .status {
+          display: inline-block;
+          background: #4ade80;
+          color: white;
+          padding: 6px 12px;
+          border-radius: 20px;
+          font-size: 14px;
+          font-weight: 600;
+          margin-top: 10px;
+        }
+        .version {
+          color: #888;
+          font-size: 14px;
+          margin-top: 10px;
+        }
+        .section {
+          margin-bottom: 40px;
+        }
+        .section h2 {
+          color: #667eea;
+          font-size: 18px;
+          margin-bottom: 15px;
+          border-bottom: 2px solid #667eea;
+          padding-bottom: 10px;
+        }
+        .endpoint-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 15px;
+        }
+        .endpoint {
+          background: #f5f5f5;
+          border-left: 4px solid #667eea;
+          padding: 15px;
+          border-radius: 5px;
+          transition: all 0.3s ease;
+          cursor: pointer;
+        }
+        .endpoint:hover {
+          background: #f0f0f0;
+          transform: translateX(5px);
+        }
+        .endpoint-name {
+          font-weight: 600;
+          color: #333;
+          margin-bottom: 8px;
+        }
+        .endpoint-path {
+          font-family: 'Courier New', monospace;
+          color: #667eea;
+          font-size: 13px;
+          word-break: break-all;
+          background: white;
+          padding: 8px;
+          border-radius: 3px;
+          border: 1px solid #e0e0e0;
+        }
+        .health-check {
+          background: #f0f7ff;
+          border-left-color: #3b82f6;
+        }
+        .health-check .endpoint-name {
+          color: #3b82f6;
+        }
+        .footer {
+          text-align: center;
+          color: #888;
+          font-size: 12px;
+          margin-top: 40px;
+          padding-top: 20px;
+          border-top: 1px solid #e0e0e0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo">🚀</div>
+          <h1>PulseService API</h1>
+          <div class="status">● Running</div>
+          <div class="version">Version 1.0.0</div>
+        </div>
+
+        <div class="section">
+          <h2>Health Check</h2>
+          <div class="health-check endpoint">
+            <div class="endpoint-name">Status Monitor</div>
+            <div class="endpoint-path">/api/health</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>API Endpoints</h2>
+          <div class="endpoint-grid">
+            <div class="endpoint">
+              <div class="endpoint-name">Authentication</div>
+              <div class="endpoint-path">/api/v1/auth</div>
+            </div>
+            <div class="endpoint">
+              <div class="endpoint-name">Technicians</div>
+              <div class="endpoint-path">/api/v1/technicians</div>
+            </div>
+            <div class="endpoint">
+              <div class="endpoint-name">Customers</div>
+              <div class="endpoint-path">/api/v1/customers</div>
+            </div>
+            <div class="endpoint">
+              <div class="endpoint-name">Jobs</div>
+              <div class="endpoint-path">/api/v1/jobs</div>
+            </div>
+            <div class="endpoint">
+              <div class="endpoint-name">Dispatch</div>
+              <div class="endpoint-path">/api/v1/dispatch</div>
+            </div>
+            <div class="endpoint">
+              <div class="endpoint-name">Reports</div>
+              <div class="endpoint-path">/api/v1/reports</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>Field Service Management Platform | Built with Node.js, Express & PostgreSQL</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  res.setHeader("Content-Type", "text/html");
+  res.send(html);
+});
+
 const authRoutes = require("./routes/auth.routes");
 const customerRoutes = require("./routes/customers.routes");
 const jobRoutes = require("./routes/jobs.routes");
@@ -111,8 +300,8 @@ io.on("connection", (socket) => {
 
 // ── Start server ──────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`\n🚀 PulseService API running on http://localhost:${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`\n🚀 PulseService API running on http://0.0.0.0:${PORT}`);
   console.log(`   Environment : ${process.env.NODE_ENV || "development"}`);
-  console.log(`   Health check: http://localhost:${PORT}/api/health\n`);
+  console.log(`   Health check: http://0.0.0.0:${PORT}/api/health\n`);
 });
