@@ -98,11 +98,24 @@ export default function JobFormPage() {
   };
 
   const onSubmit = async (data: FormData) => {
+    // `datetime-local` inputs yield "YYYY-MM-DDTHH:mm" (no seconds/timezone),
+    // which Prisma rejects. Convert to a full ISO-8601 instant here so the
+    // user's local time is stored as the correct UTC moment; leave blanks unset.
+    const payload = {
+      ...data,
+      scheduledStart: data.scheduledStart
+        ? new Date(data.scheduledStart).toISOString()
+        : undefined,
+      scheduledEnd: data.scheduledEnd
+        ? new Date(data.scheduledEnd).toISOString()
+        : undefined,
+    };
+
     if (isEditing) {
-      await updateMutation.mutateAsync({ id: id, ...data });
+      await updateMutation.mutateAsync({ id: id, ...payload });
       navigate(`/jobs/${id}`);
     } else {
-      const result = (await createMutation.mutateAsync(data)) as {
+      const result = (await createMutation.mutateAsync(payload)) as {
         data?: { id?: string };
         id?: string;
       };
