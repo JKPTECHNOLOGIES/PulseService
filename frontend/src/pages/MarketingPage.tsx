@@ -1,15 +1,24 @@
 import { useState } from "react";
 import { Tab } from "@headlessui/react";
-import { useQuery } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   PlusIcon,
   PhoneArrowDownLeftIcon,
   PhoneArrowUpRightIcon,
+  PhoneIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
-import api from "../lib/api";
-import { Campaign, Call, PaginatedResponse } from "../types";
+import type { Call } from "../types";
+import { useCalls, useLogCall } from "../hooks/useCalls";
+import { useCampaigns } from "../hooks/useCampaigns";
+import { useCustomers } from "../hooks/useCustomers";
+import { useLookup } from "../hooks/useMetadata";
 import Button from "../components/ui/Button";
+import Modal from "../components/ui/Modal";
+import Input from "../components/ui/Input";
+import { LookupSelect } from "../components/ui/LookupSelect";
 import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import { PageSpinner } from "../components/ui/Spinner";
@@ -18,24 +27,13 @@ import {
   formatDate,
   formatDateTime,
 } from "../utils/formatters";
-import { useLookup } from "../hooks/useMetadata";
 
-function useCampaigns() {
-  return useQuery({
-    queryKey: ["campaigns"],
-    queryFn: () =>
-      api.get<PaginatedResponse<Campaign>>("/campaigns", {
-        params: { limit: 50 },
-      }),
-  });
-}
+const SELECT_CLASS =
+  "w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white";
 
-function useCalls() {
-  return useQuery({
-    queryKey: ["calls"],
-    queryFn: () =>
-      api.get<PaginatedResponse<Call>>("/calls", { params: { limit: 50 } }),
-  });
+function formatDuration(seconds: number | undefined): string {
+  if (!seconds) return "-";
+  return `${String(Math.floor(seconds / 60))}m ${String(seconds % 60)}s`;
 }
 
 function CampaignsTab() {
@@ -114,21 +112,209 @@ function CampaignsTab() {
   );
 }
 
-function CallsTab() {
-  const { data, isLoading } = useCalls();
-  const calls = data?.data ?? [];
+const callSchema = z.object({
+  direction: z.string().min(1, "Direction is required"),
+  status: z.string().min(1, "Status is required"),
+  customerId: z.string().optional(),
+  campaignId: z.string().optional(),
+  fromNumber: z.string().optional(),
+  toNumber: z.string().optional(),
+  duration: z.string().optional(),
+  reason: z.string().optional(),
+  notes: z.string().optional(),
+});
 
-  if (isLoading) return <PageSpinner />;
+type CallFormData = z.infer<typeof callSchema>;
+
+function LogCallModal({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  const logCall = useLogCall();
+  const { data: customersData } = useCustomers({ limit: 200 });
+  const { data: campaignsData } = useCampaigns();
+  const customers = customersData?.data ?? [];
+  const campaigns = campaignsData?.data ?? [];
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<CallFormData>({
+    resolver: zodResolver(callSchema),
+    defaultValues: { direction: "inbound", status: "completed" },
+  });
+
+  const close = () => {
+    reset();
+    onClose();
+  };
+
+  const onSubmit = async (data: CallFormData) => {
+    const payload: Partial<Call> = {
+      direction: data.direction,
+      status: data.status,
+    };
+    if (data.customerId) payload.customerId = data.customerId;
+    if (data.campaignId) payload.campaignId = data.campaignId;
+    if (data.fromNumber) payload.fromNumber = data.fromNumber;
+    if (data.toNumber) payload.toNumber = data.toNumber;
+    if (data.reason) payload.reason = data.reason;
+    if (data.notes) payload.notes = data.notes;
+    if (data.duration) payload.duration = Number(data.duration);
+
+    await logCall.mutateAsync(payload);
+    close();
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={close} title="Log Call" size="lg">
+      <form
+        onSubmit={(e) => void handleSubmit(onSubmit)(e)}
+        className="space-y-4"
+      >
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Direction <span className="text-red-500">*</span>
+            </label>
+            <LookupSelect category="callDirection" {...register("direction")} />
+            {errors.direction && (
+              <p className="mt-1 text-xs text-red-600">
+                {errors.direction.message}
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Outcome <span className="text-red-500">*</span>
+            </label>
+            <LookupSelect category="callStatus" {...register("status")} />
+            {errors.status && (
+              <p className="mt-1 text-xs text-red-600">
+                {errors.status.message}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Customer
+          </label>
+          <select className={SELECT_CLASS} {...register("customerId")}>
+            <option value="">Unknown / not linked</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.firstName} {c.lastName}
+                {c.companyName ? ` (${c.companyName})` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="From number"
+            placeholder="(404) 555-0100"
+            {...register("fromNumber")}
+          />
+          <Input
+            label="To number"
+            placeholder="(404) 555-0199"
+            {...register("toNumber")}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="Duration (seconds)"
+            type="number"
+            min={0}
+            placeholder="0"
+            {...register("duration")}
+          />
+          <Input
+            label="Reason"
+            placeholder="Service request, billing question..."
+            {...register("reason")}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Campaign / source
+          </label>
+          <select className={SELECT_CLASS} {...register("campaignId")}>
+            <option value="">None</option>
+            {campaigns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Notes
+          </label>
+          <textarea
+            rows={3}
+            className={clsx(SELECT_CLASS, "resize-none")}
+            placeholder="What was discussed..."
+            {...register("notes")}
+          />
+        </div>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="outline" type="button" onClick={close}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={isSubmitting || logCall.isPending}>
+            Log Call
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function CallsTab() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { data, isLoading } = useCalls({ limit: 50 });
+  const calls = data?.data ?? [];
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-100">
+      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900">Recent Calls</h3>
+        <Button
+          size="sm"
+          icon={<PhoneIcon className="h-4 w-4" />}
+          onClick={() => {
+            setIsModalOpen(true);
+          }}
+        >
+          Log Call
+        </Button>
       </div>
-      {calls.length === 0 ? (
+      {isLoading ? (
+        <PageSpinner />
+      ) : calls.length === 0 ? (
         <EmptyState
           title="No calls logged"
-          description="Call tracking records will appear here."
+          description="Log inbound and outbound calls to track customer communication."
+          action={{
+            label: "Log Call",
+            onClick: () => {
+              setIsModalOpen(true);
+            },
+          }}
         />
       ) : (
         <div className="overflow-x-auto">
@@ -147,11 +333,14 @@ function CallsTab() {
                 <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
                   Number
                 </th>
+                <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
+                  Reason
+                </th>
                 <th className="text-right py-3 px-3 font-medium text-gray-500 text-xs uppercase">
                   Duration
                 </th>
                 <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                  Status
+                  Outcome
                 </th>
               </tr>
             </thead>
@@ -182,14 +371,15 @@ function CallsTab() {
                       : "Unknown"}
                   </td>
                   <td className="py-3.5 px-3 text-gray-600">
-                    {call.direction === "inbound"
+                    {(call.direction === "inbound"
                       ? call.fromNumber
-                      : call.toNumber}
+                      : call.toNumber) || "-"}
+                  </td>
+                  <td className="py-3.5 px-3 text-gray-600 text-xs truncate max-w-[160px]">
+                    {call.reason ?? "-"}
                   </td>
                   <td className="py-3.5 px-3 text-right text-gray-600">
-                    {call.duration
-                      ? `${String(Math.floor(call.duration / 60))}m ${String(call.duration % 60)}s`
-                      : "-"}
+                    {formatDuration(call.duration)}
                   </td>
                   <td className="py-3.5 px-5">
                     <StatusBadge status={call.status} category="callStatus" />
@@ -200,6 +390,13 @@ function CallsTab() {
           </table>
         </div>
       )}
+
+      <LogCallModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+        }}
+      />
     </div>
   );
 }

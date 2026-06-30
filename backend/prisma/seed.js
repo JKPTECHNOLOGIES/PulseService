@@ -1645,6 +1645,90 @@ async function main() {
     }),
   ]);
 
+  // ── Calls (phone log / call tracking) ─────────────────────────────────────────
+  console.log("  Creating call logs...");
+  await Promise.all([
+    prisma.call.create({
+      data: {
+        customerId: customer1.id,
+        direction: "inbound",
+        status: "completed",
+        fromNumber: "(770) 555-1001",
+        toNumber: "(404) 555-0100",
+        duration: 245,
+        reason: "AC not cooling - scheduling service",
+        handledById: csr.id,
+        notes: "Customer reports AC running but not cooling. Booked JOB-1001.",
+        createdAt: daysOffset(0, 8, 15),
+      },
+    }),
+    prisma.call.create({
+      data: {
+        customerId: customer5.id,
+        direction: "inbound",
+        status: "completed",
+        fromNumber: "(678) 555-5001",
+        toNumber: "(404) 555-0100",
+        duration: 95,
+        reason: "Emergency - burst pipe",
+        handledById: csr.id,
+        notes: "Dispatched emergency JOB-1005 to Office Complex A.",
+        createdAt: daysOffset(0, 7, 50),
+      },
+    }),
+    prisma.call.create({
+      data: {
+        customerId: customer2.id,
+        direction: "outbound",
+        status: "completed",
+        fromNumber: "(404) 555-0100",
+        toNumber: "(678) 555-2001",
+        duration: 60,
+        reason: "Appointment reminder",
+        handledById: dispatcher.id,
+        notes: "Reminded customer of water heater replacement appointment.",
+        createdAt: daysOffset(0, 9, 5),
+      },
+    }),
+    prisma.call.create({
+      data: {
+        customerId: customer3.id,
+        direction: "inbound",
+        status: "completed",
+        fromNumber: "(404) 555-3001",
+        toNumber: "(404) 555-0100",
+        duration: 180,
+        reason: "Quarterly maintenance question",
+        handledById: dispatcher.id,
+        notes: "Confirmed Q3 inspection date per service agreement.",
+        createdAt: daysOffset(-1, 10, 30),
+      },
+    }),
+    prisma.call.create({
+      data: {
+        customerId: customer4.id,
+        direction: "inbound",
+        status: "voicemail",
+        fromNumber: "(770) 555-4001",
+        toNumber: "(404) 555-0100",
+        duration: 30,
+        reason: "Question about HVAC install estimate",
+        notes: "Voicemail: wants to discuss EST-1001. Needs callback.",
+        createdAt: daysOffset(-1, 16, 45),
+      },
+    }),
+    prisma.call.create({
+      data: {
+        direction: "inbound",
+        status: "missed",
+        fromNumber: "(770) 555-9876",
+        toNumber: "(404) 555-0100",
+        reason: "Missed call - no voicemail left",
+        createdAt: daysOffset(0, 12, 10),
+      },
+    }),
+  ]);
+
   console.log("\n✅ Seed completed successfully!");
   console.log("\n  Test credentials:");
   console.log("  ┌─────────────────────────────────────────────────┐");
