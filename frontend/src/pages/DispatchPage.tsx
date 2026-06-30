@@ -31,6 +31,7 @@ import { useJobs, useDeleteJob } from "../hooks/useJobs";
 import { useTechnicians } from "../hooks/useTechnicians";
 import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
+import { StatusBadge } from "../components/ui/Badge";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency } from "../utils/formatters";
@@ -746,6 +747,12 @@ export default function DispatchPage() {
                 </dd>
               </div>
               <div>
+                <dt className="text-xs text-gray-500">Status</dt>
+                <dd className="mt-1">
+                  <StatusBadge status={selectedJob.status} type="job" />
+                </dd>
+              </div>
+              <div>
                 <dt className="text-xs text-gray-500">Summary</dt>
                 <dd className="text-sm text-gray-700 mt-0.5">
                   {selectedJob.summary}
@@ -931,7 +938,7 @@ export default function DispatchPage() {
         }
         message={
           pendingClear?.type === "tech"
-            ? `Remove the technician from job #${pendingClear?.jobNumber ?? ""}? It will move to the Unassigned list; the date is kept.`
+            ? `Remove the technician from job #${pendingClear.jobNumber}? It will move to the Unassigned list; the date is kept.`
             : `Clear the scheduled date for job #${pendingClear?.jobNumber ?? ""}? It will move to the Undated list; the technician is kept.`
         }
         confirmLabel={
