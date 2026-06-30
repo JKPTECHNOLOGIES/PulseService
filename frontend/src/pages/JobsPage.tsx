@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PlusIcon, EyeIcon, PencilIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, PencilIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { useJobs } from "../hooks/useJobs";
 import { useLookup } from "../hooks/useMetadata";
@@ -131,7 +131,7 @@ export default function JobsPage() {
                       Amount
                     </th>
                     <th className="text-right py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                      Actions
+                      Action
                     </th>
                   </tr>
                 </thead>
@@ -139,17 +139,15 @@ export default function JobsPage() {
                   {jobs.map((job) => (
                     <tr
                       key={job.id}
-                      className="hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        navigate(`/jobs/${job.id}`);
+                      }}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       <td className="py-3.5 px-5">
-                        <button
-                          onClick={() => {
-                            navigate(`/jobs/${job.id}`);
-                          }}
-                          className="font-semibold text-primary-600 hover:text-primary-700"
-                        >
+                        <span className="font-semibold text-primary-600">
                           #{job.jobNumber}
-                        </button>
+                        </span>
                         <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[150px]">
                           {job.summary}
                         </p>
@@ -199,15 +197,8 @@ export default function JobsPage() {
                       <td className="py-3.5 px-5">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => {
-                              navigate(`/jobs/${job.id}`);
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               navigate(`/jobs/${job.id}/edit`);
                             }}
                             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"

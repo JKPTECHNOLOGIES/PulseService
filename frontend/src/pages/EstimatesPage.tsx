@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PlusIcon,
-  EyeIcon,
   PaperAirplaneIcon,
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
@@ -137,7 +136,10 @@ export default function EstimatesPage() {
                   {estimates.map((est) => (
                     <tr
                       key={est.id}
-                      className="hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        navigate(`/estimates/${est.id}`);
+                      }}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       <td className="py-3.5 px-5 font-medium text-primary-600">
                         #{est.estimateNumber}
@@ -161,18 +163,10 @@ export default function EstimatesPage() {
                       </td>
                       <td className="py-3.5 px-5">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => {
-                              navigate(`/estimates/${est.id}`);
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
-                            title="View"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                          </button>
                           {est.status === "draft" && (
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 sendEstimate.mutate(est.id);
                               }}
                               className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
@@ -183,7 +177,8 @@ export default function EstimatesPage() {
                           )}
                           {est.status === "approved" && (
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 convertToInvoice.mutate(est.id);
                               }}
                               className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg"

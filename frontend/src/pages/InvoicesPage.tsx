@@ -1,10 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  PlusIcon,
-  EyeIcon,
-  PaperAirplaneIcon,
-} from "@heroicons/react/24/outline";
+import { PlusIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { useInvoices, useSendInvoice } from "../hooks/useInvoices";
 import Button from "../components/ui/Button";
@@ -128,7 +124,10 @@ export default function InvoicesPage() {
                   {invoices.map((inv) => (
                     <tr
                       key={inv.id}
-                      className="hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        navigate(`/invoices/${inv.id}`);
+                      }}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       <td className="py-3.5 px-5 font-medium text-primary-600">
                         #{inv.invoiceNumber}
@@ -158,18 +157,10 @@ export default function InvoicesPage() {
                       </td>
                       <td className="py-3.5 px-5">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => {
-                              navigate(`/invoices/${inv.id}`);
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
-                            title="View"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                          </button>
                           {inv.status === "draft" && (
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 sendInvoice.mutate(inv.id);
                               }}
                               className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"

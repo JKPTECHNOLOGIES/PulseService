@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PlusIcon, EyeIcon, PencilIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, PencilIcon } from "@heroicons/react/24/outline";
 import { useCustomers } from "../hooks/useCustomers";
 import { useLookup } from "../hooks/useMetadata";
 import Button from "../components/ui/Button";
@@ -126,7 +126,7 @@ export default function CustomersPage() {
                       Balance
                     </th>
                     <th className="text-right py-3 px-5 font-medium text-gray-500 text-xs uppercase tracking-wide">
-                      Actions
+                      Action
                     </th>
                   </tr>
                 </thead>
@@ -134,18 +134,16 @@ export default function CustomersPage() {
                   {customers.map((customer) => (
                     <tr
                       key={customer.id}
-                      className="hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        navigate(`/customers/${customer.id}`);
+                      }}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       <td className="py-3.5 px-5">
                         <div>
-                          <button
-                            onClick={() => {
-                              navigate(`/customers/${customer.id}`);
-                            }}
-                            className="font-semibold text-gray-900 hover:text-primary-600 transition-colors"
-                          >
+                          <p className="font-semibold text-gray-900">
                             {customer.firstName} {customer.lastName}
-                          </button>
+                          </p>
                           {customer.companyName && (
                             <p className="text-xs text-gray-500 mt-0.5">
                               {customer.companyName}
@@ -184,16 +182,8 @@ export default function CustomersPage() {
                       <td className="py-3.5 px-5">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => {
-                              navigate(`/customers/${customer.id}`);
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                            title="View"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               navigate(`/customers/${customer.id}/edit`);
                             }}
                             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
