@@ -3,9 +3,14 @@ const { csvToArray } = require("../utils/helpers");
 
 const getBoard = async (req, res) => {
   try {
-    const dateStr = req.query.date || new Date().toISOString().split("T")[0];
-    const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
-    const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
+    // Single-day (date) or a range (from/to) for week/month views.
+    const fromStr =
+      req.query.from ||
+      req.query.date ||
+      new Date().toISOString().split("T")[0];
+    const toStr = req.query.to || req.query.date || fromStr;
+    const startOfDay = new Date(`${fromStr}T00:00:00.000Z`);
+    const endOfDay = new Date(`${toStr}T23:59:59.999Z`);
 
     const [jobs, technicians, undated] = await Promise.all([
       prisma.job.findMany({
@@ -128,7 +133,14 @@ const getBoard = async (req, res) => {
 
     return res.json({
       success: true,
-      data: { date: dateStr, technicians: techBoards, unassigned, undated },
+      data: {
+        date: fromStr,
+        from: fromStr,
+        to: toStr,
+        technicians: techBoards,
+        unassigned,
+        undated,
+      },
     });
   } catch (err) {
     console.error("dispatch.getBoard error:", err);

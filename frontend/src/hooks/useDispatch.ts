@@ -11,16 +11,16 @@ interface DispatchBoard {
   undated: Job[];
 }
 
-export function useDispatchBoard(date: string) {
+export function useDispatchBoard(from: string, to: string) {
   return useQuery({
-    queryKey: ["dispatch", date],
+    queryKey: ["dispatch", from, to],
     queryFn: async () => {
       const res = await api.get<ApiResponse<DispatchBoard>>("/dispatch/board", {
-        params: { date },
+        params: { from, to },
       });
       return res.data;
     },
-    enabled: !!date,
+    enabled: !!from && !!to,
   });
 }
 
@@ -46,7 +46,7 @@ export function useReassignDispatch() {
         toTechnicianId: toTechnicianId ?? undefined,
       }),
     onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({ queryKey: ["dispatch", vars.date] });
+      void qc.invalidateQueries({ queryKey: ["dispatch"] });
       void qc.invalidateQueries({ queryKey: ["jobs"] });
       void qc.invalidateQueries({ queryKey: ["job", vars.jobId] });
     },
@@ -75,7 +75,7 @@ export function useRescheduleJob() {
         scheduledEnd,
       }),
     onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({ queryKey: ["dispatch", vars.date] });
+      void qc.invalidateQueries({ queryKey: ["dispatch"] });
       void qc.invalidateQueries({ queryKey: ["jobs"] });
       void qc.invalidateQueries({ queryKey: ["job", vars.jobId] });
     },
@@ -98,7 +98,7 @@ export function useUnscheduleJob() {
         scheduledEnd: null,
       }),
     onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({ queryKey: ["dispatch", vars.date] });
+      void qc.invalidateQueries({ queryKey: ["dispatch"] });
       void qc.invalidateQueries({ queryKey: ["jobs"] });
       void qc.invalidateQueries({ queryKey: ["job", vars.jobId] });
     },
