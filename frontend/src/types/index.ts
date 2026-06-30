@@ -350,9 +350,53 @@ export type LookupCategory =
   | "callStatus"
   | "inventoryTransactionType"
   | "pricebookItemType"
-  | "notificationType";
+  | "notificationType"
+  | "equipmentType"
+  | "equipmentCondition";
 
 export type Metadata = Partial<Record<LookupCategory, LookupOption[]>>;
+
+export interface EquipmentServiceJob {
+  id: string;
+  jobNumber: string;
+  summary: string;
+  type?: string;
+  status: string;
+  scheduledStart?: string;
+  completedAt?: string;
+  totalAmount?: number;
+}
+
+export interface Equipment {
+  id: string;
+  customerId?: string;
+  locationId?: string;
+  jobId?: string;
+  name: string;
+  type?: string;
+  manufacturer?: string;
+  model?: string;
+  serialNumber?: string;
+  installDate?: string;
+  warrantyExpiry?: string;
+  condition?: string;
+  notes?: string;
+  createdAt: string;
+  customer?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    companyName?: string;
+  };
+  location?: {
+    id: string;
+    name?: string;
+    address: string;
+    city: string;
+    state: string;
+  };
+  serviceHistory?: EquipmentServiceJob[];
+}
 
 export interface ApiResponse<T> {
   success: boolean;

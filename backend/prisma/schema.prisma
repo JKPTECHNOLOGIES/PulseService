@@ -58,6 +58,7 @@ model Customer {
   contacts          Contact[]
   serviceAgreements ServiceAgreement[]
   payments          Payment[]
+  equipment         Equipment[]
 }
 
 model Contact {
@@ -441,6 +442,7 @@ model Equipment {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
+  customer Customer? @relation(fields: [customerId], references: [id])
   location Location? @relation(fields: [locationId], references: [id])
   job      Job?      @relation(fields: [jobId], references: [id])
 }

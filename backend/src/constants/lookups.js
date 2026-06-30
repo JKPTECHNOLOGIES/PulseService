@@ -277,6 +277,31 @@ const LOOKUPS = {
     { value: "warning", label: "Warning" },
     { value: "error", label: "Error" },
   ],
+  equipmentType: [
+    { value: "hvac", label: "HVAC System" },
+    { value: "ac_unit", label: "AC Unit" },
+    { value: "heat_pump", label: "Heat Pump" },
+    { value: "furnace", label: "Furnace" },
+    { value: "boiler", label: "Boiler" },
+    { value: "water_heater", label: "Water Heater" },
+    { value: "thermostat", label: "Thermostat" },
+    { value: "other", label: "Other" },
+  ],
+  equipmentCondition: [
+    {
+      value: "excellent",
+      label: "Excellent",
+      color: "bg-green-100 text-green-800",
+    },
+    { value: "good", label: "Good", color: "bg-blue-100 text-blue-800" },
+    { value: "fair", label: "Fair", color: "bg-yellow-100 text-yellow-800" },
+    { value: "poor", label: "Poor", color: "bg-orange-100 text-orange-800" },
+    {
+      value: "needs_replacement",
+      label: "Needs Replacement",
+      color: "bg-red-100 text-red-800",
+    },
+  ],
 };
 
 /** Array of all category keys. */

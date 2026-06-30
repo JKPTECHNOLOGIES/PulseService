@@ -24,6 +24,7 @@ import MarketingPage from "./pages/MarketingPage";
 import ReportsPage from "./pages/ReportsPage";
 import SettingsPage from "./pages/SettingsPage";
 import NotificationsPage from "./pages/NotificationsPage";
+import EquipmentPage from "./pages/EquipmentPage";
 
 export default function App() {
   return (
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="technicians" element={<TechniciansPage />} />
         <Route path="pricebook" element={<PricebookPage />} />
         <Route path="inventory" element={<InventoryPage />} />
+        <Route path="equipment" element={<EquipmentPage />} />
         <Route path="agreements" element={<AgreementsPage />} />
         <Route path="marketing" element={<MarketingPage />} />
         <Route path="reports" element={<ReportsPage />} />

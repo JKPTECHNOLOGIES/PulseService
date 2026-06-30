@@ -1645,6 +1645,106 @@ async function main() {
     }),
   ]);
 
+  // ── Equipment (customer assets) ───────────────────────────────────────────────
+  console.log("  Creating equipment / customer assets...");
+  const eqYear = new Date().getFullYear();
+  const eqMonth = String(new Date().getMonth() + 1).padStart(2, "0");
+  await Promise.all([
+    prisma.equipment.create({
+      data: {
+        customerId: customer1.id,
+        locationId: customer1.locations[0].id,
+        name: "Carrier 3-Ton AC Condenser",
+        type: "ac_unit",
+        manufacturer: "Carrier",
+        model: "24ACC636A003",
+        serialNumber: "CAR-AC-0098213",
+        installDate: new Date(`${eqYear - 6}-05-12`),
+        warrantyExpiry: new Date(`${eqYear - 1}-05-12`),
+        condition: "fair",
+        notes: "Original unit. Low-refrigerant history; monitor each season.",
+      },
+    }),
+    prisma.equipment.create({
+      data: {
+        customerId: customer1.id,
+        locationId: customer1.locations[0].id,
+        jobId: job6.id,
+        name: "Nest Learning Thermostat (3rd Gen)",
+        type: "thermostat",
+        manufacturer: "Google Nest",
+        model: "T3007ES",
+        serialNumber: "NEST-3G-44120A",
+        installDate: daysOffset(-7),
+        warrantyExpiry: new Date(`${eqYear + 1}-06-01`),
+        condition: "excellent",
+        notes: "Installed during JOB-1006. Wi-Fi connected.",
+      },
+    }),
+    prisma.equipment.create({
+      data: {
+        customerId: customer3.id,
+        locationId: customer3.locations[0].id,
+        name: "Rooftop Unit RTU-3",
+        type: "hvac",
+        manufacturer: "Trane",
+        model: "YHC060F",
+        serialNumber: "TRN-RTU3-551204",
+        installDate: new Date(`${eqYear - 9}-03-01`),
+        warrantyExpiry: new Date(`${eqYear - 4}-03-01`),
+        condition: "good",
+        notes: "Coils cleaned during annual maintenance (JOB-1003).",
+      },
+    }),
+    prisma.equipment.create({
+      data: {
+        customerId: customer3.id,
+        locationId: customer3.locations[0].id,
+        name: "Rooftop Unit RTU-2",
+        type: "hvac",
+        manufacturer: "Trane",
+        model: "YHC060F",
+        serialNumber: "TRN-RTU2-551199",
+        installDate: new Date(`${eqYear - 9}-03-01`),
+        warrantyExpiry: new Date(`${eqYear - 4}-03-01`),
+        condition: "poor",
+        notes:
+          "Capacitor showing wear — recommend replacement within 6 months.",
+      },
+    }),
+    prisma.equipment.create({
+      data: {
+        customerId: customer4.id,
+        locationId: customer4.locations[0].id,
+        jobId: job4.id,
+        name: "Carrier 3-Ton Heat Pump (16 SEER)",
+        type: "heat_pump",
+        manufacturer: "Carrier",
+        model: "24PAA336",
+        serialNumber: "CAR-HP-7781002",
+        installDate: daysOffset(1),
+        warrantyExpiry: new Date(`${eqYear + 10}-${eqMonth}-01`),
+        condition: "excellent",
+        notes: "New install per EST-1001. 10-year parts warranty.",
+      },
+    }),
+    prisma.equipment.create({
+      data: {
+        customerId: customer5.id,
+        locationId: customer5.locations[0].id,
+        name: "Rheem 50-Gal Commercial Water Heater",
+        type: "water_heater",
+        manufacturer: "Rheem",
+        model: "G100-80",
+        serialNumber: "RHM-WH-330815",
+        installDate: new Date(`${eqYear - 2}-08-20`),
+        warrantyExpiry: new Date(`${eqYear + 4}-08-20`),
+        condition: "good",
+        notes: "Office Complex A mechanical room.",
+      },
+    }),
+  ]);
+
   // ── Calls (phone log / call tracking) ─────────────────────────────────────────
   console.log("  Creating call logs...");
   await Promise.all([

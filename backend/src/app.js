@@ -237,6 +237,7 @@ const callRoutes = require("./routes/calls.routes");
 const campaignRoutes = require("./routes/campaigns.routes");
 const paymentRoutes = require("./routes/payments.routes");
 const metadataRoutes = require("./routes/metadata.routes");
+const equipmentRoutes = require("./routes/equipment.routes");
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/metadata", metadataRoutes);
@@ -248,6 +249,7 @@ app.use("/api/v1/invoices", invoiceRoutes);
 app.use("/api/v1/technicians", technicianRoutes);
 app.use("/api/v1/pricebook", pricebookRoutes);
 app.use("/api/v1/inventory", inventoryRoutes);
+app.use("/api/v1/equipment", equipmentRoutes);
 app.use("/api/v1/agreements", agreementRoutes);
 app.use("/api/v1/reports", reportRoutes);
 app.use("/api/v1/settings", settingsRoutes);
