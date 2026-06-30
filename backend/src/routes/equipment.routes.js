@@ -5,8 +5,9 @@ const c = require("../controllers/equipment.controller");
 
 router.use(auth);
 
+// `type` is intentionally free-text (customizable), so only the condition is
+// validated against the DB-driven lookups.
 const validateEquipment = validateLookups({
-  type: "equipmentType",
   condition: "equipmentCondition",
 });
 

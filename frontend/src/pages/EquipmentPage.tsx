@@ -97,6 +97,7 @@ function EquipmentModal({
 
   const { data: customersData } = useCustomers({ limit: 200 });
   const customers = customersData?.data ?? [];
+  const { options: typeOptions } = useLookup("equipmentType");
 
   const {
     register,
@@ -225,11 +226,20 @@ function EquipmentModal({
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Type
               </label>
-              <LookupSelect
-                category="equipmentType"
-                placeholder="Select type…"
+              <input
+                list="equipment-type-options"
+                placeholder="e.g. HVAC System, Mini Split, Generator…"
+                className={SELECT_CLASS}
                 {...register("type")}
               />
+              <datalist id="equipment-type-options">
+                {typeOptions.map((o) => (
+                  <option key={o.value} value={o.label} />
+                ))}
+              </datalist>
+              <p className="mt-1 text-xs text-gray-400">
+                Pick a suggestion or type your own.
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
