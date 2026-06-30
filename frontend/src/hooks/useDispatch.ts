@@ -22,27 +22,38 @@ export function useDispatchBoard(date: string) {
   });
 }
 
-export function useReassignJob() {
+interface ReassignVars {
+  jobId: string;
+  /** Technician to remove the job from (omit/null when the job is unassigned). */
+  fromTechnicianId?: string | null;
+  /** Technician to assign the job to (omit/null to unassign). */
+  toTechnicianId?: string | null;
+  /** Board date, used only for cache invalidation. */
+  date: string;
+}
+
+/**
+ * Moves a job between technicians (or assigns/unassigns it) via the dispatch
+ * endpoint, which removes the job from `fromTechnicianId` and/or assigns it to
+ * `toTechnicianId`. This avoids the old bug where reassigning only ADDED a
+ * technician, leaving the job duplicated across rows.
+ */
+export function useReassignDispatch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      jobId,
-      technicianId,
-    }: {
-      jobId: string;
-      technicianId: string;
-      date: string;
-    }) =>
-      api.post<ApiResponse<Job>>(`/jobs/${jobId}/technicians`, {
-        technicianId,
+    mutationFn: ({ jobId, fromTechnicianId, toTechnicianId }: ReassignVars) =>
+      api.post<ApiResponse<Job>>("/dispatch/reassign", {
+        jobId,
+        fromTechnicianId: fromTechnicianId ?? undefined,
+        toTechnicianId: toTechnicianId ?? undefined,
       }),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["dispatch", vars.date] });
+      void qc.invalidateQueries({ queryKey: ["jobs"] });
       void qc.invalidateQueries({ queryKey: ["job", vars.jobId] });
-      toast.success("Job reassigned");
     },
     onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to reassign job"));
+      toast.error(getErrorMessage(err, "Failed to update assignment"));
     },
   });
 }

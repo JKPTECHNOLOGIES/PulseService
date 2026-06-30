@@ -4,6 +4,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CalendarDaysIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import {
@@ -14,10 +15,11 @@ import {
   useDroppable,
   DragStartEvent,
 } from "@dnd-kit/core";
-import { useDispatchBoard, useReassignJob } from "../hooks/useDispatch";
+import { useDispatchBoard, useReassignDispatch } from "../hooks/useDispatch";
 import { useJobs } from "../hooks/useJobs";
 import { useTechnicians } from "../hooks/useTechnicians";
 import Modal from "../components/ui/Modal";
+import Button from "../components/ui/Button";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency } from "../utils/formatters";
 import { Job } from "../types";
@@ -30,6 +32,8 @@ const HOURS = Array.from(
   { length: HOUR_END - HOUR_START },
   (_, i) => HOUR_START + i,
 );
+
+const UNASSIGNED_ID = "unassigned";
 
 const JOB_TYPE_COLORS: Record<string, string> = {
   service: "bg-blue-500",
@@ -82,7 +86,7 @@ function JobCard({
     disabled: !draggable,
   });
 
-  const color = JOB_TYPE_COLORS[job.type] || "bg-gray-500";
+  const color = JOB_TYPE_COLORS[job.type] ?? "bg-gray-500";
 
   if (compact) {
     return (
@@ -192,16 +196,62 @@ function DroppableTechRow({ techId, jobs, onJobClick }: DroppableTechRowProps) {
   );
 }
 
+interface UnassignedPanelProps {
+  jobs: Job[];
+  onJobClick: (job: Job) => void;
+}
+
+function UnassignedPanel({ jobs, onJobClick }: UnassignedPanelProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: UNASSIGNED_ID });
+
+  return (
+    <div className="w-56 shrink-0">
+      <div
+        ref={setNodeRef}
+        className={clsx(
+          "bg-white rounded-xl shadow-sm border h-full flex flex-col transition-colors",
+          isOver ? "border-primary-300 bg-primary-50" : "border-gray-100",
+        )}
+      >
+        <div className="px-4 py-3 border-b border-gray-100">
+          <p className="text-xs font-semibold text-gray-500 uppercase">
+            Unassigned ({jobs.length})
+          </p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {jobs.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-6">
+              Drag a job here to unassign it
+            </p>
+          ) : (
+            jobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                onClick={() => {
+                  onJobClick(job);
+                }}
+                draggable
+              />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DispatchPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
+  const [assignTechId, setAssignTechId] = useState("");
   const dateStr = format(currentDate, "yyyy-MM-dd");
 
   const { data: boardData, isLoading } = useDispatchBoard(dateStr);
   const { data: allJobsData } = useJobs({ status: "new,scheduled", limit: 50 });
   const { data: techsData } = useTechnicians();
-  const reassign = useReassignJob();
+  const reassign = useReassignDispatch();
 
   const board = boardData;
   const allTechs = techsData?.data ?? [];
@@ -212,10 +262,24 @@ export default function DispatchPage() {
   const techRows =
     board?.technicians ?? allTechs.map((t) => ({ ...t, jobs: [] as Job[] }));
 
+  // Find which technician a job is currently assigned to on the board.
+  const findCurrentTech = (jobId: string): string | null =>
+    techRows.find((t) => t.jobs.some((j) => j.id === jobId))?.id ?? null;
+
+  // Derive the selected job from live board data so the modal stays in sync
+  // after assigning/removing technicians.
+  const selectedJob =
+    (selectedJobId
+      ? [...techRows.flatMap((t) => t.jobs), ...unassignedJobs].find(
+          (j) => j.id === selectedJobId,
+        )
+      : null) ?? null;
+
   const handleDragStart = (event: DragStartEvent) => {
+    const id = String(event.active.id);
     const job =
-      unassignedJobs.find((j) => j.id === event.active.id) ??
-      techRows.flatMap((t) => t.jobs).find((j) => j.id === event.active.id);
+      unassignedJobs.find((j) => j.id === id) ??
+      techRows.flatMap((t) => t.jobs).find((j) => j.id === id);
     setActiveJob(job ?? null);
   };
 
@@ -223,12 +287,35 @@ export default function DispatchPage() {
     setActiveJob(null);
     const { active, over } = event;
     if (!over) return;
-    const jobId = active.id as string;
-    const techId = over.id as string;
-    if (techId && jobId) {
-      reassign.mutate({ jobId, technicianId: techId, date: dateStr });
+    const jobId = String(active.id);
+    const target = String(over.id);
+    const fromTech = findCurrentTech(jobId);
+
+    if (target === UNASSIGNED_ID) {
+      if (fromTech) {
+        reassign.mutate({
+          jobId,
+          fromTechnicianId: fromTech,
+          toTechnicianId: null,
+          date: dateStr,
+        });
+      }
+      return;
     }
+
+    if (target === fromTech) return; // dropped back on the same technician
+    reassign.mutate({
+      jobId,
+      fromTechnicianId: fromTech,
+      toTechnicianId: target,
+      date: dateStr,
+    });
   };
+
+  const assignedTechIds = new Set(
+    selectedJob?.technicians?.map((jt) => jt.technicianId) ?? [],
+  );
+  const availableTechs = allTechs.filter((t) => !assignedTechIds.has(t.id));
 
   return (
     <div className="flex flex-col h-full gap-4">
@@ -355,7 +442,9 @@ export default function DispatchPage() {
                       <DroppableTechRow
                         techId={techRow.id}
                         jobs={techRow.jobs}
-                        onJobClick={setSelectedJob}
+                        onJobClick={(job) => {
+                          setSelectedJobId(job.id);
+                        }}
                       />
                     </div>
                   </div>
@@ -363,34 +452,13 @@ export default function DispatchPage() {
               )}
             </div>
 
-            {/* Unassigned panel */}
-            <div className="w-56 shrink-0">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 h-full flex flex-col">
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <p className="text-xs font-semibold text-gray-500 uppercase">
-                    Unassigned ({unassignedJobs.length})
-                  </p>
-                </div>
-                <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                  {unassignedJobs.length === 0 ? (
-                    <p className="text-xs text-gray-400 text-center py-6">
-                      All jobs assigned
-                    </p>
-                  ) : (
-                    unassignedJobs.map((job) => (
-                      <JobCard
-                        key={job.id}
-                        job={job}
-                        onClick={() => {
-                          setSelectedJob(job);
-                        }}
-                        draggable
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
+            {/* Unassigned panel (drop here to unassign) */}
+            <UnassignedPanel
+              jobs={unassignedJobs}
+              onJobClick={(job) => {
+                setSelectedJobId(job.id);
+              }}
+            />
           </div>
 
           <DragOverlay>
@@ -408,12 +476,13 @@ export default function DispatchPage() {
         </DndContext>
       )}
 
-      {/* Job detail modal */}
+      {/* Job detail + assignment modal */}
       {selectedJob && (
         <Modal
-          isOpen={!!selectedJob}
+          isOpen={Boolean(selectedJob)}
           onClose={() => {
-            setSelectedJob(null);
+            setSelectedJobId(null);
+            setAssignTechId("");
           }}
           title={`Job #${selectedJob.jobNumber}`}
           size="md"
@@ -425,12 +494,6 @@ export default function DispatchPage() {
                 {selectedJob.customer
                   ? `${selectedJob.customer.firstName} ${selectedJob.customer.lastName}`
                   : "-"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-gray-500">Type</dt>
-              <dd className="text-sm font-medium text-gray-900 mt-0.5 capitalize">
-                {selectedJob.type}
               </dd>
             </div>
             <div>
@@ -451,6 +514,87 @@ export default function DispatchPage() {
               <dt className="text-xs text-gray-500">Amount</dt>
               <dd className="text-sm font-bold text-gray-900 mt-0.5">
                 {formatCurrency(selectedJob.totalAmount)}
+              </dd>
+            </div>
+
+            {/* Assigned technicians (dispatches) */}
+            <div className="border-t border-gray-100 pt-3">
+              <dt className="text-xs text-gray-500 mb-2">
+                Assigned technicians
+              </dt>
+              <dd className="space-y-2">
+                {selectedJob.technicians &&
+                selectedJob.technicians.length > 0 ? (
+                  selectedJob.technicians.map((jt) => (
+                    <div
+                      key={jt.id}
+                      className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2"
+                    >
+                      <span className="text-sm text-gray-800">
+                        {jt.technician?.user
+                          ? `${jt.technician.user.firstName} ${jt.technician.user.lastName}`
+                          : "Technician"}
+                        {jt.isLead && (
+                          <span className="ml-2 text-[10px] uppercase font-semibold text-primary-600">
+                            Lead
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        onClick={() => {
+                          reassign.mutate({
+                            jobId: selectedJob.id,
+                            fromTechnicianId: jt.technicianId,
+                            toTechnicianId: null,
+                            date: dateStr,
+                          });
+                        }}
+                        disabled={reassign.isPending}
+                        title="Remove (unassign)"
+                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                      >
+                        <XMarkIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-400">
+                    Unassigned — assign a technician below.
+                  </p>
+                )}
+
+                {/* Assign a technician */}
+                <div className="flex gap-2 pt-1">
+                  <select
+                    value={assignTechId}
+                    onChange={(e) => {
+                      setAssignTechId(e.target.value);
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                  >
+                    <option value="">Assign technician…</option>
+                    {availableTechs.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.user.firstName} {t.user.lastName}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    size="sm"
+                    disabled={!assignTechId || reassign.isPending}
+                    onClick={() => {
+                      if (!assignTechId) return;
+                      reassign.mutate({
+                        jobId: selectedJob.id,
+                        toTechnicianId: assignTechId,
+                        date: dateStr,
+                      });
+                      setAssignTechId("");
+                    }}
+                  >
+                    Assign
+                  </Button>
+                </div>
               </dd>
             </div>
           </dl>
