@@ -31,6 +31,12 @@ const prisma = new PrismaClient({ log: ["error"] });
         });
         count += 1;
       }
+
+      // Prune options that were removed from the constants so the DB exactly
+      // mirrors the single source of truth.
+      await prisma.lookup.deleteMany({
+        where: { category, value: { notIn: entries.map((e) => e.value) } },
+      });
     }
     console.log(`==> Lookups synced (${count} entries).`);
   } catch (err) {

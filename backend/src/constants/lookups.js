@@ -285,7 +285,6 @@ const LOOKUPS = {
     { value: "boiler", label: "Boiler" },
     { value: "water_heater", label: "Water Heater" },
     { value: "thermostat", label: "Thermostat" },
-    { value: "other", label: "Other" },
   ],
   equipmentCondition: [
     {
