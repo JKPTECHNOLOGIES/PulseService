@@ -1,51 +1,59 @@
-import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { BellIcon, MagnifyingGlassIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
-import { Menu, Transition } from '@headlessui/react';
-import { Fragment } from 'react';
-import clsx from 'clsx';
-import { useAuthStore } from '../../store/authStore';
+import { Fragment } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import {
+  BellIcon,
+  MagnifyingGlassIcon,
+  ChevronDownIcon,
+} from "@heroicons/react/24/outline";
+import { Menu, Transition } from "@headlessui/react";
+import clsx from "clsx";
+import { useAuthStore } from "../../store/authStore";
+import { useNotifications } from "../../hooks/useNotifications";
 
 const routeTitles: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/customers': 'Customers',
-  '/jobs': 'Jobs',
-  '/dispatch': 'Dispatch Board',
-  '/estimates': 'Estimates',
-  '/invoices': 'Invoices',
-  '/payments': 'Payments',
-  '/technicians': 'Technicians',
-  '/pricebook': 'Pricebook',
-  '/inventory': 'Inventory',
-  '/agreements': 'Service Agreements',
-  '/marketing': 'Marketing',
-  '/reports': 'Reports',
-  '/settings': 'Settings',
+  "/dashboard": "Dashboard",
+  "/customers": "Customers",
+  "/jobs": "Jobs",
+  "/dispatch": "Dispatch Board",
+  "/estimates": "Estimates",
+  "/invoices": "Invoices",
+  "/payments": "Payments",
+  "/technicians": "Technicians",
+  "/pricebook": "Pricebook",
+  "/inventory": "Inventory",
+  "/agreements": "Service Agreements",
+  "/marketing": "Marketing",
+  "/reports": "Reports",
+  "/settings": "Settings",
+  "/notifications": "Notifications",
 };
 
 function getTitle(pathname: string): string {
   for (const [path, title] of Object.entries(routeTitles)) {
-    if (pathname === path || pathname.startsWith(path + '/')) {
-      if (pathname.endsWith('/new')) return `New ${title.replace(/s$/, '')}`;
-      if (pathname.includes('/edit')) return `Edit ${title.replace(/s$/, '')}`;
+    if (pathname === path || pathname.startsWith(path + "/")) {
+      if (pathname.endsWith("/new")) return `New ${title.replace(/s$/, "")}`;
+      if (pathname.includes("/edit")) return `Edit ${title.replace(/s$/, "")}`;
       return title;
     }
   }
-  return 'PulseService';
+  return "PulseService";
 }
 
 export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-  const [notifCount] = useState(3);
+  const { data: notifData } = useNotifications();
+  const notifCount = notifData?.unreadCount ?? 0;
 
   const title = getTitle(location.pathname);
-  const initials = user ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}` : 'U';
+  const initials = user
+    ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`
+    : "U";
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   return (
@@ -66,7 +74,13 @@ export default function Header() {
         </div>
 
         {/* Notifications */}
-        <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+        <button
+          onClick={() => {
+            navigate("/notifications");
+          }}
+          title="Notifications"
+          className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        >
           <BellIcon className="h-5 w-5" />
           {notifCount > 0 && (
             <span className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
@@ -79,7 +93,9 @@ export default function Header() {
         <Menu as="div" className="relative">
           <Menu.Button className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
             <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-              <span className="text-xs font-semibold text-primary-700">{initials}</span>
+              <span className="text-xs font-semibold text-primary-700">
+                {initials}
+              </span>
             </div>
             <span className="text-sm font-medium text-gray-700 hidden md:block">
               {user?.firstName}
@@ -106,10 +122,12 @@ export default function Header() {
               <Menu.Item>
                 {({ active }) => (
                   <button
-                    onClick={() => { navigate('/settings'); }}
+                    onClick={() => {
+                      navigate("/settings");
+                    }}
                     className={clsx(
-                      'w-full text-left px-4 py-2 text-sm',
-                      active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                      "w-full text-left px-4 py-2 text-sm",
+                      active ? "bg-gray-50 text-gray-900" : "text-gray-700",
                     )}
                   >
                     Settings
@@ -121,8 +139,8 @@ export default function Header() {
                   <button
                     onClick={handleLogout}
                     className={clsx(
-                      'w-full text-left px-4 py-2 text-sm',
-                      active ? 'bg-red-50 text-red-600' : 'text-red-500'
+                      "w-full text-left px-4 py-2 text-sm",
+                      active ? "bg-red-50 text-red-600" : "text-red-500",
                     )}
                   >
                     Sign Out

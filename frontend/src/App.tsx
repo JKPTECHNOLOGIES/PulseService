@@ -23,6 +23,7 @@ import AgreementsPage from "./pages/AgreementsPage";
 import MarketingPage from "./pages/MarketingPage";
 import ReportsPage from "./pages/ReportsPage";
 import SettingsPage from "./pages/SettingsPage";
+import NotificationsPage from "./pages/NotificationsPage";
 
 export default function App() {
   return (
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="marketing" element={<MarketingPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
