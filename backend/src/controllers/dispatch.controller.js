@@ -7,7 +7,7 @@ const getBoard = async (req, res) => {
     const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
     const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
 
-    const [jobs, technicians] = await Promise.all([
+    const [jobs, technicians, undated] = await Promise.all([
       prisma.job.findMany({
         where: {
           scheduledStart: { gte: startOfDay, lte: endOfDay },
@@ -69,6 +69,42 @@ const getBoard = async (req, res) => {
         },
         orderBy: { employeeId: "asc" },
       }),
+      // Jobs with no scheduled date are day-independent, so they're returned
+      // alongside every board day for the "Undated" backlog panel.
+      prisma.job.findMany({
+        where: {
+          scheduledStart: null,
+          status: { notIn: ["cancelled", "completed"] },
+        },
+        include: {
+          customer: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              companyName: true,
+            },
+          },
+          technicians: {
+            include: {
+              technician: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
+                      avatar: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
     ]);
 
     const unassigned = jobs.filter((j) => j.technicians.length === 0);
@@ -92,7 +128,7 @@ const getBoard = async (req, res) => {
 
     return res.json({
       success: true,
-      data: { date: dateStr, technicians: techBoards, unassigned },
+      data: { date: dateStr, technicians: techBoards, unassigned, undated },
     });
   } catch (err) {
     console.error("dispatch.getBoard error:", err);

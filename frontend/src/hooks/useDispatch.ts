@@ -7,6 +7,8 @@ import toast from "react-hot-toast";
 interface DispatchBoard {
   technicians: (Technician & { jobs: Job[] })[];
   unassigned: Job[];
+  /** Jobs with no scheduled date (day-independent backlog). */
+  undated: Job[];
 }
 
 export function useDispatchBoard(date: string) {
@@ -79,6 +81,29 @@ export function useRescheduleJob() {
     },
     onError: (err: unknown) => {
       toast.error(getErrorMessage(err, "Failed to reschedule job"));
+    },
+  });
+}
+
+/**
+ * Clears a job's scheduled date (moves it back to the undated backlog),
+ * keeping any technician assignment.
+ */
+export function useUnscheduleJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId }: { jobId: string; date: string }) =>
+      api.put<ApiResponse<Job>>(`/jobs/${jobId}`, {
+        scheduledStart: null,
+        scheduledEnd: null,
+      }),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ["dispatch", vars.date] });
+      void qc.invalidateQueries({ queryKey: ["jobs"] });
+      void qc.invalidateQueries({ queryKey: ["job", vars.jobId] });
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to move job to undated"));
     },
   });
 }

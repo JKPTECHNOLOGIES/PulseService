@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, addDays, subDays, parseISO } from "date-fns";
 import {
@@ -25,6 +25,7 @@ import {
   useDispatchBoard,
   useReassignDispatch,
   useRescheduleJob,
+  useUnscheduleJob,
 } from "../hooks/useDispatch";
 import { useJobs, useDeleteJob } from "../hooks/useJobs";
 import { useTechnicians } from "../hooks/useTechnicians";
@@ -37,14 +38,15 @@ import { Job } from "../types";
 
 const HOUR_START = 7;
 const HOUR_END = 19;
-const HOUR_WIDTH = 80;
-const ROW_HEIGHT = 60;
+const HOUR_WIDTH = 120;
+const ROW_HEIGHT = 84;
 const HOURS = Array.from(
   { length: HOUR_END - HOUR_START },
   (_, i) => HOUR_START + i,
 );
 
 const UNASSIGNED_ID = "unassigned";
+const UNDATED_ID = "undated";
 // Ignore tiny horizontal jitter; snap reschedules to 15-minute increments.
 const MIN_SHIFT_PX = 12;
 const SNAP_MIN = 15;
@@ -112,6 +114,39 @@ function getJobPosition(job: Job): { left: number; width: number } | null {
   }
 }
 
+// Convert a UTC ISO instant to the local "YYYY-MM-DDTHH:mm" a datetime-local
+// input expects (the inverse of new Date(value).toISOString() on save).
+function isoToLocalInput(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+}
+
+// Map where a job was dropped on the board to a scheduled start/end (ISO):
+// the pointer's X within the technician row -> a time on the board's date,
+// snapped to 15 minutes and clamped to the visible hours.
+function dropTimeOnBoard(
+  event: DragEndEvent,
+  boardDate: Date,
+): { scheduledStart: string; scheduledEnd: string } | null {
+  const over = event.over;
+  const activator = event.activatorEvent as { clientX?: number };
+  if (!over || typeof activator.clientX !== "number") return null;
+  const relX = activator.clientX + event.delta.x - over.rect.left;
+  const totalMin = (HOUR_END - HOUR_START) * 60;
+  let min = Math.round(((relX / HOUR_WIDTH) * 60) / SNAP_MIN) * SNAP_MIN;
+  min = Math.min(Math.max(min, 0), totalMin - 60);
+  const start = new Date(boardDate);
+  start.setHours(HOUR_START, 0, 0, 0);
+  start.setMinutes(start.getMinutes() + min);
+  return {
+    scheduledStart: start.toISOString(),
+    scheduledEnd: new Date(start.getTime() + 60 * 60000).toISOString(),
+  };
+}
+
 interface JobCardProps {
   job: Job;
   compact?: boolean;
@@ -140,12 +175,12 @@ function JobCard({
         {...attributes}
         onClick={onClick}
         className={clsx(
-          "rounded-md text-white px-2 py-1 cursor-pointer select-none",
+          "h-full flex flex-col justify-center overflow-hidden rounded-md text-white px-2.5 py-1.5 cursor-pointer select-none",
           color,
           isDragging ? "opacity-50" : "hover:opacity-90",
           "shadow-sm",
         )}
-        style={{ fontSize: "10px", lineHeight: "1.3" }}
+        style={{ fontSize: "11px", lineHeight: "1.35" }}
       >
         <div className="font-semibold truncate">#{job.jobNumber}</div>
         <div className="truncate opacity-90">
@@ -285,6 +320,108 @@ function UnassignedPanel({ jobs, onJobClick }: UnassignedPanelProps) {
   );
 }
 
+interface UndatedPanelProps {
+  jobs: Job[];
+  onJobClick: (job: Job) => void;
+}
+
+function UndatedPanel({ jobs, onJobClick }: UndatedPanelProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: UNDATED_ID });
+  return (
+    <div className="w-56 shrink-0">
+      <div
+        ref={setNodeRef}
+        className={clsx(
+          "bg-white rounded-xl shadow-sm border h-full flex flex-col transition-colors",
+          isOver ? "border-primary-300 bg-primary-50" : "border-gray-100",
+        )}
+      >
+        <div className="px-4 py-3 border-b border-gray-100">
+          <p className="text-xs font-semibold text-gray-500 uppercase">
+            Undated ({jobs.length})
+          </p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {jobs.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-6">
+              Drag a job here to clear its date. Jobs without a date live here -
+              drag one onto the board to schedule it.
+            </p>
+          ) : (
+            jobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                onClick={() => {
+                  onJobClick(job);
+                }}
+                draggable
+              />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ScheduleEditorProps {
+  job: Job;
+  saving: boolean;
+  onSave: (vars: { scheduledStart: string; scheduledEnd: string }) => void;
+}
+
+function ScheduleEditor({ job, saving, onSave }: ScheduleEditorProps) {
+  const [start, setStart] = useState(isoToLocalInput(job.scheduledStart));
+  const [end, setEnd] = useState(isoToLocalInput(job.scheduledEnd));
+
+  useEffect(() => {
+    setStart(isoToLocalInput(job.scheduledStart));
+    setEnd(isoToLocalInput(job.scheduledEnd));
+  }, [job.id, job.scheduledStart, job.scheduledEnd]);
+
+  const save = () => {
+    if (!start) return;
+    const startDate = new Date(start);
+    const endDate = end
+      ? new Date(end)
+      : new Date(startDate.getTime() + 60 * 60000);
+    onSave({
+      scheduledStart: startDate.toISOString(),
+      scheduledEnd: endDate.toISOString(),
+    });
+  };
+
+  return (
+    <div className="border-t border-gray-100 pt-3">
+      <dt className="text-xs text-gray-500 mb-2">Schedule</dt>
+      <dd className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            type="datetime-local"
+            value={start}
+            onChange={(e) => {
+              setStart(e.target.value);
+            }}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+          <input
+            type="datetime-local"
+            value={end}
+            onChange={(e) => {
+              setEnd(e.target.value);
+            }}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+        </div>
+        <Button size="sm" disabled={!start || saving} onClick={save}>
+          {job.scheduledStart ? "Update schedule" : "Schedule job"}
+        </Button>
+      </dd>
+    </div>
+  );
+}
+
 export default function DispatchPage() {
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -299,6 +436,7 @@ export default function DispatchPage() {
   const { data: techsData } = useTechnicians();
   const reassign = useReassignDispatch();
   const reschedule = useRescheduleJob();
+  const unschedule = useUnscheduleJob();
   const deleteJob = useDeleteJob();
 
   // Require an 8px drag before dragging starts, so a plain click still opens
@@ -315,6 +453,7 @@ export default function DispatchPage() {
     [];
   const techRows =
     board?.technicians ?? allTechs.map((t) => ({ ...t, jobs: [] as Job[] }));
+  const undatedJobs = board?.undated ?? [];
 
   // Find which technician a job is currently assigned to on the board.
   const findCurrentTech = (jobId: string): string | null =>
@@ -324,15 +463,18 @@ export default function DispatchPage() {
   // after assigning/removing technicians.
   const selectedJob =
     (selectedJobId
-      ? [...techRows.flatMap((t) => t.jobs), ...unassignedJobs].find(
-          (j) => j.id === selectedJobId,
-        )
+      ? [
+          ...techRows.flatMap((t) => t.jobs),
+          ...unassignedJobs,
+          ...undatedJobs,
+        ].find((j) => j.id === selectedJobId)
       : null) ?? null;
 
   const handleDragStart = (event: DragStartEvent) => {
     const id = String(event.active.id);
     const job =
       unassignedJobs.find((j) => j.id === id) ??
+      undatedJobs.find((j) => j.id === id) ??
       techRows.flatMap((t) => t.jobs).find((j) => j.id === id);
     setActiveJob(job ?? null);
   };
@@ -343,20 +485,40 @@ export default function DispatchPage() {
     if (!over) return;
     const jobId = String(active.id);
     const target = String(over.id);
+    const job = [
+      ...techRows.flatMap((t) => t.jobs),
+      ...unassignedJobs,
+      ...undatedJobs,
+    ].find((j) => j.id === jobId);
 
+    // Drop on the Unassigned panel -> remove technician(s), keep the date.
     if (target === UNASSIGNED_ID) {
-      if (findCurrentTech(jobId)) {
+      if (job?.technicians?.length) {
         reassign.mutate({ jobId, toTechnicianId: null, date: dateStr });
       }
+      return;
+    }
+
+    // Drop on the Undated panel -> clear the date (keep technicians).
+    if (target === UNDATED_ID) {
+      if (job?.scheduledStart) {
+        unschedule.mutate({ jobId, date: dateStr });
+      }
+      return;
+    }
+
+    // An undated job dropped on a technician row gets scheduled on the
+    // board's date at the dropped time, and assigned to that technician.
+    if (job && !job.scheduledStart) {
+      const times = dropTimeOnBoard(event, currentDate);
+      if (times) reschedule.mutate({ jobId, ...times, date: dateStr });
+      reassign.mutate({ jobId, toTechnicianId: target, date: dateStr });
       return;
     }
 
     const fromTech = findCurrentTech(jobId);
 
     // Horizontal drag along the timeline -> reschedule to a new time.
-    const job = [...techRows.flatMap((t) => t.jobs), ...unassignedJobs].find(
-      (j) => j.id === jobId,
-    );
     if (job?.scheduledStart && Math.abs(delta.x) >= MIN_SHIFT_PX) {
       const times = shiftJobTime(job, delta.x);
       if (times) reschedule.mutate({ jobId, ...times, date: dateStr });
@@ -530,6 +692,14 @@ export default function DispatchPage() {
                 setSelectedJobId(job.id);
               }}
             />
+
+            {/* Undated backlog (drag onto the board to schedule) */}
+            <UndatedPanel
+              jobs={undatedJobs}
+              onJobClick={(job) => {
+                setSelectedJobId(job.id);
+              }}
+            />
           </div>
 
           <DragOverlay>
@@ -668,6 +838,19 @@ export default function DispatchPage() {
                   </div>
                 </dd>
               </div>
+
+              {/* Schedule (assign or change the job's date) */}
+              <ScheduleEditor
+                job={selectedJob}
+                saving={reschedule.isPending}
+                onSave={(vars) => {
+                  reschedule.mutate({
+                    jobId: selectedJob.id,
+                    ...vars,
+                    date: dateStr,
+                  });
+                }}
+              />
 
               {/* Footer actions */}
               <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
