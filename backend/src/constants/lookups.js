@@ -14,12 +14,36 @@
 const LOOKUPS = {
   jobStatus: [
     { value: "new", label: "New", color: "bg-blue-100 text-blue-800" },
-    { value: "scheduled", label: "Scheduled", color: "bg-indigo-100 text-indigo-800" },
-    { value: "dispatched", label: "Dispatched", color: "bg-purple-100 text-purple-800" },
-    { value: "in_progress", label: "In Progress", color: "bg-yellow-100 text-yellow-800" },
-    { value: "on_hold", label: "On Hold", color: "bg-orange-100 text-orange-800" },
-    { value: "completed", label: "Completed", color: "bg-green-100 text-green-800" },
-    { value: "cancelled", label: "Cancelled", color: "bg-red-100 text-red-800" },
+    {
+      value: "scheduled",
+      label: "Scheduled",
+      color: "bg-indigo-100 text-indigo-800",
+    },
+    {
+      value: "dispatched",
+      label: "Dispatched",
+      color: "bg-purple-100 text-purple-800",
+    },
+    {
+      value: "in_progress",
+      label: "In Progress",
+      color: "bg-yellow-100 text-yellow-800",
+    },
+    {
+      value: "on_hold",
+      label: "On Hold",
+      color: "bg-orange-100 text-orange-800",
+    },
+    {
+      value: "completed",
+      label: "Completed",
+      color: "bg-green-100 text-green-800",
+    },
+    {
+      value: "cancelled",
+      label: "Cancelled",
+      color: "bg-red-100 text-red-800",
+    },
   ],
   jobPriority: [
     { value: "low", label: "Low", color: "bg-gray-100 text-gray-800" },
@@ -36,24 +60,60 @@ const LOOKUPS = {
     { value: "emergency", label: "Emergency" },
   ],
   jobTechnicianStatus: [
-    { value: "assigned", label: "Assigned", color: "bg-blue-100 text-blue-800" },
-    { value: "en_route", label: "En Route", color: "bg-indigo-100 text-indigo-800" },
-    { value: "arrived", label: "Arrived", color: "bg-yellow-100 text-yellow-800" },
-    { value: "completed", label: "Completed", color: "bg-green-100 text-green-800" },
+    {
+      value: "assigned",
+      label: "Assigned",
+      color: "bg-blue-100 text-blue-800",
+    },
+    {
+      value: "en_route",
+      label: "En Route",
+      color: "bg-indigo-100 text-indigo-800",
+    },
+    {
+      value: "arrived",
+      label: "Arrived",
+      color: "bg-yellow-100 text-yellow-800",
+    },
+    {
+      value: "completed",
+      label: "Completed",
+      color: "bg-green-100 text-green-800",
+    },
   ],
   estimateStatus: [
     { value: "draft", label: "Draft", color: "bg-gray-100 text-gray-800" },
     { value: "sent", label: "Sent", color: "bg-blue-100 text-blue-800" },
-    { value: "viewed", label: "Viewed", color: "bg-indigo-100 text-indigo-800" },
-    { value: "approved", label: "Approved", color: "bg-green-100 text-green-800" },
+    {
+      value: "viewed",
+      label: "Viewed",
+      color: "bg-indigo-100 text-indigo-800",
+    },
+    {
+      value: "approved",
+      label: "Approved",
+      color: "bg-green-100 text-green-800",
+    },
     { value: "rejected", label: "Rejected", color: "bg-red-100 text-red-800" },
-    { value: "expired", label: "Expired", color: "bg-orange-100 text-orange-800" },
+    {
+      value: "expired",
+      label: "Expired",
+      color: "bg-orange-100 text-orange-800",
+    },
   ],
   invoiceStatus: [
     { value: "draft", label: "Draft", color: "bg-gray-100 text-gray-800" },
     { value: "sent", label: "Sent", color: "bg-blue-100 text-blue-800" },
-    { value: "viewed", label: "Viewed", color: "bg-indigo-100 text-indigo-800" },
-    { value: "partial", label: "Partial", color: "bg-yellow-100 text-yellow-800" },
+    {
+      value: "viewed",
+      label: "Viewed",
+      color: "bg-indigo-100 text-indigo-800",
+    },
+    {
+      value: "partial",
+      label: "Partial",
+      color: "bg-yellow-100 text-yellow-800",
+    },
     { value: "paid", label: "Paid", color: "bg-green-100 text-green-800" },
     { value: "overdue", label: "Overdue", color: "bg-red-100 text-red-800" },
     { value: "void", label: "Void", color: "bg-gray-100 text-gray-500" },
@@ -66,10 +126,22 @@ const LOOKUPS = {
     { value: "other", label: "Other" },
   ],
   paymentStatus: [
-    { value: "pending", label: "Pending", color: "bg-yellow-100 text-yellow-800" },
-    { value: "completed", label: "Completed", color: "bg-green-100 text-green-800" },
+    {
+      value: "pending",
+      label: "Pending",
+      color: "bg-yellow-100 text-yellow-800",
+    },
+    {
+      value: "completed",
+      label: "Completed",
+      color: "bg-green-100 text-green-800",
+    },
     { value: "failed", label: "Failed", color: "bg-red-100 text-red-800" },
-    { value: "refunded", label: "Refunded", color: "bg-gray-100 text-gray-800" },
+    {
+      value: "refunded",
+      label: "Refunded",
+      color: "bg-gray-100 text-gray-800",
+    },
   ],
   userRole: [
     { value: "admin", label: "Administrator" },
@@ -79,8 +151,16 @@ const LOOKUPS = {
     { value: "technician", label: "Technician" },
   ],
   customerType: [
-    { value: "residential", label: "Residential" },
-    { value: "commercial", label: "Commercial" },
+    {
+      value: "residential",
+      label: "Residential",
+      color: "bg-blue-100 text-blue-800",
+    },
+    {
+      value: "commercial",
+      label: "Commercial",
+      color: "bg-red-100 text-red-800",
+    },
   ],
   locationType: [
     { value: "service", label: "Service" },
@@ -100,9 +180,21 @@ const LOOKUPS = {
   ],
   agreementStatus: [
     { value: "active", label: "Active", color: "bg-green-100 text-green-800" },
-    { value: "pending", label: "Pending", color: "bg-yellow-100 text-yellow-800" },
-    { value: "expired", label: "Expired", color: "bg-orange-100 text-orange-800" },
-    { value: "cancelled", label: "Cancelled", color: "bg-red-100 text-red-800" },
+    {
+      value: "pending",
+      label: "Pending",
+      color: "bg-yellow-100 text-yellow-800",
+    },
+    {
+      value: "expired",
+      label: "Expired",
+      color: "bg-orange-100 text-orange-800",
+    },
+    {
+      value: "cancelled",
+      label: "Cancelled",
+      color: "bg-red-100 text-red-800",
+    },
   ],
   billingFrequency: [
     { value: "monthly", label: "Monthly" },
@@ -111,9 +203,21 @@ const LOOKUPS = {
     { value: "annual", label: "Annual" },
   ],
   agreementVisitStatus: [
-    { value: "pending", label: "Pending", color: "bg-yellow-100 text-yellow-800" },
-    { value: "scheduled", label: "Scheduled", color: "bg-indigo-100 text-indigo-800" },
-    { value: "completed", label: "Completed", color: "bg-green-100 text-green-800" },
+    {
+      value: "pending",
+      label: "Pending",
+      color: "bg-yellow-100 text-yellow-800",
+    },
+    {
+      value: "scheduled",
+      label: "Scheduled",
+      color: "bg-indigo-100 text-indigo-800",
+    },
+    {
+      value: "completed",
+      label: "Completed",
+      color: "bg-green-100 text-green-800",
+    },
     { value: "skipped", label: "Skipped", color: "bg-gray-100 text-gray-800" },
   ],
   campaignType: [
@@ -126,17 +230,33 @@ const LOOKUPS = {
   ],
   campaignStatus: [
     { value: "active", label: "Active", color: "bg-green-100 text-green-800" },
-    { value: "paused", label: "Paused", color: "bg-yellow-100 text-yellow-800" },
-    { value: "completed", label: "Completed", color: "bg-gray-100 text-gray-800" },
+    {
+      value: "paused",
+      label: "Paused",
+      color: "bg-yellow-100 text-yellow-800",
+    },
+    {
+      value: "completed",
+      label: "Completed",
+      color: "bg-gray-100 text-gray-800",
+    },
   ],
   callDirection: [
     { value: "inbound", label: "Inbound" },
     { value: "outbound", label: "Outbound" },
   ],
   callStatus: [
-    { value: "completed", label: "Completed", color: "bg-green-100 text-green-800" },
+    {
+      value: "completed",
+      label: "Completed",
+      color: "bg-green-100 text-green-800",
+    },
     { value: "missed", label: "Missed", color: "bg-red-100 text-red-800" },
-    { value: "voicemail", label: "Voicemail", color: "bg-yellow-100 text-yellow-800" },
+    {
+      value: "voicemail",
+      label: "Voicemail",
+      color: "bg-yellow-100 text-yellow-800",
+    },
   ],
   inventoryTransactionType: [
     { value: "purchase", label: "Purchase" },
