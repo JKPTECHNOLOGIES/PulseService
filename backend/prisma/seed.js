@@ -1585,7 +1585,7 @@ async function main() {
     prisma.campaign.create({
       data: {
         name: "Google Ads - HVAC & Plumbing",
-        type: "digital",
+        type: "google",
         status: "active",
         budget: 2000,
         startDate: new Date(`${new Date().getFullYear()}-01-01`),

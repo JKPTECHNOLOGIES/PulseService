@@ -1,12 +1,18 @@
-const router = require('express').Router();
-const auth = require('../middleware/auth.middleware');
-const c = require('../controllers/campaigns.controller');
+const router = require("express").Router();
+const auth = require("../middleware/auth.middleware");
+const validateLookups = require("../middleware/validateLookups.middleware");
+const c = require("../controllers/campaigns.controller");
 
 router.use(auth);
 
-router.get('/', c.list);
-router.post('/', c.create);
-router.put('/:id', c.update);
-router.delete('/:id', c['delete']);
+const validateCampaign = validateLookups({
+  type: "campaignType",
+  status: "campaignStatus",
+});
+
+router.get("/", c.list);
+router.post("/", validateCampaign, c.create);
+router.put("/:id", validateCampaign, c.update);
+router.delete("/:id", c["delete"]);
 
 module.exports = router;

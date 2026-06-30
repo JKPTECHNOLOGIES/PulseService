@@ -266,6 +266,7 @@ export interface Campaign {
   startDate?: string;
   endDate?: string;
   trackingNumber?: string;
+  notes?: string;
 }
 
 export interface Call {

@@ -10,9 +10,9 @@ import {
   PhoneIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
-import type { Call } from "../types";
+import type { Call, Campaign } from "../types";
 import { useCalls, useLogCall } from "../hooks/useCalls";
-import { useCampaigns } from "../hooks/useCampaigns";
+import { useCampaigns, useCreateCampaign } from "../hooks/useCampaigns";
 import { useCustomers } from "../hooks/useCustomers";
 import { useLookup } from "../hooks/useMetadata";
 import Button from "../components/ui/Button";
@@ -36,10 +36,141 @@ function formatDuration(seconds: number | undefined): string {
   return `${String(Math.floor(seconds / 60))}m ${String(seconds % 60)}s`;
 }
 
+const campaignSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  type: z.string().min(1, "Type is required"),
+  status: z.string().min(1, "Status is required"),
+  budget: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  trackingNumber: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+type CampaignFormData = z.infer<typeof campaignSchema>;
+
+function NewCampaignModal({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  const createCampaign = useCreateCampaign();
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<CampaignFormData>({
+    resolver: zodResolver(campaignSchema),
+    defaultValues: { type: "google", status: "active" },
+  });
+
+  const close = () => {
+    reset();
+    onClose();
+  };
+
+  const onSubmit = async (data: CampaignFormData) => {
+    const payload: Partial<Campaign> = {
+      name: data.name,
+      type: data.type,
+      status: data.status,
+    };
+    if (data.budget) payload.budget = Number(data.budget);
+    if (data.startDate)
+      payload.startDate = new Date(data.startDate).toISOString();
+    if (data.endDate) payload.endDate = new Date(data.endDate).toISOString();
+    if (data.trackingNumber) payload.trackingNumber = data.trackingNumber;
+    if (data.notes) payload.notes = data.notes;
+
+    await createCampaign.mutateAsync(payload);
+    close();
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={close} title="New Campaign" size="lg">
+      <form
+        onSubmit={(e) => void handleSubmit(onSubmit)(e)}
+        className="space-y-4"
+      >
+        <Input
+          label="Name"
+          placeholder="Summer AC Special 2024"
+          error={errors.name?.message}
+          {...register("name")}
+        />
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Type <span className="text-red-500">*</span>
+            </label>
+            <LookupSelect category="campaignType" {...register("type")} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Status <span className="text-red-500">*</span>
+            </label>
+            <LookupSelect category="campaignStatus" {...register("status")} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="Budget"
+            type="number"
+            min={0}
+            step={0.01}
+            placeholder="5000"
+            {...register("budget")}
+          />
+          <Input
+            label="Tracking number"
+            placeholder="(404) 555-COOL"
+            {...register("trackingNumber")}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Input label="Start date" type="date" {...register("startDate")} />
+          <Input label="End date" type="date" {...register("endDate")} />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Notes
+          </label>
+          <textarea
+            rows={3}
+            className={clsx(SELECT_CLASS, "resize-none")}
+            placeholder="Campaign details, offer, target audience..."
+            {...register("notes")}
+          />
+        </div>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="outline" type="button" onClick={close}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            loading={isSubmitting || createCampaign.isPending}
+          >
+            Create Campaign
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function CampaignsTab() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { data, isLoading } = useCampaigns();
   const { getLabel: getCampaignTypeLabel } = useLookup("campaignType");
-  const campaigns = data?.data ?? [];
+  const campaigns = data ?? [];
 
   if (isLoading) return <PageSpinner />;
 
@@ -47,7 +178,13 @@ function CampaignsTab() {
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900">Campaigns</h3>
-        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />}>
+        <Button
+          size="sm"
+          icon={<PlusIcon className="h-4 w-4" />}
+          onClick={() => {
+            setIsModalOpen(true);
+          }}
+        >
           New Campaign
         </Button>
       </div>
@@ -55,6 +192,12 @@ function CampaignsTab() {
         <EmptyState
           title="No campaigns"
           description="Track your marketing campaigns and their performance."
+          action={{
+            label: "New Campaign",
+            onClick: () => {
+              setIsModalOpen(true);
+            },
+          }}
         />
       ) : (
         <div className="overflow-x-auto">
@@ -108,6 +251,13 @@ function CampaignsTab() {
           </table>
         </div>
       )}
+
+      <NewCampaignModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+        }}
+      />
     </div>
   );
 }
@@ -137,7 +287,7 @@ function LogCallModal({
   const { data: customersData } = useCustomers({ limit: 200 });
   const { data: campaignsData } = useCampaigns();
   const customers = customersData?.data ?? [];
-  const campaigns = campaignsData?.data ?? [];
+  const campaigns = campaignsData ?? [];
 
   const {
     register,
