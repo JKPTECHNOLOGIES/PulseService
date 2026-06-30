@@ -12,7 +12,11 @@ import {
 import clsx from "clsx";
 import type { Call, Campaign } from "../types";
 import { useCalls, useLogCall } from "../hooks/useCalls";
-import { useCampaigns, useCreateCampaign } from "../hooks/useCampaigns";
+import {
+  useCampaigns,
+  useCreateCampaign,
+  useUpdateCampaign,
+} from "../hooks/useCampaigns";
 import { useCustomers } from "../hooks/useCustomers";
 import { useLookup } from "../hooks/useMetadata";
 import Button from "../components/ui/Button";
@@ -49,14 +53,18 @@ const campaignSchema = z.object({
 
 type CampaignFormData = z.infer<typeof campaignSchema>;
 
-function NewCampaignModal({
+function CampaignModal({
   isOpen,
   onClose,
+  campaign,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  campaign?: Campaign | null;
 }) {
   const createCampaign = useCreateCampaign();
+  const updateCampaign = useUpdateCampaign();
+  const isEditing = !!campaign;
   const {
     register,
     handleSubmit,
@@ -64,7 +72,18 @@ function NewCampaignModal({
     formState: { errors, isSubmitting },
   } = useForm<CampaignFormData>({
     resolver: zodResolver(campaignSchema),
-    defaultValues: { type: "google", status: "active" },
+    defaultValues: campaign
+      ? {
+          name: campaign.name,
+          type: campaign.type,
+          status: campaign.status,
+          budget: campaign.budget != null ? String(campaign.budget) : "",
+          startDate: campaign.startDate ? campaign.startDate.slice(0, 10) : "",
+          endDate: campaign.endDate ? campaign.endDate.slice(0, 10) : "",
+          trackingNumber: campaign.trackingNumber ?? "",
+          notes: campaign.notes ?? "",
+        }
+      : { type: "google", status: "active" },
   });
 
   const close = () => {
@@ -85,12 +104,21 @@ function NewCampaignModal({
     if (data.trackingNumber) payload.trackingNumber = data.trackingNumber;
     if (data.notes) payload.notes = data.notes;
 
-    await createCampaign.mutateAsync(payload);
+    if (campaign) {
+      await updateCampaign.mutateAsync({ id: campaign.id, ...payload });
+    } else {
+      await createCampaign.mutateAsync(payload);
+    }
     close();
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={close} title="New Campaign" size="lg">
+    <Modal
+      isOpen={isOpen}
+      onClose={close}
+      title={isEditing ? "Edit Campaign" : "New Campaign"}
+      size="lg"
+    >
       <form
         onSubmit={(e) => void handleSubmit(onSubmit)(e)}
         className="space-y-4"
@@ -156,9 +184,13 @@ function NewCampaignModal({
           </Button>
           <Button
             type="submit"
-            loading={isSubmitting || createCampaign.isPending}
+            loading={
+              isSubmitting ||
+              createCampaign.isPending ||
+              updateCampaign.isPending
+            }
           >
-            Create Campaign
+            {isEditing ? "Save Changes" : "Create Campaign"}
           </Button>
         </div>
       </form>
@@ -168,9 +200,19 @@ function NewCampaignModal({
 
 function CampaignsTab() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Campaign | null>(null);
   const { data, isLoading } = useCampaigns();
   const { getLabel: getCampaignTypeLabel } = useLookup("campaignType");
   const campaigns = data ?? [];
+
+  const openNew = () => {
+    setEditing(null);
+    setIsModalOpen(true);
+  };
+  const openEdit = (c: Campaign) => {
+    setEditing(c);
+    setIsModalOpen(true);
+  };
 
   if (isLoading) return <PageSpinner />;
 
@@ -181,9 +223,7 @@ function CampaignsTab() {
         <Button
           size="sm"
           icon={<PlusIcon className="h-4 w-4" />}
-          onClick={() => {
-            setIsModalOpen(true);
-          }}
+          onClick={openNew}
         >
           New Campaign
         </Button>
@@ -194,9 +234,7 @@ function CampaignsTab() {
           description="Track your marketing campaigns and their performance."
           action={{
             label: "New Campaign",
-            onClick: () => {
-              setIsModalOpen(true);
-            },
+            onClick: openNew,
           }}
         />
       ) : (
@@ -226,9 +264,20 @@ function CampaignsTab() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {campaigns.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="py-3.5 px-5 font-medium text-gray-900">
-                    {c.name}
+                <tr
+                  key={c.id}
+                  onClick={() => {
+                    openEdit(c);
+                  }}
+                  className="hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  <td className="py-3.5 px-5">
+                    <p className="font-medium text-gray-900">{c.name}</p>
+                    {c.notes ? (
+                      <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[260px]">
+                        {c.notes}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="py-3.5 px-3 text-gray-600 text-xs">
                     {getCampaignTypeLabel(c.type)}
@@ -252,8 +301,10 @@ function CampaignsTab() {
         </div>
       )}
 
-      <NewCampaignModal
+      <CampaignModal
+        key={editing?.id ?? "new"}
         isOpen={isModalOpen}
+        campaign={editing}
         onClose={() => {
           setIsModalOpen(false);
         }}
