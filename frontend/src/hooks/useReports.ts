@@ -50,7 +50,6 @@ export function useTechniciansReport() {
             name: string;
             jobsCompleted: number;
             revenue: number;
-            avgJobsPerWeek: number;
           }[]
         >
       >("/reports/technicians");

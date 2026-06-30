@@ -1,4 +1,19 @@
-const prisma = require('../config/database');
+const prisma = require("../config/database");
+
+const MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 const revenue = async (req, res) => {
   try {
@@ -8,7 +23,7 @@ const revenue = async (req, res) => {
     const payments = await prisma.payment.findMany({
       where: {
         createdAt: { gte: twelveMonthsAgo },
-        status: 'completed',
+        status: "completed",
       },
       select: { amount: true, createdAt: true, invoiceId: true },
     });
@@ -31,26 +46,26 @@ const revenue = async (req, res) => {
     });
 
     const result = Object.values(grouped)
+      .sort((a, b) => a.year - b.year || a.month - b.month)
       .map((g) => ({
         year: g.year,
-        month: g.month,
+        month: MONTH_LABELS[g.month - 1],
         revenue: Math.round(g.revenue * 100) / 100,
         invoiceCount: g.invoices.size,
-      }))
-      .sort((a, b) => a.year - b.year || a.month - b.month);
+      }));
 
     return res.json({ success: true, data: result });
   } catch (err) {
-    console.error('reports.revenue error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("reports.revenue error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
 const jobs = async (req, res) => {
   try {
     const [byStatus, byType, allJobs] = await Promise.all([
-      prisma.job.groupBy({ by: ['status'], _count: { id: true } }),
-      prisma.job.groupBy({ by: ['type'], _count: { id: true } }),
+      prisma.job.groupBy({ by: ["status"], _count: { id: true } }),
+      prisma.job.groupBy({ by: ["type"], _count: { id: true } }),
       prisma.job.findMany({
         select: {
           status: true,
@@ -62,42 +77,49 @@ const jobs = async (req, res) => {
       }),
     ]);
 
-    // Average duration for completed jobs
+    // Average duration (in hours) for completed jobs
     const completed = allJobs.filter(
-      (j) => j.status === 'completed' && j.actualStart && j.actualEnd
+      (j) => j.status === "completed" && j.actualStart && j.actualEnd,
     );
+    const cancelled = allJobs.filter((j) => j.status === "cancelled").length;
     const durations = completed.map(
-      (j) => (new Date(j.actualEnd) - new Date(j.actualStart)) / 60000
+      (j) => (new Date(j.actualEnd) - new Date(j.actualStart)) / 60000,
     );
-    const avgDuration =
+    const avgDurationHours =
       durations.length > 0
-        ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+        ? Math.round(
+            (durations.reduce((a, b) => a + b, 0) / durations.length / 60) * 10,
+          ) / 10
         : 0;
 
     // Count by business unit
     const buMap = {};
     allJobs.forEach((j) => {
-      const bu = j.businessUnit || 'Unassigned';
+      const bu = j.businessUnit || "Unassigned";
       buMap[bu] = (buMap[bu] || 0) + 1;
     });
 
     return res.json({
       success: true,
       data: {
-        byStatus: byStatus.map((s) => ({ status: s.status, count: s._count.id })),
+        total: allJobs.length,
+        completed: completed.length,
+        cancelled,
+        byStatus: byStatus.map((s) => ({
+          status: s.status,
+          count: s._count.id,
+        })),
         byType: byType.map((t) => ({ type: t.type, count: t._count.id })),
         byBusinessUnit: Object.entries(buMap).map(([businessUnit, count]) => ({
           businessUnit,
           count,
         })),
-        averageDurationMinutes: avgDuration,
-        totalJobs: allJobs.length,
-        completedJobs: completed.length,
+        avgDuration: avgDurationHours,
       },
     });
   } catch (err) {
-    console.error('reports.jobs error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("reports.jobs error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -107,12 +129,12 @@ const technicians = async (req, res) => {
       include: {
         user: { select: { firstName: true, lastName: true, isActive: true } },
         jobs: {
-          where: { job: { status: 'completed' } },
+          where: { job: { status: "completed" } },
           include: {
             job: {
               include: {
                 invoices: {
-                  where: { status: { in: ['paid', 'sent'] } },
+                  where: { status: { in: ["paid", "sent"] } },
                   select: { total: true },
                 },
               },
@@ -129,21 +151,21 @@ const technicians = async (req, res) => {
       }, 0);
 
       return {
-        id: tech.id,
+        technicianId: tech.id,
         employeeId: tech.employeeId,
         name: `${tech.user.firstName} ${tech.user.lastName}`,
         isActive: tech.user.isActive,
-        completedJobs,
+        jobsCompleted: completedJobs,
         revenue: Math.round(revenue * 100) / 100,
       };
     });
 
-    data.sort((a, b) => b.completedJobs - a.completedJobs);
+    data.sort((a, b) => b.jobsCompleted - a.jobsCompleted);
 
     return res.json({ success: true, data });
   } catch (err) {
-    console.error('reports.technicians error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("reports.technicians error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -154,7 +176,7 @@ const customers = async (req, res) => {
       include: {
         _count: { select: { jobs: true } },
         invoices: {
-          where: { status: 'paid' },
+          where: { status: "paid" },
           select: { total: true },
         },
       },
@@ -165,32 +187,45 @@ const customers = async (req, res) => {
       customerNumber: c.customerNumber,
       name: c.companyName || `${c.firstName} ${c.lastName}`,
       type: c.type,
-      totalRevenue: Math.round(c.invoices.reduce((s, i) => s + i.total, 0) * 100) / 100,
+      totalRevenue:
+        Math.round(c.invoices.reduce((s, i) => s + i.total, 0) * 100) / 100,
       jobCount: c._count.jobs,
       isReturning: c._count.jobs >= 2,
     }));
 
-    const top10 = [...withRevenue]
+    const topCustomers = [...withRevenue]
       .sort((a, b) => b.totalRevenue - a.totalRevenue)
-      .slice(0, 10);
+      .slice(0, 10)
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        jobs: c.jobCount,
+        revenue: c.totalRevenue,
+      }));
 
-    const newCustomers = withRevenue.filter((c) => c.jobCount === 1).length;
-    const returningCustomers = withRevenue.filter((c) => c.jobCount >= 2).length;
-    const noJobCustomers = withRevenue.filter((c) => c.jobCount === 0).length;
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const newThisMonth = allCustomers.filter(
+      (c) => new Date(c.createdAt) >= startOfMonth,
+    ).length;
+    const totalRevenue = withRevenue.reduce((s, c) => s + c.totalRevenue, 0);
+    const avgRevenue =
+      allCustomers.length > 0
+        ? Math.round((totalRevenue / allCustomers.length) * 100) / 100
+        : 0;
 
     return res.json({
       success: true,
       data: {
-        top10,
-        newCustomers,
-        returningCustomers,
-        noJobCustomers,
-        totalCustomers: allCustomers.length,
+        total: allCustomers.length,
+        newThisMonth,
+        avgRevenue,
+        topCustomers,
       },
     });
   } catch (err) {
-    console.error('reports.customers error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("reports.customers error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 

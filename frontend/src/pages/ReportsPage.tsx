@@ -259,15 +259,12 @@ function TechniciansTab() {
             <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
               Revenue Generated
             </th>
-            <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
-              Avg Jobs/Week
-            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
           {techs.length === 0 ? (
             <tr>
-              <td colSpan={4} className="py-8 text-center text-gray-400">
+              <td colSpan={3} className="py-8 text-center text-gray-400">
                 No data available
               </td>
             </tr>
@@ -280,9 +277,6 @@ function TechniciansTab() {
                 </td>
                 <td className="py-3 text-right font-medium text-gray-900">
                   {formatCurrency(t.revenue)}
-                </td>
-                <td className="py-3 text-right text-gray-600">
-                  {t.avgJobsPerWeek.toFixed(1)}
                 </td>
               </tr>
             ))
