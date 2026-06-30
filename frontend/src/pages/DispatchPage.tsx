@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { format, addDays, subDays, parseISO } from "date-fns";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CalendarDaysIcon,
   XMarkIcon,
+  PlusIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import {
@@ -242,6 +244,7 @@ function UnassignedPanel({ jobs, onJobClick }: UnassignedPanelProps) {
 }
 
 export default function DispatchPage() {
+  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
@@ -293,23 +296,13 @@ export default function DispatchPage() {
 
     if (target === UNASSIGNED_ID) {
       if (fromTech) {
-        reassign.mutate({
-          jobId,
-          fromTechnicianId: fromTech,
-          toTechnicianId: null,
-          date: dateStr,
-        });
+        reassign.mutate({ jobId, toTechnicianId: null, date: dateStr });
       }
       return;
     }
 
-    if (target === fromTech) return; // dropped back on the same technician
-    reassign.mutate({
-      jobId,
-      fromTechnicianId: fromTech,
-      toTechnicianId: target,
-      date: dateStr,
-    });
+    if (target === fromTech) return; // already on this technician
+    reassign.mutate({ jobId, toTechnicianId: target, date: dateStr });
   };
 
   const assignedTechIds = new Set(
@@ -345,14 +338,25 @@ export default function DispatchPage() {
             <ChevronRightIcon className="h-4 w-4" />
           </button>
         </div>
-        <button
-          onClick={() => {
-            setCurrentDate(new Date());
-          }}
-          className="px-3 py-1.5 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          Today
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setCurrentDate(new Date());
+            }}
+            className="px-3 py-1.5 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Today
+          </button>
+          <Button
+            size="sm"
+            icon={<PlusIcon className="h-4 w-4" />}
+            onClick={() => {
+              navigate("/jobs/new");
+            }}
+          >
+            New Job
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -544,7 +548,6 @@ export default function DispatchPage() {
                         onClick={() => {
                           reassign.mutate({
                             jobId: selectedJob.id,
-                            fromTechnicianId: jt.technicianId,
                             toTechnicianId: null,
                             date: dateStr,
                           });

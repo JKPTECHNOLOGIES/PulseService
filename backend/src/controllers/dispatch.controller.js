@@ -102,26 +102,22 @@ const getBoard = async (req, res) => {
 
 const reassign = async (req, res) => {
   try {
-    const { jobId, fromTechnicianId, toTechnicianId } = req.body;
+    const { jobId, toTechnicianId } = req.body;
     if (!jobId) {
       return res
         .status(400)
         .json({ success: false, error: "jobId is required" });
     }
 
-    // Remove from current technician if provided
-    if (fromTechnicianId) {
-      await prisma.jobTechnician.deleteMany({
-        where: { jobId, technicianId: fromTechnicianId },
-      });
-    }
+    // The dispatch board treats a job as assigned to exactly ONE technician.
+    // Clear every existing assignment first so a move never leaves the job
+    // duplicated across rows (and any pre-existing duplicates self-heal on the
+    // next drag). If toTechnicianId is omitted/null the job becomes unassigned.
+    await prisma.jobTechnician.deleteMany({ where: { jobId } });
 
-    // Assign to new technician if provided
     if (toTechnicianId) {
-      await prisma.jobTechnician.upsert({
-        where: { jobId_technicianId: { jobId, technicianId: toTechnicianId } },
-        create: { jobId, technicianId: toTechnicianId, isLead: true },
-        update: {},
+      await prisma.jobTechnician.create({
+        data: { jobId, technicianId: toTechnicianId, isLead: true },
       });
     }
 

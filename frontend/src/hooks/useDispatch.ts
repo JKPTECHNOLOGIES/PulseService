@@ -24,8 +24,6 @@ export function useDispatchBoard(date: string) {
 
 interface ReassignVars {
   jobId: string;
-  /** Technician to remove the job from (omit/null when the job is unassigned). */
-  fromTechnicianId?: string | null;
   /** Technician to assign the job to (omit/null to unassign). */
   toTechnicianId?: string | null;
   /** Board date, used only for cache invalidation. */
@@ -33,18 +31,16 @@ interface ReassignVars {
 }
 
 /**
- * Moves a job between technicians (or assigns/unassigns it) via the dispatch
- * endpoint, which removes the job from `fromTechnicianId` and/or assigns it to
- * `toTechnicianId`. This avoids the old bug where reassigning only ADDED a
- * technician, leaving the job duplicated across rows.
+ * Assigns a job to exactly one technician, or unassigns it (toTechnicianId
+ * null). The backend clears all existing assignments first, so a job never
+ * ends up duplicated across technician rows.
  */
 export function useReassignDispatch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ jobId, fromTechnicianId, toTechnicianId }: ReassignVars) =>
+    mutationFn: ({ jobId, toTechnicianId }: ReassignVars) =>
       api.post<ApiResponse<Job>>("/dispatch/reassign", {
         jobId,
-        fromTechnicianId: fromTechnicianId ?? undefined,
         toTechnicianId: toTechnicianId ?? undefined,
       }),
     onSuccess: (_data, vars) => {
