@@ -1,6 +1,22 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, addDays, subDays, parseISO } from "date-fns";
+import {
+  format,
+  addDays,
+  subDays,
+  addWeeks,
+  subWeeks,
+  addMonths,
+  subMonths,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameDay,
+  isSameMonth,
+  parseISO,
+} from "date-fns";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -36,7 +52,7 @@ import { useLookup } from "../hooks/useMetadata";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency } from "../utils/formatters";
-import { Job } from "../types";
+import { Job, Technician } from "../types";
 
 const HOUR_START = 7;
 const HOUR_END = 19;
@@ -425,6 +441,269 @@ function ScheduleEditor({ job, saving, onSave }: ScheduleEditorProps) {
   );
 }
 
+const VIEW_MODES = ["day", "week", "month"] as const;
+type ViewMode = (typeof VIEW_MODES)[number];
+
+// Move a job to a different calendar day, preserving its time-of-day and
+// duration (defaults to 9:00 for one hour if it had no time).
+function moveToDay(
+  job: Job,
+  dayStr: string,
+): { scheduledStart: string; scheduledEnd: string } {
+  const base = job.scheduledStart ? new Date(job.scheduledStart) : null;
+  const [y, m, d] = dayStr.split("-").map(Number);
+  const start = new Date(
+    y,
+    m - 1,
+    d,
+    base ? base.getHours() : 9,
+    base ? base.getMinutes() : 0,
+    0,
+    0,
+  );
+  const duration =
+    job.scheduledStart && job.scheduledEnd
+      ? new Date(job.scheduledEnd).getTime() -
+        new Date(job.scheduledStart).getTime()
+      : 60 * 60000;
+  return {
+    scheduledStart: start.toISOString(),
+    scheduledEnd: new Date(start.getTime() + duration).toISOString(),
+  };
+}
+
+// Small draggable job chip for the Week/Month grids (date/tech buckets,
+// no time axis).
+function JobChip({ job, onClick }: { job: Job; onClick: () => void }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: job.id,
+  });
+  const { getColor } = useLookup("jobStatus");
+  const color = solidStatusColor(getColor(job.status));
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      onClick={onClick}
+      className={clsx(
+        "rounded text-white px-1.5 py-1 cursor-pointer select-none shadow-sm",
+        color,
+        isDragging ? "opacity-50" : "hover:opacity-90",
+      )}
+      style={{ fontSize: "10px", lineHeight: "1.3" }}
+    >
+      <div className="font-semibold truncate">#{job.jobNumber}</div>
+      <div className="truncate opacity-90">
+        {job.customer
+          ? `${job.customer.firstName} ${job.customer.lastName}`
+          : ""}
+      </div>
+    </div>
+  );
+}
+
+interface TechDayCellProps {
+  techId: string;
+  day: Date;
+  jobs: Job[];
+  onJobClick: (job: Job) => void;
+}
+
+function TechDayCell({ techId, day, jobs, onJobClick }: TechDayCellProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `week:${techId}:${format(day, "yyyy-MM-dd")}`,
+  });
+  const dayJobs = jobs.filter(
+    (j) => j.scheduledStart && isSameDay(parseISO(j.scheduledStart), day),
+  );
+  return (
+    <div
+      ref={setNodeRef}
+      className={clsx(
+        "flex-1 border-l border-gray-100 p-1.5 space-y-1.5 transition-colors",
+        isOver && "bg-primary-50",
+      )}
+      style={{ minWidth: 120, minHeight: ROW_HEIGHT }}
+    >
+      {dayJobs.map((job) => (
+        <JobChip
+          key={job.id}
+          job={job}
+          onClick={() => {
+            onJobClick(job);
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+interface WeekGridProps {
+  techRows: (Technician & { jobs: Job[] })[];
+  days: Date[];
+  onJobClick: (job: Job) => void;
+}
+
+function WeekGrid({ techRows, days, onJobClick }: WeekGridProps) {
+  return (
+    <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto">
+      <div className="flex sticky top-0 z-10 bg-white border-b border-gray-200">
+        <div
+          className="shrink-0 border-r border-gray-200 flex items-center px-4 py-3"
+          style={{ width: 180 }}
+        >
+          <span className="text-xs font-semibold text-gray-500 uppercase">
+            Technician
+          </span>
+        </div>
+        {days.map((d) => (
+          <div
+            key={d.toISOString()}
+            className="flex-1 border-l border-gray-100 px-2 py-3 text-center"
+            style={{ minWidth: 120 }}
+          >
+            <span className="text-xs text-gray-500 font-medium">
+              {format(d, "EEE d")}
+            </span>
+          </div>
+        ))}
+      </div>
+      {techRows.length === 0 ? (
+        <div className="py-16 text-center text-gray-400 text-sm">
+          No technicians found.
+        </div>
+      ) : (
+        techRows.map((techRow) => (
+          <div key={techRow.id} className="flex border-b border-gray-100">
+            <div
+              className="shrink-0 border-r border-gray-200 flex items-center gap-3 px-4 bg-gray-50"
+              style={{ width: 180, minHeight: ROW_HEIGHT }}
+            >
+              <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+                <span className="text-xs font-semibold text-primary-700">
+                  {techRow.user.firstName.charAt(0)}
+                  {techRow.user.lastName.charAt(0)}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-gray-900 truncate">
+                  {techRow.user.firstName} {techRow.user.lastName}
+                </p>
+                <p
+                  className={clsx(
+                    "text-xs",
+                    techRow.isAvailable ? "text-green-600" : "text-gray-400",
+                  )}
+                >
+                  {techRow.isAvailable ? "Available" : "Busy"}
+                </p>
+              </div>
+            </div>
+            {days.map((d) => (
+              <TechDayCell
+                key={d.toISOString()}
+                techId={techRow.id}
+                day={d}
+                jobs={techRow.jobs}
+                onJobClick={onJobClick}
+              />
+            ))}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+interface MonthDayCellProps {
+  day: Date;
+  jobs: Job[];
+  inMonth: boolean;
+  onJobClick: (job: Job) => void;
+}
+
+function MonthDayCell({ day, jobs, inMonth, onJobClick }: MonthDayCellProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `month:${format(day, "yyyy-MM-dd")}`,
+  });
+  const dayJobs = jobs.filter(
+    (j) => j.scheduledStart && isSameDay(parseISO(j.scheduledStart), day),
+  );
+  return (
+    <div
+      ref={setNodeRef}
+      className={clsx(
+        "border-l border-t border-gray-100 p-1.5 flex flex-col gap-1 overflow-hidden",
+        !inMonth && "bg-gray-50",
+        isOver && "bg-primary-50",
+      )}
+      style={{ minHeight: 104 }}
+    >
+      <span
+        className={clsx(
+          "text-xs font-medium",
+          inMonth ? "text-gray-500" : "text-gray-300",
+        )}
+      >
+        {format(day, "d")}
+      </span>
+      <div className="space-y-1 overflow-y-auto">
+        {dayJobs.slice(0, 4).map((job) => (
+          <JobChip
+            key={job.id}
+            job={job}
+            onClick={() => {
+              onJobClick(job);
+            }}
+          />
+        ))}
+        {dayJobs.length > 4 && (
+          <span className="text-[10px] text-gray-400">
+            +{dayJobs.length - 4} more
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface MonthGridProps {
+  days: Date[];
+  jobs: Job[];
+  currentMonth: Date;
+  onJobClick: (job: Job) => void;
+}
+
+function MonthGrid({ days, jobs, currentMonth, onJobClick }: MonthGridProps) {
+  const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return (
+    <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto flex flex-col">
+      <div className="grid grid-cols-7 border-b border-gray-200">
+        {labels.map((l) => (
+          <div
+            key={l}
+            className="px-2 py-2 text-center text-xs font-semibold text-gray-500 uppercase"
+          >
+            {l}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 flex-1">
+        {days.map((day) => (
+          <MonthDayCell
+            key={day.toISOString()}
+            day={day}
+            jobs={jobs}
+            inMonth={isSameMonth(day, currentMonth)}
+            onJobClick={onJobClick}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function DispatchPage() {
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -437,9 +716,34 @@ export default function DispatchPage() {
     jobId: string;
     jobNumber: string;
   } | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("day");
   const dateStr = format(currentDate, "yyyy-MM-dd");
 
-  const { data: boardData, isLoading } = useDispatchBoard(dateStr);
+  // Date range to load + render, based on the active view mode.
+  const rangeStart =
+    viewMode === "day"
+      ? currentDate
+      : viewMode === "week"
+        ? startOfWeek(currentDate)
+        : startOfWeek(startOfMonth(currentDate));
+  const rangeEnd =
+    viewMode === "day"
+      ? currentDate
+      : viewMode === "week"
+        ? endOfWeek(currentDate)
+        : endOfWeek(endOfMonth(currentDate));
+  const fromStr = format(rangeStart, "yyyy-MM-dd");
+  const toStr = format(rangeEnd, "yyyy-MM-dd");
+  const weekDays = eachDayOfInterval({
+    start: startOfWeek(currentDate),
+    end: endOfWeek(currentDate),
+  });
+  const monthDays = eachDayOfInterval({
+    start: startOfWeek(startOfMonth(currentDate)),
+    end: endOfWeek(endOfMonth(currentDate)),
+  });
+
+  const { data: boardData, isLoading } = useDispatchBoard(fromStr, toStr);
   const { data: allJobsData } = useJobs({ status: "new,scheduled", limit: 50 });
   const { data: techsData } = useTechnicians();
   const reassign = useReassignDispatch();
@@ -517,6 +821,27 @@ export default function DispatchPage() {
       return;
     }
 
+    // Week view: dropped on a (technician, day) cell -> assign that
+    // technician and move the job to that day (keeping its time-of-day).
+    if (target.startsWith("week:")) {
+      const [, techId, day] = target.split(":");
+      if (job && day) {
+        reschedule.mutate({ jobId, ...moveToDay(job, day), date: dateStr });
+        reassign.mutate({ jobId, toTechnicianId: techId, date: dateStr });
+      }
+      return;
+    }
+
+    // Month view: dropped on a day cell -> move the job to that day
+    // (keeping its time-of-day and technician).
+    if (target.startsWith("month:")) {
+      const [, day] = target.split(":");
+      if (job && day) {
+        reschedule.mutate({ jobId, ...moveToDay(job, day), date: dateStr });
+      }
+      return;
+    }
+
     // An undated job dropped on a technician row gets scheduled on the
     // board's date at the dropped time, and assigned to that technician.
     if (job && !job.scheduledStart) {
@@ -545,35 +870,72 @@ export default function DispatchPage() {
   );
   const availableTechs = allTechs.filter((t) => !assignedTechIds.has(t.id));
 
+  const stepBack = () => {
+    setCurrentDate((d) =>
+      viewMode === "day"
+        ? subDays(d, 1)
+        : viewMode === "week"
+          ? subWeeks(d, 1)
+          : subMonths(d, 1),
+    );
+  };
+  const stepForward = () => {
+    setCurrentDate((d) =>
+      viewMode === "day"
+        ? addDays(d, 1)
+        : viewMode === "week"
+          ? addWeeks(d, 1)
+          : addMonths(d, 1),
+    );
+  };
+  const rangeLabel =
+    viewMode === "day"
+      ? format(currentDate, "EEEE, MMMM d, yyyy")
+      : viewMode === "week"
+        ? `${format(startOfWeek(currentDate), "MMM d")} - ${format(endOfWeek(currentDate), "MMM d, yyyy")}`
+        : format(currentDate, "MMMM yyyy");
+
   return (
     <div className="flex flex-col h-full gap-4">
       {/* Date Navigation */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => {
-              setCurrentDate(subDays(currentDate, 1));
-            }}
+            onClick={stepBack}
             className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"
           >
             <ChevronLeftIcon className="h-4 w-4" />
           </button>
           <div className="flex items-center gap-2">
             <CalendarDaysIcon className="h-4 w-4 text-gray-400" />
-            <span className="font-semibold text-gray-900">
-              {format(currentDate, "EEEE, MMMM d, yyyy")}
-            </span>
+            <span className="font-semibold text-gray-900">{rangeLabel}</span>
           </div>
           <button
-            onClick={() => {
-              setCurrentDate(addDays(currentDate, 1));
-            }}
+            onClick={stepForward}
             className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"
           >
             <ChevronRightIcon className="h-4 w-4" />
           </button>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex bg-gray-100 rounded-lg p-0.5">
+            {VIEW_MODES.map((m) => (
+              <button
+                key={m}
+                onClick={() => {
+                  setViewMode(m);
+                }}
+                className={clsx(
+                  "px-3 py-1.5 text-xs font-medium rounded-md capitalize transition-colors",
+                  viewMode === m
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700",
+                )}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => {
               setCurrentDate(new Date());
@@ -603,97 +965,120 @@ export default function DispatchPage() {
           onDragEnd={handleDragEnd}
         >
           <div className="flex gap-4 flex-1 min-h-0">
-            {/* Board */}
-            <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto">
-              {/* Header row: Technician label + time slots */}
-              <div className="flex sticky top-0 z-10 bg-white border-b border-gray-200">
-                <div
-                  className="shrink-0 border-r border-gray-200 flex items-center px-4 py-3"
-                  style={{ width: 180 }}
-                >
-                  <span className="text-xs font-semibold text-gray-500 uppercase">
-                    Technician
-                  </span>
-                </div>
-                <div className="flex">
-                  {HOURS.map((h) => (
-                    <div
-                      key={h}
-                      className="border-l border-gray-100 flex items-center justify-start px-2 py-3"
-                      style={{ width: HOUR_WIDTH, minWidth: HOUR_WIDTH }}
-                    >
-                      <span className="text-xs text-gray-400 font-medium">
-                        {h === 12
-                          ? "12pm"
-                          : h > 12
-                            ? `${String(h - 12)}pm`
-                            : `${String(h)}am`}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Tech rows */}
-              {techRows.length === 0 ? (
-                <div className="py-16 text-center text-gray-400 text-sm">
-                  No technicians found. Add technicians to see the dispatch
-                  board.
-                </div>
-              ) : (
-                techRows.map((techRow) => (
+            {/* Day view: technician rows x hourly columns */}
+            {viewMode === "day" && (
+              <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto">
+                {/* Header row: Technician label + time slots */}
+                <div className="flex sticky top-0 z-10 bg-white border-b border-gray-200">
                   <div
-                    key={techRow.id}
-                    className="flex border-b border-gray-100"
+                    className="shrink-0 border-r border-gray-200 flex items-center px-4 py-3"
+                    style={{ width: 180 }}
                   >
-                    {/* Tech info */}
-                    <div
-                      className="shrink-0 border-r border-gray-200 flex items-center gap-3 px-4 bg-gray-50"
-                      style={{ width: 180, minHeight: ROW_HEIGHT }}
-                    >
-                      <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-semibold text-primary-700">
-                          {techRow.user.firstName.charAt(0)}
-                          {techRow.user.lastName.charAt(0)}
+                    <span className="text-xs font-semibold text-gray-500 uppercase">
+                      Technician
+                    </span>
+                  </div>
+                  <div className="flex">
+                    {HOURS.map((h) => (
+                      <div
+                        key={h}
+                        className="border-l border-gray-100 flex items-center justify-start px-2 py-3"
+                        style={{ width: HOUR_WIDTH, minWidth: HOUR_WIDTH }}
+                      >
+                        <span className="text-xs text-gray-400 font-medium">
+                          {h === 12
+                            ? "12pm"
+                            : h > 12
+                              ? `${String(h - 12)}pm`
+                              : `${String(h)}am`}
                         </span>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-gray-900 truncate">
-                          {techRow.user.firstName} {techRow.user.lastName}
-                        </p>
-                        <p
-                          className={clsx(
-                            "text-xs",
-                            techRow.isAvailable
-                              ? "text-green-600"
-                              : "text-gray-400",
-                          )}
-                        >
-                          {techRow.isAvailable ? "Available" : "Busy"}
-                        </p>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tech rows */}
+                {techRows.length === 0 ? (
+                  <div className="py-16 text-center text-gray-400 text-sm">
+                    No technicians found. Add technicians to see the dispatch
+                    board.
+                  </div>
+                ) : (
+                  techRows.map((techRow) => (
+                    <div
+                      key={techRow.id}
+                      className="flex border-b border-gray-100"
+                    >
+                      {/* Tech info */}
+                      <div
+                        className="shrink-0 border-r border-gray-200 flex items-center gap-3 px-4 bg-gray-50"
+                        style={{ width: 180, minHeight: ROW_HEIGHT }}
+                      >
+                        <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+                          <span className="text-xs font-semibold text-primary-700">
+                            {techRow.user.firstName.charAt(0)}
+                            {techRow.user.lastName.charAt(0)}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-gray-900 truncate">
+                            {techRow.user.firstName} {techRow.user.lastName}
+                          </p>
+                          <p
+                            className={clsx(
+                              "text-xs",
+                              techRow.isAvailable
+                                ? "text-green-600"
+                                : "text-gray-400",
+                            )}
+                          >
+                            {techRow.isAvailable ? "Available" : "Busy"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Time grid */}
+                      <div
+                        className="relative flex-1"
+                        style={{
+                          minWidth: HOURS.length * HOUR_WIDTH,
+                          minHeight: ROW_HEIGHT,
+                        }}
+                      >
+                        <DroppableTechRow
+                          techId={techRow.id}
+                          jobs={techRow.jobs}
+                          onJobClick={(job) => {
+                            setSelectedJobId(job.id);
+                          }}
+                        />
                       </div>
                     </div>
+                  ))
+                )}
+              </div>
+            )}
 
-                    {/* Time grid */}
-                    <div
-                      className="relative flex-1"
-                      style={{
-                        minWidth: HOURS.length * HOUR_WIDTH,
-                        minHeight: ROW_HEIGHT,
-                      }}
-                    >
-                      <DroppableTechRow
-                        techId={techRow.id}
-                        jobs={techRow.jobs}
-                        onJobClick={(job) => {
-                          setSelectedJobId(job.id);
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            {viewMode === "week" && (
+              <WeekGrid
+                techRows={techRows}
+                days={weekDays}
+                onJobClick={(job) => {
+                  setSelectedJobId(job.id);
+                }}
+              />
+            )}
+
+            {viewMode === "month" && (
+              <MonthGrid
+                days={monthDays}
+                jobs={techRows.flatMap((t) => t.jobs)}
+                currentMonth={currentDate}
+                onJobClick={(job) => {
+                  setSelectedJobId(job.id);
+                }}
+              />
+            )}
 
             {/* Unassigned panel (drop here to unassign) */}
             <UnassignedPanel
