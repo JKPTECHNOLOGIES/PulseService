@@ -1,8 +1,9 @@
-const prisma = require('../config/database');
+const prisma = require("../config/database");
+const { csvToArray } = require("../utils/helpers");
 
 const getBoard = async (req, res) => {
   try {
-    const dateStr = req.query.date || new Date().toISOString().split('T')[0];
+    const dateStr = req.query.date || new Date().toISOString().split("T")[0];
     const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
     const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
 
@@ -10,36 +11,63 @@ const getBoard = async (req, res) => {
       prisma.job.findMany({
         where: {
           scheduledStart: { gte: startOfDay, lte: endOfDay },
-          status: { notIn: ['cancelled'] },
+          status: { notIn: ["cancelled"] },
         },
         include: {
           customer: {
-            select: { id: true, firstName: true, lastName: true, phone: true, companyName: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              companyName: true,
+            },
           },
           location: {
-            select: { id: true, address: true, city: true, state: true, zip: true, lat: true, lng: true },
+            select: {
+              id: true,
+              address: true,
+              city: true,
+              state: true,
+              zip: true,
+              lat: true,
+              lng: true,
+            },
           },
           technicians: {
             include: {
               technician: {
                 include: {
-                  user: { select: { id: true, firstName: true, lastName: true, avatar: true } },
+                  user: {
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
+                      avatar: true,
+                    },
+                  },
                 },
               },
             },
           },
         },
-        orderBy: { scheduledStart: 'asc' },
+        orderBy: { scheduledStart: "asc" },
       }),
       prisma.technician.findMany({
         where: { user: { isActive: true } },
         include: {
           user: {
-            select: { id: true, firstName: true, lastName: true, avatar: true, isActive: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatar: true,
+              isActive: true,
+            },
           },
           vehicle: { select: { id: true, name: true, color: true } },
         },
-        orderBy: { employeeId: 'asc' },
+        orderBy: { employeeId: "asc" },
       }),
     ]);
 
@@ -49,13 +77,17 @@ const getBoard = async (req, res) => {
       id: tech.id,
       userId: tech.userId,
       employeeId: tech.employeeId,
+      user: tech.user,
       name: `${tech.user.firstName} ${tech.user.lastName}`,
       avatar: tech.user.avatar,
+      skills: csvToArray(tech.skills),
       isAvailable: tech.isAvailable,
       currentLat: tech.currentLat,
       currentLng: tech.currentLng,
       vehicle: tech.vehicle,
-      jobs: jobs.filter((j) => j.technicians.some((t) => t.technicianId === tech.id)),
+      jobs: jobs.filter((j) =>
+        j.technicians.some((t) => t.technicianId === tech.id),
+      ),
     }));
 
     return res.json({
@@ -63,8 +95,8 @@ const getBoard = async (req, res) => {
       data: { date: dateStr, technicians: techBoards, unassigned },
     });
   } catch (err) {
-    console.error('dispatch.getBoard error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("dispatch.getBoard error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -72,7 +104,9 @@ const reassign = async (req, res) => {
   try {
     const { jobId, fromTechnicianId, toTechnicianId } = req.body;
     if (!jobId) {
-      return res.status(400).json({ success: false, error: 'jobId is required' });
+      return res
+        .status(400)
+        .json({ success: false, error: "jobId is required" });
     }
 
     // Remove from current technician if provided
@@ -99,23 +133,25 @@ const reassign = async (req, res) => {
         technicians: {
           include: {
             technician: {
-              include: { user: { select: { id: true, firstName: true, lastName: true } } },
+              include: {
+                user: { select: { id: true, firstName: true, lastName: true } },
+              },
             },
           },
         },
       },
     });
 
-    const io = req.app.get('io');
+    const io = req.app.get("io");
     if (io && job?.scheduledStart) {
-      const date = new Date(job.scheduledStart).toISOString().split('T')[0];
-      io.to(`dispatch:${date}`).emit('dispatch:reassigned', { job });
+      const date = new Date(job.scheduledStart).toISOString().split("T")[0];
+      io.to(`dispatch:${date}`).emit("dispatch:reassigned", { job });
     }
 
     return res.json({ success: true, data: job });
   } catch (err) {
-    console.error('dispatch.reassign error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("dispatch.reassign error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 

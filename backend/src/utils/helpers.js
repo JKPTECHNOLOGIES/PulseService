@@ -19,6 +19,17 @@ function calculateTotals(lineItems, discountType, discountValue, taxRate) {
   return { subtotal, discount, taxAmount, total };
 }
 
+// Several Technician fields (skills, zones) are stored as comma-separated
+// strings but exposed to clients as arrays. This normalizes either form.
+function csvToArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return [];
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 function paginate(page = 1, limit = 20) {
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
@@ -41,6 +52,7 @@ function paginatedResponse(data, total, page, limit) {
 module.exports = {
   generateNumber,
   calculateTotals,
+  csvToArray,
   paginate,
   paginatedResponse,
 };
