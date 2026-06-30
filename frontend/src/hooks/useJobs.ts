@@ -38,6 +38,7 @@ export function useCreateJob() {
       api.post<ApiResponse<Job>>("/jobs", payload),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["jobs"] });
+      void qc.invalidateQueries({ queryKey: ["dispatch"] });
       toast.success("Job created successfully");
     },
     onError: (err: unknown) => {
@@ -54,6 +55,7 @@ export function useUpdateJob() {
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["jobs"] });
       void qc.invalidateQueries({ queryKey: ["job", vars.id] });
+      void qc.invalidateQueries({ queryKey: ["dispatch"] });
       toast.success("Job updated successfully");
     },
     onError: (err: unknown) => {
