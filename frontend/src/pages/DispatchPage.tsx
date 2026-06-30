@@ -32,6 +32,7 @@ import { useTechnicians } from "../hooks/useTechnicians";
 import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
+import { useLookup } from "../hooks/useMetadata";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency } from "../utils/formatters";
@@ -82,12 +83,13 @@ function shiftJobTime(
   };
 }
 
-const JOB_TYPE_COLORS: Record<string, string> = {
-  service: "bg-blue-500",
-  installation: "bg-green-500",
-  maintenance: "bg-yellow-500",
-  inspection: "bg-purple-500",
-};
+// Derive a solid card color from a DB-driven status badge color
+// (e.g. "bg-blue-100 text-blue-800" -> "bg-blue-500") so dispatch cards match
+// the job's status everywhere else in the app.
+function solidStatusColor(badge: string): string {
+  const match = /bg-([a-z]+)-\d+/.exec(badge);
+  return match ? `bg-${match[1]}-500` : "bg-gray-500";
+}
 
 function getJobPosition(job: Job): { left: number; width: number } | null {
   if (!job.scheduledStart) return null;
@@ -165,8 +167,8 @@ function JobCard({
     id: job.id,
     disabled: !draggable,
   });
-
-  const color = JOB_TYPE_COLORS[job.type] ?? "bg-gray-500";
+  const { getColor } = useLookup("jobStatus");
+  const color = solidStatusColor(getColor(job.status));
 
   if (compact) {
     return (
