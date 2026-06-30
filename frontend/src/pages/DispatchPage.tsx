@@ -429,6 +429,11 @@ export default function DispatchPage() {
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [assignTechId, setAssignTechId] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pendingClear, setPendingClear] = useState<{
+    type: "tech" | "date";
+    jobId: string;
+    jobNumber: string;
+  } | null>(null);
   const dateStr = format(currentDate, "yyyy-MM-dd");
 
   const { data: boardData, isLoading } = useDispatchBoard(dateStr);
@@ -491,18 +496,20 @@ export default function DispatchPage() {
       ...undatedJobs,
     ].find((j) => j.id === jobId);
 
-    // Drop on the Unassigned panel -> remove technician(s), keep the date.
+    // Drop on the Unassigned panel -> confirm, then remove technician(s)
+    // (the date is kept).
     if (target === UNASSIGNED_ID) {
       if (job?.technicians?.length) {
-        reassign.mutate({ jobId, toTechnicianId: null, date: dateStr });
+        setPendingClear({ type: "tech", jobId, jobNumber: job.jobNumber });
       }
       return;
     }
 
-    // Drop on the Undated panel -> clear the date (keep technicians).
+    // Drop on the Undated panel -> confirm, then clear the date
+    // (the technicians are kept).
     if (target === UNDATED_ID) {
       if (job?.scheduledStart) {
-        unschedule.mutate({ jobId, date: dateStr });
+        setPendingClear({ type: "date", jobId, jobNumber: job.jobNumber });
       }
       return;
     }
@@ -897,6 +904,41 @@ export default function DispatchPage() {
           />
         </>
       )}
+
+      {/* Confirm before a drag clears a job's technician or date. */}
+      <ConfirmDialog
+        isOpen={Boolean(pendingClear)}
+        onClose={() => {
+          setPendingClear(null);
+        }}
+        onConfirm={() => {
+          if (!pendingClear) return;
+          if (pendingClear.type === "tech") {
+            reassign.mutate({
+              jobId: pendingClear.jobId,
+              toTechnicianId: null,
+              date: dateStr,
+            });
+          } else {
+            unschedule.mutate({ jobId: pendingClear.jobId, date: dateStr });
+          }
+          setPendingClear(null);
+        }}
+        title={
+          pendingClear?.type === "tech"
+            ? "Remove technician"
+            : "Clear scheduled date"
+        }
+        message={
+          pendingClear?.type === "tech"
+            ? `Remove the technician from job #${pendingClear?.jobNumber ?? ""}? It will move to the Unassigned list; the date is kept.`
+            : `Clear the scheduled date for job #${pendingClear?.jobNumber ?? ""}? It will move to the Undated list; the technician is kept.`
+        }
+        confirmLabel={
+          pendingClear?.type === "tech" ? "Remove technician" : "Clear date"
+        }
+        loading={reassign.isPending || unschedule.isPending}
+      />
     </div>
   );
 }
