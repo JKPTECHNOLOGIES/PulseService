@@ -36,3 +36,10 @@ Thumbs.db
 # Misc
 *.local
 .cache/
+
+# Local docker overrides
+docker-compose.override.yml
+
+# Local dev helper scripts
+start-dev.bat
+stop-dev.bat
