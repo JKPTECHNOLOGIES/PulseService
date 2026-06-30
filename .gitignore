@@ -43,3 +43,5 @@ docker-compose.override.yml
 # Local dev helper scripts
 start-dev.bat
 stop-dev.bat
+rebuild.bat
+auto-deploy.bat
