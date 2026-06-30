@@ -15,6 +15,7 @@ router.get("/", c.list);
 router.post("/", validateJob, c.create);
 router.get("/:id", c.get);
 router.put("/:id", validateJob, c.update);
+router.delete("/:id", c["delete"]);
 router.patch(
   "/:id/status",
   validateLookups({ status: "jobStatus" }),

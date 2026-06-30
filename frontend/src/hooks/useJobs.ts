@@ -85,6 +85,21 @@ export function useUpdateJobStatus() {
   });
 }
 
+export function useDeleteJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<ApiResponse<null>>(`/jobs/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["jobs"] });
+      void qc.invalidateQueries({ queryKey: ["dispatch"] });
+      toast.success("Job deleted");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to delete job"));
+    },
+  });
+}
+
 export function useAssignTechnician() {
   const qc = useQueryClient();
   return useMutation({

@@ -7,6 +7,7 @@ import {
   CalendarDaysIcon,
   XMarkIcon,
   PlusIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import {
@@ -16,12 +17,20 @@ import {
   useDraggable,
   useDroppable,
   DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
 } from "@dnd-kit/core";
-import { useDispatchBoard, useReassignDispatch } from "../hooks/useDispatch";
-import { useJobs } from "../hooks/useJobs";
+import {
+  useDispatchBoard,
+  useReassignDispatch,
+  useRescheduleJob,
+} from "../hooks/useDispatch";
+import { useJobs, useDeleteJob } from "../hooks/useJobs";
 import { useTechnicians } from "../hooks/useTechnicians";
 import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency } from "../utils/formatters";
 import { Job } from "../types";
@@ -36,6 +45,39 @@ const HOURS = Array.from(
 );
 
 const UNASSIGNED_ID = "unassigned";
+// Ignore tiny horizontal jitter; snap reschedules to 15-minute increments.
+const MIN_SHIFT_PX = 12;
+const SNAP_MIN = 15;
+
+// Shift a job's scheduled time by a horizontal drag distance (in pixels),
+// snapped to 15 minutes and clamped within the board's visible hours.
+function shiftJobTime(
+  job: Job,
+  deltaX: number,
+): { scheduledStart: string; scheduledEnd: string } | null {
+  if (!job.scheduledStart) return null;
+  const start = parseISO(job.scheduledStart);
+  const duration = job.scheduledEnd
+    ? parseISO(job.scheduledEnd).getTime() - start.getTime()
+    : 60 * 60000;
+
+  const deltaMs = (deltaX / HOUR_WIDTH) * 60 * 60000;
+  const snapMs = SNAP_MIN * 60000;
+  let newStartMs = Math.round((start.getTime() + deltaMs) / snapMs) * snapMs;
+
+  const dayStart = new Date(start);
+  dayStart.setHours(HOUR_START, 0, 0, 0);
+  const dayEnd = new Date(start);
+  dayEnd.setHours(HOUR_END, 0, 0, 0);
+  const minMs = dayStart.getTime();
+  const maxMs = Math.max(minMs, dayEnd.getTime() - duration);
+  newStartMs = Math.min(Math.max(newStartMs, minMs), maxMs);
+
+  return {
+    scheduledStart: new Date(newStartMs).toISOString(),
+    scheduledEnd: new Date(newStartMs + duration).toISOString(),
+  };
+}
 
 const JOB_TYPE_COLORS: Record<string, string> = {
   service: "bg-blue-500",
@@ -249,12 +291,21 @@ export default function DispatchPage() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [assignTechId, setAssignTechId] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const dateStr = format(currentDate, "yyyy-MM-dd");
 
   const { data: boardData, isLoading } = useDispatchBoard(dateStr);
   const { data: allJobsData } = useJobs({ status: "new,scheduled", limit: 50 });
   const { data: techsData } = useTechnicians();
   const reassign = useReassignDispatch();
+  const reschedule = useRescheduleJob();
+  const deleteJob = useDeleteJob();
+
+  // Require an 8px drag before dragging starts, so a plain click still opens
+  // the job modal (where you can delete it) instead of being swallowed.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
 
   const board = boardData;
   const allTechs = techsData?.data ?? [];
@@ -288,21 +339,33 @@ export default function DispatchPage() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveJob(null);
-    const { active, over } = event;
+    const { active, over, delta } = event;
     if (!over) return;
     const jobId = String(active.id);
     const target = String(over.id);
-    const fromTech = findCurrentTech(jobId);
 
     if (target === UNASSIGNED_ID) {
-      if (fromTech) {
+      if (findCurrentTech(jobId)) {
         reassign.mutate({ jobId, toTechnicianId: null, date: dateStr });
       }
       return;
     }
 
-    if (target === fromTech) return; // already on this technician
-    reassign.mutate({ jobId, toTechnicianId: target, date: dateStr });
+    const fromTech = findCurrentTech(jobId);
+
+    // Horizontal drag along the timeline -> reschedule to a new time.
+    const job = [...techRows.flatMap((t) => t.jobs), ...unassignedJobs].find(
+      (j) => j.id === jobId,
+    );
+    if (job?.scheduledStart && Math.abs(delta.x) >= MIN_SHIFT_PX) {
+      const times = shiftJobTime(job, delta.x);
+      if (times) reschedule.mutate({ jobId, ...times, date: dateStr });
+    }
+
+    // Vertical drag to a different row -> reassign to that technician.
+    if (target !== fromTech) {
+      reassign.mutate({ jobId, toTechnicianId: target, date: dateStr });
+    }
   };
 
   const assignedTechIds = new Set(
@@ -362,7 +425,11 @@ export default function DispatchPage() {
       {isLoading ? (
         <PageSpinner />
       ) : (
-        <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
           <div className="flex gap-4 flex-1 min-h-0">
             {/* Board */}
             <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto">
@@ -482,126 +549,170 @@ export default function DispatchPage() {
 
       {/* Job detail + assignment modal */}
       {selectedJob && (
-        <Modal
-          isOpen={Boolean(selectedJob)}
-          onClose={() => {
-            setSelectedJobId(null);
-            setAssignTechId("");
-          }}
-          title={`Job #${selectedJob.jobNumber}`}
-          size="md"
-        >
-          <dl className="space-y-3">
-            <div>
-              <dt className="text-xs text-gray-500">Customer</dt>
-              <dd className="text-sm font-medium text-gray-900 mt-0.5">
-                {selectedJob.customer
-                  ? `${selectedJob.customer.firstName} ${selectedJob.customer.lastName}`
-                  : "-"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-gray-500">Summary</dt>
-              <dd className="text-sm text-gray-700 mt-0.5">
-                {selectedJob.summary}
-              </dd>
-            </div>
-            {selectedJob.location && (
+        <>
+          <Modal
+            isOpen={Boolean(selectedJob)}
+            onClose={() => {
+              setSelectedJobId(null);
+              setAssignTechId("");
+            }}
+            title={`Job #${selectedJob.jobNumber}`}
+            size="md"
+          >
+            <dl className="space-y-3">
               <div>
-                <dt className="text-xs text-gray-500">Location</dt>
-                <dd className="text-sm text-gray-700 mt-0.5">
-                  {selectedJob.location.address}, {selectedJob.location.city}
+                <dt className="text-xs text-gray-500">Customer</dt>
+                <dd className="text-sm font-medium text-gray-900 mt-0.5">
+                  {selectedJob.customer
+                    ? `${selectedJob.customer.firstName} ${selectedJob.customer.lastName}`
+                    : "-"}
                 </dd>
               </div>
-            )}
-            <div>
-              <dt className="text-xs text-gray-500">Amount</dt>
-              <dd className="text-sm font-bold text-gray-900 mt-0.5">
-                {formatCurrency(selectedJob.totalAmount)}
-              </dd>
-            </div>
-
-            {/* Assigned technicians (dispatches) */}
-            <div className="border-t border-gray-100 pt-3">
-              <dt className="text-xs text-gray-500 mb-2">
-                Assigned technicians
-              </dt>
-              <dd className="space-y-2">
-                {selectedJob.technicians &&
-                selectedJob.technicians.length > 0 ? (
-                  selectedJob.technicians.map((jt) => (
-                    <div
-                      key={jt.id}
-                      className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2"
-                    >
-                      <span className="text-sm text-gray-800">
-                        {jt.technician?.user
-                          ? `${jt.technician.user.firstName} ${jt.technician.user.lastName}`
-                          : "Technician"}
-                        {jt.isLead && (
-                          <span className="ml-2 text-[10px] uppercase font-semibold text-primary-600">
-                            Lead
-                          </span>
-                        )}
-                      </span>
-                      <button
-                        onClick={() => {
-                          reassign.mutate({
-                            jobId: selectedJob.id,
-                            toTechnicianId: null,
-                            date: dateStr,
-                          });
-                        }}
-                        disabled={reassign.isPending}
-                        title="Remove (unassign)"
-                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                      >
-                        <XMarkIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-400">
-                    Unassigned — assign a technician below.
-                  </p>
-                )}
-
-                {/* Assign a technician */}
-                <div className="flex gap-2 pt-1">
-                  <select
-                    value={assignTechId}
-                    onChange={(e) => {
-                      setAssignTechId(e.target.value);
-                    }}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
-                  >
-                    <option value="">Assign technician…</option>
-                    {availableTechs.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.user.firstName} {t.user.lastName}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    size="sm"
-                    disabled={!assignTechId || reassign.isPending}
-                    onClick={() => {
-                      if (!assignTechId) return;
-                      reassign.mutate({
-                        jobId: selectedJob.id,
-                        toTechnicianId: assignTechId,
-                        date: dateStr,
-                      });
-                      setAssignTechId("");
-                    }}
-                  >
-                    Assign
-                  </Button>
+              <div>
+                <dt className="text-xs text-gray-500">Summary</dt>
+                <dd className="text-sm text-gray-700 mt-0.5">
+                  {selectedJob.summary}
+                </dd>
+              </div>
+              {selectedJob.location && (
+                <div>
+                  <dt className="text-xs text-gray-500">Location</dt>
+                  <dd className="text-sm text-gray-700 mt-0.5">
+                    {selectedJob.location.address}, {selectedJob.location.city}
+                  </dd>
                 </div>
-              </dd>
-            </div>
-          </dl>
-        </Modal>
+              )}
+              <div>
+                <dt className="text-xs text-gray-500">Amount</dt>
+                <dd className="text-sm font-bold text-gray-900 mt-0.5">
+                  {formatCurrency(selectedJob.totalAmount)}
+                </dd>
+              </div>
+
+              {/* Assigned technicians (dispatches) */}
+              <div className="border-t border-gray-100 pt-3">
+                <dt className="text-xs text-gray-500 mb-2">
+                  Assigned technicians
+                </dt>
+                <dd className="space-y-2">
+                  {selectedJob.technicians &&
+                  selectedJob.technicians.length > 0 ? (
+                    selectedJob.technicians.map((jt) => (
+                      <div
+                        key={jt.id}
+                        className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2"
+                      >
+                        <span className="text-sm text-gray-800">
+                          {jt.technician?.user
+                            ? `${jt.technician.user.firstName} ${jt.technician.user.lastName}`
+                            : "Technician"}
+                          {jt.isLead && (
+                            <span className="ml-2 text-[10px] uppercase font-semibold text-primary-600">
+                              Lead
+                            </span>
+                          )}
+                        </span>
+                        <button
+                          onClick={() => {
+                            reassign.mutate({
+                              jobId: selectedJob.id,
+                              toTechnicianId: null,
+                              date: dateStr,
+                            });
+                          }}
+                          disabled={reassign.isPending}
+                          title="Remove (unassign)"
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                        >
+                          <XMarkIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-400">
+                      Unassigned — assign a technician below.
+                    </p>
+                  )}
+
+                  {/* Assign a technician */}
+                  <div className="flex gap-2 pt-1">
+                    <select
+                      value={assignTechId}
+                      onChange={(e) => {
+                        setAssignTechId(e.target.value);
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                    >
+                      <option value="">Assign technician…</option>
+                      {availableTechs.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.user.firstName} {t.user.lastName}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      size="sm"
+                      disabled={!assignTechId || reassign.isPending}
+                      onClick={() => {
+                        if (!assignTechId) return;
+                        reassign.mutate({
+                          jobId: selectedJob.id,
+                          toTechnicianId: assignTechId,
+                          date: dateStr,
+                        });
+                        setAssignTechId("");
+                      }}
+                    >
+                      Assign
+                    </Button>
+                  </div>
+                </dd>
+              </div>
+
+              {/* Footer actions */}
+              <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigate(`/jobs/${selectedJob.id}`);
+                  }}
+                >
+                  Open job
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<TrashIcon className="h-4 w-4" />}
+                  onClick={() => {
+                    setConfirmDelete(true);
+                  }}
+                >
+                  Delete job
+                </Button>
+              </div>
+            </dl>
+          </Modal>
+
+          <ConfirmDialog
+            isOpen={confirmDelete}
+            onClose={() => {
+              setConfirmDelete(false);
+            }}
+            onConfirm={() => {
+              deleteJob.mutate(selectedJob.id, {
+                onSuccess: () => {
+                  setConfirmDelete(false);
+                  setSelectedJobId(null);
+                },
+              });
+            }}
+            title="Delete job"
+            message={`Delete job #${selectedJob.jobNumber}? It will be removed from the schedule. Linked invoices and estimates are kept but detached from the job.`}
+            confirmLabel="Delete"
+            loading={deleteJob.isPending}
+          />
+        </>
       )}
     </div>
   );

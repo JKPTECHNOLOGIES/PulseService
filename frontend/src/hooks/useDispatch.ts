@@ -53,3 +53,32 @@ export function useReassignDispatch() {
     },
   });
 }
+
+interface RescheduleVars {
+  jobId: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  /** Board date, used only for cache invalidation. */
+  date: string;
+}
+
+/** Updates a job's scheduled start/end (used when dragging a job along the
+ * dispatch timeline to a new time). */
+export function useRescheduleJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId, scheduledStart, scheduledEnd }: RescheduleVars) =>
+      api.put<ApiResponse<Job>>(`/jobs/${jobId}`, {
+        scheduledStart,
+        scheduledEnd,
+      }),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ["dispatch", vars.date] });
+      void qc.invalidateQueries({ queryKey: ["jobs"] });
+      void qc.invalidateQueries({ queryKey: ["job", vars.jobId] });
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to reschedule job"));
+    },
+  });
+}

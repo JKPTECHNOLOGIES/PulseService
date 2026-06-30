@@ -1,18 +1,31 @@
-const prisma = require('../config/database');
-const { paginate, paginatedResponse, generateNumber } = require('../utils/helpers');
+const prisma = require("../config/database");
+const {
+  paginate,
+  paginatedResponse,
+  generateNumber,
+} = require("../utils/helpers");
 
 const STATUS_TRANSITIONS = {
-  new: ['scheduled', 'cancelled'],
-  scheduled: ['in_progress', 'cancelled'],
-  in_progress: ['completed', 'on_hold', 'cancelled'],
-  on_hold: ['in_progress', 'cancelled'],
+  new: ["scheduled", "cancelled"],
+  scheduled: ["in_progress", "cancelled"],
+  in_progress: ["completed", "on_hold", "cancelled"],
+  on_hold: ["in_progress", "cancelled"],
   completed: [],
   cancelled: [],
 };
 
 const list = async (req, res) => {
   try {
-    const { page = 1, limit = 20, search, status, type, dateFrom, dateTo, technicianId } = req.query;
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      status,
+      type,
+      dateFrom,
+      dateTo,
+      technicianId,
+    } = req.query;
     const { skip, take } = paginate(page, limit);
 
     const where = {};
@@ -28,11 +41,13 @@ const list = async (req, res) => {
     }
     if (search) {
       where.OR = [
-        { jobNumber: { contains: search, mode: 'insensitive' } },
-        { summary: { contains: search, mode: 'insensitive' } },
-        { customer: { firstName: { contains: search, mode: 'insensitive' } } },
-        { customer: { lastName: { contains: search, mode: 'insensitive' } } },
-        { customer: { companyName: { contains: search, mode: 'insensitive' } } },
+        { jobNumber: { contains: search, mode: "insensitive" } },
+        { summary: { contains: search, mode: "insensitive" } },
+        { customer: { firstName: { contains: search, mode: "insensitive" } } },
+        { customer: { lastName: { contains: search, mode: "insensitive" } } },
+        {
+          customer: { companyName: { contains: search, mode: "insensitive" } },
+        },
       ];
     }
 
@@ -43,28 +58,53 @@ const list = async (req, res) => {
         take,
         include: {
           customer: {
-            select: { id: true, firstName: true, lastName: true, phone: true, companyName: true, type: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              companyName: true,
+              type: true,
+            },
           },
-          location: { select: { id: true, address: true, city: true, state: true, zip: true } },
+          location: {
+            select: {
+              id: true,
+              address: true,
+              city: true,
+              state: true,
+              zip: true,
+            },
+          },
           technicians: {
             include: {
               technician: {
                 include: {
-                  user: { select: { id: true, firstName: true, lastName: true, avatar: true } },
+                  user: {
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
+                      avatar: true,
+                    },
+                  },
                 },
               },
             },
           },
         },
-        orderBy: [{ scheduledStart: 'asc' }, { createdAt: 'desc' }],
+        orderBy: [{ scheduledStart: "asc" }, { createdAt: "desc" }],
       }),
       prisma.job.count({ where }),
     ]);
 
-    return res.json({ success: true, ...paginatedResponse(jobs, total, page, limit) });
+    return res.json({
+      success: true,
+      ...paginatedResponse(jobs, total, page, limit),
+    });
   } catch (err) {
-    console.error('jobs.list error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("jobs.list error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -81,30 +121,49 @@ const get = async (req, res) => {
             technician: {
               include: {
                 user: {
-                  select: { id: true, firstName: true, lastName: true, phone: true, avatar: true },
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    phone: true,
+                    avatar: true,
+                  },
                 },
                 vehicle: true,
               },
             },
           },
         },
-        estimates: { select: { id: true, estimateNumber: true, status: true, total: true } },
-        invoices: { select: { id: true, invoiceNumber: true, status: true, total: true, balance: true } },
+        estimates: {
+          select: { id: true, estimateNumber: true, status: true, total: true },
+        },
+        invoices: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            status: true,
+            total: true,
+            balance: true,
+          },
+        },
         equipment: true,
         forms: true,
         timeEntries: {
-          include: { user: { select: { id: true, firstName: true, lastName: true } } },
-          orderBy: { startTime: 'desc' },
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true } },
+          },
+          orderBy: { startTime: "desc" },
         },
         call: { select: { id: true, fromNumber: true, reason: true } },
       },
     });
 
-    if (!job) return res.status(404).json({ success: false, error: 'Job not found' });
+    if (!job)
+      return res.status(404).json({ success: false, error: "Job not found" });
     return res.json({ success: true, data: job });
   } catch (err) {
-    console.error('jobs.get error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("jobs.get error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -112,10 +171,15 @@ const create = async (req, res) => {
   try {
     const settings = await prisma.companySettings.findFirst();
     if (!settings) {
-      return res.status(500).json({ success: false, error: 'Company settings not found' });
+      return res
+        .status(500)
+        .json({ success: false, error: "Company settings not found" });
     }
 
-    const jobNumber = generateNumber(settings.jobPrefix, settings.nextJobNumber);
+    const jobNumber = generateNumber(
+      settings.jobPrefix,
+      settings.nextJobNumber,
+    );
     await prisma.companySettings.updateMany({
       data: { nextJobNumber: { increment: 1 } },
     });
@@ -127,42 +191,54 @@ const create = async (req, res) => {
         ...jobData,
         jobNumber,
         createdById: req.user.id,
-        ...(technicianIds && technicianIds.length > 0 && {
-          technicians: {
-            create: technicianIds.map((tid, i) => ({
-              technicianId: tid,
-              isLead: i === 0,
-            })),
-          },
-        }),
+        ...(technicianIds &&
+          technicianIds.length > 0 && {
+            technicians: {
+              create: technicianIds.map((tid, i) => ({
+                technicianId: tid,
+                isLead: i === 0,
+              })),
+            },
+          }),
       },
       include: {
         customer: { select: { id: true, firstName: true, lastName: true } },
         location: true,
         technicians: {
           include: {
-            technician: { include: { user: { select: { firstName: true, lastName: true } } } },
+            technician: {
+              include: {
+                user: { select: { firstName: true, lastName: true } },
+              },
+            },
           },
         },
       },
     });
 
-    const io = req.app.get('io');
+    const io = req.app.get("io");
     if (io && job.scheduledStart) {
-      const date = new Date(job.scheduledStart).toISOString().split('T')[0];
-      io.to(`dispatch:${date}`).emit('job:created', job);
+      const date = new Date(job.scheduledStart).toISOString().split("T")[0];
+      io.to(`dispatch:${date}`).emit("job:created", job);
     }
 
     return res.status(201).json({ success: true, data: job });
   } catch (err) {
-    console.error('jobs.create error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("jobs.create error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
 const update = async (req, res) => {
   try {
-    const { id: _id, jobNumber: _jn, createdAt: _ca, updatedAt: _ua, technicians: _t, ...data } = req.body;
+    const {
+      id: _id,
+      jobNumber: _jn,
+      createdAt: _ca,
+      updatedAt: _ua,
+      technicians: _t,
+      ...data
+    } = req.body;
 
     const job = await prisma.job.update({
       where: { id: req.params.id },
@@ -171,25 +247,29 @@ const update = async (req, res) => {
         customer: { select: { id: true, firstName: true, lastName: true } },
         technicians: {
           include: {
-            technician: { include: { user: { select: { firstName: true, lastName: true } } } },
+            technician: {
+              include: {
+                user: { select: { firstName: true, lastName: true } },
+              },
+            },
           },
         },
       },
     });
 
-    const io = req.app.get('io');
+    const io = req.app.get("io");
     if (io && job.scheduledStart) {
-      const date = new Date(job.scheduledStart).toISOString().split('T')[0];
-      io.to(`dispatch:${date}`).emit('job:updated', job);
+      const date = new Date(job.scheduledStart).toISOString().split("T")[0];
+      io.to(`dispatch:${date}`).emit("job:updated", job);
     }
 
     return res.json({ success: true, data: job });
   } catch (err) {
-    if (err.code === 'P2025') {
-      return res.status(404).json({ success: false, error: 'Job not found' });
+    if (err.code === "P2025") {
+      return res.status(404).json({ success: false, error: "Job not found" });
     }
-    console.error('jobs.update error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("jobs.update error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -198,44 +278,51 @@ const updateStatus = async (req, res) => {
     const { status, cancelReason, completionNotes } = req.body;
 
     const job = await prisma.job.findUnique({ where: { id: req.params.id } });
-    if (!job) return res.status(404).json({ success: false, error: 'Job not found' });
+    if (!job)
+      return res.status(404).json({ success: false, error: "Job not found" });
 
     const allowed = STATUS_TRANSITIONS[job.status] || [];
     if (!allowed.includes(status)) {
       return res.status(400).json({
         success: false,
-        error: `Cannot transition from "${job.status}" to "${status}". Allowed: ${allowed.join(', ') || 'none'}`,
+        error: `Cannot transition from "${job.status}" to "${status}". Allowed: ${allowed.join(", ") || "none"}`,
       });
     }
 
     const data = { status };
-    if (status === 'completed') {
+    if (status === "completed") {
       data.completedAt = new Date();
       if (!job.actualStart) data.actualStart = new Date();
       data.actualEnd = new Date();
       if (completionNotes) data.completionNotes = completionNotes;
     }
-    if (status === 'cancelled') {
+    if (status === "cancelled") {
       data.cancelledAt = new Date();
       if (cancelReason) data.cancelReason = cancelReason;
     }
-    if (status === 'in_progress' && !job.actualStart) {
+    if (status === "in_progress" && !job.actualStart) {
       data.actualStart = new Date();
     }
 
-    const updated = await prisma.job.update({ where: { id: req.params.id }, data });
+    const updated = await prisma.job.update({
+      where: { id: req.params.id },
+      data,
+    });
 
-    const io = req.app.get('io');
+    const io = req.app.get("io");
     if (io && (updated.scheduledStart || job.scheduledStart)) {
       const src = updated.scheduledStart || job.scheduledStart;
-      const date = new Date(src).toISOString().split('T')[0];
-      io.to(`dispatch:${date}`).emit('job:statusChanged', { id: updated.id, status: updated.status });
+      const date = new Date(src).toISOString().split("T")[0];
+      io.to(`dispatch:${date}`).emit("job:statusChanged", {
+        id: updated.id,
+        status: updated.status,
+      });
     }
 
     return res.json({ success: true, data: updated });
   } catch (err) {
-    console.error('jobs.updateStatus error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("jobs.updateStatus error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -243,7 +330,9 @@ const assignTechnician = async (req, res) => {
   try {
     const { technicianId, isLead = false } = req.body;
     if (!technicianId) {
-      return res.status(400).json({ success: false, error: 'technicianId is required' });
+      return res
+        .status(400)
+        .json({ success: false, error: "technicianId is required" });
     }
 
     const assignment = await prisma.jobTechnician.upsert({
@@ -253,16 +342,19 @@ const assignTechnician = async (req, res) => {
     });
 
     const job = await prisma.job.findUnique({ where: { id: req.params.id } });
-    const io = req.app.get('io');
+    const io = req.app.get("io");
     if (io && job?.scheduledStart) {
-      const date = new Date(job.scheduledStart).toISOString().split('T')[0];
-      io.to(`dispatch:${date}`).emit('job:technicianAssigned', { jobId: req.params.id, technicianId });
+      const date = new Date(job.scheduledStart).toISOString().split("T")[0];
+      io.to(`dispatch:${date}`).emit("job:technicianAssigned", {
+        jobId: req.params.id,
+        technicianId,
+      });
     }
 
     return res.json({ success: true, data: assignment });
   } catch (err) {
-    console.error('jobs.assignTechnician error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("jobs.assignTechnician error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -270,28 +362,88 @@ const removeTechnician = async (req, res) => {
   try {
     await prisma.jobTechnician.delete({
       where: {
-        jobId_technicianId: { jobId: req.params.id, technicianId: req.params.techId },
+        jobId_technicianId: {
+          jobId: req.params.id,
+          technicianId: req.params.techId,
+        },
       },
     });
 
     const job = await prisma.job.findUnique({ where: { id: req.params.id } });
-    const io = req.app.get('io');
+    const io = req.app.get("io");
     if (io && job?.scheduledStart) {
-      const date = new Date(job.scheduledStart).toISOString().split('T')[0];
-      io.to(`dispatch:${date}`).emit('job:technicianRemoved', {
+      const date = new Date(job.scheduledStart).toISOString().split("T")[0];
+      io.to(`dispatch:${date}`).emit("job:technicianRemoved", {
         jobId: req.params.id,
         technicianId: req.params.techId,
       });
     }
 
-    return res.json({ success: true, message: 'Technician removed from job' });
+    return res.json({ success: true, message: "Technician removed from job" });
   } catch (err) {
-    if (err.code === 'P2025') {
-      return res.status(404).json({ success: false, error: 'Assignment not found' });
+    if (err.code === "P2025") {
+      return res
+        .status(404)
+        .json({ success: false, error: "Assignment not found" });
     }
-    console.error('jobs.removeTechnician error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("jobs.removeTechnician error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
-module.exports = { list, get, create, update, updateStatus, assignTechnician, removeTechnician };
+const deleteJob = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const job = await prisma.job.findUnique({ where: { id } });
+    if (!job) {
+      return res.status(404).json({ success: false, error: "Job not found" });
+    }
+
+    // Clear dependents first so foreign keys never block the delete:
+    // assignments/forms are removed; estimates/invoices/equipment/time entries
+    // are detached (jobId set to null) to preserve their financial records.
+    await prisma.$transaction([
+      prisma.jobTechnician.deleteMany({ where: { jobId: id } }),
+      prisma.jobForm.deleteMany({ where: { jobId: id } }),
+      prisma.timeEntry.updateMany({
+        where: { jobId: id },
+        data: { jobId: null },
+      }),
+      prisma.equipment.updateMany({
+        where: { jobId: id },
+        data: { jobId: null },
+      }),
+      prisma.estimate.updateMany({
+        where: { jobId: id },
+        data: { jobId: null },
+      }),
+      prisma.invoice.updateMany({
+        where: { jobId: id },
+        data: { jobId: null },
+      }),
+      prisma.job.delete({ where: { id } }),
+    ]);
+
+    const io = req.app.get("io");
+    if (io && job.scheduledStart) {
+      const date = new Date(job.scheduledStart).toISOString().split("T")[0];
+      io.to(`dispatch:${date}`).emit("job:deleted", { id });
+    }
+
+    return res.json({ success: true, message: "Job deleted" });
+  } catch (err) {
+    console.error("jobs.delete error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+module.exports = {
+  list,
+  get,
+  create,
+  update,
+  updateStatus,
+  assignTechnician,
+  removeTechnician,
+  delete: deleteJob,
+};
