@@ -302,6 +302,12 @@ const LOOKUPS = {
       color: "bg-red-100 text-red-800",
     },
   ],
+  businessUnitType: [
+    { value: "hvac", label: "HVAC" },
+    { value: "plumbing", label: "Plumbing" },
+    { value: "electrical", label: "Electrical" },
+    { value: "general", label: "General" },
+  ],
 };
 
 /** Array of all category keys. */

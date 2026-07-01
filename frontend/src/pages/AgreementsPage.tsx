@@ -60,7 +60,7 @@ export default function AgreementsPage() {
         name: form.name.trim(),
         status: form.status,
         billingFrequency: form.billingFrequency,
-        amount: Number(form.amount),
+        amount: form.amount,
         startDate: new Date(form.startDate).toISOString(),
         endDate: new Date(form.endDate).toISOString(),
         autoRenew: form.autoRenew,
@@ -219,7 +219,9 @@ export default function AgreementsPage() {
             <select
               className={inputClass}
               value={form.customerId}
-              onChange={(e) => setForm({ ...form, customerId: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, customerId: e.target.value });
+              }}
             >
               <option value="">Select customer…</option>
               {customers.map((c) => (
@@ -238,7 +240,9 @@ export default function AgreementsPage() {
               className={inputClass}
               placeholder="e.g. Residential Comfort Plan"
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, name: e.target.value });
+              }}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -249,7 +253,9 @@ export default function AgreementsPage() {
               <select
                 className={inputClass}
                 value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, status: e.target.value });
+                }}
               >
                 {statusOptions.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -265,9 +271,9 @@ export default function AgreementsPage() {
               <select
                 className={inputClass}
                 value={form.billingFrequency}
-                onChange={(e) =>
-                  setForm({ ...form, billingFrequency: e.target.value })
-                }
+                onChange={(e) => {
+                  setForm({ ...form, billingFrequency: e.target.value });
+                }}
               >
                 {billingOptions.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -287,9 +293,9 @@ export default function AgreementsPage() {
                 step="0.01"
                 className={inputClass}
                 value={form.amount}
-                onChange={(e) =>
-                  setForm({ ...form, amount: Number(e.target.value) })
-                }
+                onChange={(e) => {
+                  setForm({ ...form, amount: Number(e.target.value) });
+                }}
               />
             </div>
             <div className="flex items-end">
@@ -297,9 +303,9 @@ export default function AgreementsPage() {
                 <input
                   type="checkbox"
                   checked={form.autoRenew}
-                  onChange={(e) =>
-                    setForm({ ...form, autoRenew: e.target.checked })
-                  }
+                  onChange={(e) => {
+                    setForm({ ...form, autoRenew: e.target.checked });
+                  }}
                   className="rounded text-primary-600 focus:ring-primary-500"
                 />
                 Auto-renew
@@ -315,9 +321,9 @@ export default function AgreementsPage() {
                 type="date"
                 className={inputClass}
                 value={form.startDate}
-                onChange={(e) =>
-                  setForm({ ...form, startDate: e.target.value })
-                }
+                onChange={(e) => {
+                  setForm({ ...form, startDate: e.target.value });
+                }}
               />
             </div>
             <div>
@@ -328,7 +334,9 @@ export default function AgreementsPage() {
                 type="date"
                 className={inputClass}
                 value={form.endDate}
-                onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, endDate: e.target.value });
+                }}
               />
             </div>
           </div>
@@ -340,7 +348,9 @@ export default function AgreementsPage() {
               rows={2}
               className={inputClass}
               value={form.terms}
-              onChange={(e) => setForm({ ...form, terms: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, terms: e.target.value });
+              }}
             />
           </div>
           <div>
@@ -351,7 +361,9 @@ export default function AgreementsPage() {
               rows={2}
               className={inputClass}
               value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, notes: e.target.value });
+              }}
             />
           </div>
           <div className="flex justify-end gap-3 pt-2">

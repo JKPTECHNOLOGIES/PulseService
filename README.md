@@ -67,7 +67,7 @@ The `db` service is `postgres:16-alpine`. The backend waits for it to become hea
 Then open **http://localhost:8080** and log in with `admin@pulseservice.com` / `admin123`.
 
 - Frontend (nginx) is served on `http://localhost:8080` and proxies `/api` and `/socket.io` to the backend container.
-- Backend API is also exposed directly on `http://localhost:5000`.
+- Backend API is also exposed directly on `http://localhost:3000` (container `PORT=3000`; see `docker-compose.yml`).
 - On first boot the backend automatically applies the Prisma schema (`prisma db push`) and seeds demo data. Postgres data is persisted in the `postgres-data` Docker volume; seeding is idempotent (it checks the database for existing users via `prisma/seed-check.js`), so it only runs on an empty database.
 - The Postgres instance is also exposed on `localhost:5432` (user/password/db default to `pulseservice`).
 

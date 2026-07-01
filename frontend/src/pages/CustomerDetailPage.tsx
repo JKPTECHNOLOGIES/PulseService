@@ -9,9 +9,11 @@ import {
   PhoneIcon,
   EnvelopeIcon,
   MapPinIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
-import { useCustomer } from "../hooks/useCustomers";
+import { useCustomer, useDeleteCustomer } from "../hooks/useCustomers";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { useLookup } from "../hooks/useMetadata";
 import { useJobs } from "../hooks/useJobs";
 import { useEstimates } from "../hooks/useEstimates";
@@ -32,8 +34,16 @@ export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [selectedTab, setSelectedTab] = useState(0);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { data: customer, isLoading } = useCustomer(id ?? "");
+  const deleteCustomer = useDeleteCustomer();
+
+  const handleDelete = async () => {
+    if (!id) return;
+    await deleteCustomer.mutateAsync(id);
+    navigate("/customers");
+  };
   const { data: jobsData } = useJobs({ limit: 50 });
   const { data: estimatesData } = useEstimates({ customerId: id, limit: 50 });
   const { data: invoicesData } = useInvoices({ customerId: id, limit: 50 });
@@ -116,6 +126,16 @@ export default function CustomerDetailPage() {
               }}
             >
               Edit
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              icon={<TrashIcon className="h-4 w-4" />}
+              onClick={() => {
+                setConfirmDelete(true);
+              }}
+            >
+              Delete
             </Button>
           </div>
         </div>
@@ -459,6 +479,18 @@ export default function CustomerDetailPage() {
           </Tab.Panel>
         </Tab.Panels>
       </Tab.Group>
+
+      <ConfirmDialog
+        isOpen={confirmDelete}
+        onClose={() => {
+          setConfirmDelete(false);
+        }}
+        onConfirm={() => void handleDelete()}
+        title="Delete customer"
+        message={`Permanently delete ${customer.firstName} ${customer.lastName} and all associated jobs, estimates, invoices, payments, agreements, equipment and contacts? This cannot be undone.`}
+        confirmLabel="Delete customer"
+        loading={deleteCustomer.isPending}
+      />
     </div>
   );
 }

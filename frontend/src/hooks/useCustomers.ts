@@ -1,8 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
-import type { ApiResponse, Customer, PaginatedResponse } from "../types";
+import type {
+  ApiResponse,
+  Customer,
+  Location,
+  PaginatedResponse,
+} from "../types";
 import toast from "react-hot-toast";
+
+/** Write payload for creating/updating a customer. `locations` uses a create
+ * shape (no id/customerId yet), so it's kept separate from the read model. */
+type CustomerWritePayload = Partial<Omit<Customer, "locations">> & {
+  locations?: Partial<Location>[];
+};
 
 interface CustomersParams {
   page?: number;
@@ -33,7 +44,7 @@ export function useCustomer(id: string) {
 export function useCreateCustomer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Partial<Customer>) =>
+    mutationFn: (payload: CustomerWritePayload) =>
       api.post<ApiResponse<Customer>>("/customers", payload),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["customers"] });
@@ -48,7 +59,7 @@ export function useCreateCustomer() {
 export function useUpdateCustomer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...payload }: Partial<Customer> & { id: string }) =>
+    mutationFn: ({ id, ...payload }: CustomerWritePayload & { id: string }) =>
       api.put<ApiResponse<Customer>>(`/customers/${id}`, payload),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["customers"] });

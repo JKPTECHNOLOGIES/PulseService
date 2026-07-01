@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import {
   ChevronRightIcon,
   PencilIcon,
@@ -36,7 +36,6 @@ const inputClass =
 
 export default function AgreementDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { data: agreement, isLoading } = useAgreement(id ?? "");
   const updateAgreement = useUpdateAgreement();
   const scheduleVisit = useScheduleVisit();
@@ -83,7 +82,9 @@ export default function AgreementDetailPage() {
   if (isLoading) return <PageSpinner />;
   if (!agreement) {
     return (
-      <div className="text-center py-16 text-gray-400">Agreement not found.</div>
+      <div className="text-center py-16 text-gray-400">
+        Agreement not found.
+      </div>
     );
   }
 
@@ -94,7 +95,7 @@ export default function AgreementDetailPage() {
         name: form.name,
         status: form.status,
         billingFrequency: form.billingFrequency,
-        amount: Number(form.amount),
+        amount: form.amount,
         startDate: form.startDate
           ? new Date(form.startDate).toISOString()
           : undefined,
@@ -105,7 +106,11 @@ export default function AgreementDetailPage() {
         terms: form.terms,
         notes: form.notes,
       },
-      { onSuccess: () => setEditOpen(false) },
+      {
+        onSuccess: () => {
+          setEditOpen(false);
+        },
+      },
     );
   };
 
@@ -131,8 +136,8 @@ export default function AgreementDetailPage() {
 
   const visits = agreement.visits ?? [];
   const customerName = agreement.customer
-    ? agreement.customer.companyName ||
-      `${agreement.customer.firstName} ${agreement.customer.lastName}`
+    ? (agreement.customer.companyName ??
+      `${agreement.customer.firstName} ${agreement.customer.lastName}`)
     : "-";
 
   return (
@@ -175,7 +180,9 @@ export default function AgreementDetailPage() {
           variant="outline"
           size="sm"
           icon={<PencilIcon className="h-4 w-4" />}
-          onClick={() => setEditOpen(true)}
+          onClick={() => {
+            setEditOpen(true);
+          }}
         >
           Edit
         </Button>
@@ -229,7 +236,7 @@ export default function AgreementDetailPage() {
               </div>
             </dl>
 
-            {(agreement.terms || agreement.notes) && (
+            {(Boolean(agreement.terms) || Boolean(agreement.notes)) && (
               <div className="mt-5 pt-5 border-t border-gray-100 space-y-4">
                 {agreement.terms && (
                   <div>
@@ -259,7 +266,9 @@ export default function AgreementDetailPage() {
               Visits ({visits.length})
             </h3>
             <button
-              onClick={() => setScheduleOpen(true)}
+              onClick={() => {
+                setScheduleOpen(true);
+              }}
               className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
             >
               <PlusIcon className="h-3.5 w-3.5" />
@@ -276,7 +285,9 @@ export default function AgreementDetailPage() {
                   className="flex items-start justify-between gap-2 border-b border-gray-50 pb-3 last:border-0 last:pb-0"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{v.name}</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {v.name}
+                    </p>
                     <p className="text-xs text-gray-500">
                       {v.completedDate
                         ? `Completed ${formatDate(v.completedDate)}`
@@ -316,7 +327,9 @@ export default function AgreementDetailPage() {
       {/* Edit modal */}
       <Modal
         isOpen={editOpen}
-        onClose={() => setEditOpen(false)}
+        onClose={() => {
+          setEditOpen(false);
+        }}
         title="Edit Agreement"
         size="lg"
       >
@@ -328,7 +341,9 @@ export default function AgreementDetailPage() {
             <input
               className={inputClass}
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, name: e.target.value });
+              }}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -339,7 +354,9 @@ export default function AgreementDetailPage() {
               <select
                 className={inputClass}
                 value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, status: e.target.value });
+                }}
               >
                 {statusOptions.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -355,9 +372,9 @@ export default function AgreementDetailPage() {
               <select
                 className={inputClass}
                 value={form.billingFrequency}
-                onChange={(e) =>
-                  setForm({ ...form, billingFrequency: e.target.value })
-                }
+                onChange={(e) => {
+                  setForm({ ...form, billingFrequency: e.target.value });
+                }}
               >
                 {billingOptions.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -377,9 +394,9 @@ export default function AgreementDetailPage() {
                 step="0.01"
                 className={inputClass}
                 value={form.amount}
-                onChange={(e) =>
-                  setForm({ ...form, amount: Number(e.target.value) })
-                }
+                onChange={(e) => {
+                  setForm({ ...form, amount: Number(e.target.value) });
+                }}
               />
             </div>
             <div className="flex items-end">
@@ -387,9 +404,9 @@ export default function AgreementDetailPage() {
                 <input
                   type="checkbox"
                   checked={form.autoRenew}
-                  onChange={(e) =>
-                    setForm({ ...form, autoRenew: e.target.checked })
-                  }
+                  onChange={(e) => {
+                    setForm({ ...form, autoRenew: e.target.checked });
+                  }}
                   className="rounded text-primary-600 focus:ring-primary-500"
                 />
                 Auto-renew
@@ -405,9 +422,9 @@ export default function AgreementDetailPage() {
                 type="date"
                 className={inputClass}
                 value={form.startDate}
-                onChange={(e) =>
-                  setForm({ ...form, startDate: e.target.value })
-                }
+                onChange={(e) => {
+                  setForm({ ...form, startDate: e.target.value });
+                }}
               />
             </div>
             <div>
@@ -418,7 +435,9 @@ export default function AgreementDetailPage() {
                 type="date"
                 className={inputClass}
                 value={form.endDate}
-                onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, endDate: e.target.value });
+                }}
               />
             </div>
           </div>
@@ -430,7 +449,9 @@ export default function AgreementDetailPage() {
               rows={2}
               className={inputClass}
               value={form.terms}
-              onChange={(e) => setForm({ ...form, terms: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, terms: e.target.value });
+              }}
             />
           </div>
           <div>
@@ -441,11 +462,18 @@ export default function AgreementDetailPage() {
               rows={2}
               className={inputClass}
               value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, notes: e.target.value });
+              }}
             />
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="outline" onClick={() => setEditOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditOpen(false);
+              }}
+            >
               Cancel
             </Button>
             <Button
@@ -462,7 +490,9 @@ export default function AgreementDetailPage() {
       {/* Schedule visit modal */}
       <Modal
         isOpen={scheduleOpen}
-        onClose={() => setScheduleOpen(false)}
+        onClose={() => {
+          setScheduleOpen(false);
+        }}
         title="Schedule Visit"
       >
         <div className="space-y-4">
@@ -474,7 +504,9 @@ export default function AgreementDetailPage() {
               className={inputClass}
               placeholder="e.g. Spring maintenance"
               value={visitName}
-              onChange={(e) => setVisitName(e.target.value)}
+              onChange={(e) => {
+                setVisitName(e.target.value);
+              }}
             />
           </div>
           <div>
@@ -485,11 +517,18 @@ export default function AgreementDetailPage() {
               type="date"
               className={inputClass}
               value={visitDate}
-              onChange={(e) => setVisitDate(e.target.value)}
+              onChange={(e) => {
+                setVisitDate(e.target.value);
+              }}
             />
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="outline" onClick={() => setScheduleOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setScheduleOpen(false);
+              }}
+            >
               Cancel
             </Button>
             <Button

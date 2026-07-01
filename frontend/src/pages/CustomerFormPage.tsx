@@ -67,6 +67,8 @@ export default function CustomerFormPage() {
 
   useEffect(() => {
     if (customer && isEditing) {
+      const primary =
+        customer.locations?.find((l) => l.isPrimary) ?? customer.locations?.[0];
       reset({
         firstName: customer.firstName,
         lastName: customer.lastName,
@@ -76,17 +78,46 @@ export default function CustomerFormPage() {
         type: customer.type,
         companyName: customer.companyName ?? "",
         notes: customer.notes ?? "",
+        source: customer.source ?? "",
+        address: primary?.address ?? "",
+        city: primary?.city ?? "",
+        state: primary?.state ?? "",
+        zip: primary?.zip ?? "",
       });
     }
   }, [customer, isEditing, reset]);
 
   const onSubmit = async (data: FormData) => {
-    const payload = { ...data, type: data.type as Customer["type"] };
+    // address/city/state/zip are Location columns, not Customer columns, so
+    // package them into a primary location instead of sending them as
+    // top-level customer fields (which Prisma would reject).
+    const { address, city, state, zip, ...customerFields } = data;
+    const payload = {
+      ...customerFields,
+      type: customerFields.type as Customer["type"],
+    };
+    const locations = address?.trim()
+      ? [
+          {
+            name: "Primary",
+            address,
+            city: city ?? "",
+            state: state ?? "",
+            zip: zip ?? "",
+            type: "service",
+            isPrimary: true,
+          },
+        ]
+      : undefined;
+
     if (isEditing) {
-      await updateMutation.mutateAsync({ id: id, ...payload });
+      await updateMutation.mutateAsync({ id: id, ...payload, locations });
       navigate(`/customers/${id}`);
     } else {
-      const result = await createMutation.mutateAsync(payload);
+      const result = await createMutation.mutateAsync({
+        ...payload,
+        locations,
+      });
       const newId = result.data.id;
       navigate(newId ? `/customers/${newId}` : "/customers");
     }

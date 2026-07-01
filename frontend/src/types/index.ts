@@ -47,6 +47,7 @@ export interface Customer {
   mobilePhone?: string;
   type: "residential" | "commercial";
   companyName?: string;
+  source?: string;
   notes?: string;
   balance: number;
   isActive: boolean;
@@ -354,7 +355,8 @@ export type LookupCategory =
   | "pricebookItemType"
   | "notificationType"
   | "equipmentType"
-  | "equipmentCondition";
+  | "equipmentCondition"
+  | "businessUnitType";
 
 export type Metadata = Partial<Record<LookupCategory, LookupOption[]>>;
 

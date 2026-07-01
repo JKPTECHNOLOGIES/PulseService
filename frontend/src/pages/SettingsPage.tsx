@@ -454,6 +454,7 @@ function BusinessUnitsTab() {
   const qc = useQueryClient();
   const [modal, setModal] = useState(false);
   const { register, handleSubmit, reset } = useForm<BusinessUnitForm>();
+  const { getLabel: getUnitTypeLabel } = useLookup("businessUnitType");
 
   const createMutation = useMutation({
     mutationFn: (payload: BusinessUnitForm) =>
@@ -510,7 +511,9 @@ function BusinessUnitsTab() {
             >
               <div>
                 <p className="text-sm font-medium text-gray-900">{unit.name}</p>
-                <p className="text-xs text-gray-500 capitalize">{unit.type}</p>
+                <p className="text-xs text-gray-500">
+                  {getUnitTypeLabel(unit.type)}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <Badge
@@ -564,15 +567,7 @@ function BusinessUnitsTab() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Type
             </label>
-            <select
-              {...register("type")}
-              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
-            >
-              <option value="hvac">HVAC</option>
-              <option value="plumbing">Plumbing</option>
-              <option value="electrical">Electrical</option>
-              <option value="general">General</option>
-            </select>
+            <LookupSelect category="businessUnitType" {...register("type")} />
           </div>
           <div className="flex justify-end gap-3">
             <Button
