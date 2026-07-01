@@ -1003,6 +1003,54 @@ export default function DispatchPage() {
         ? `${format(startOfWeek(currentDate), "MMM d")} - ${format(endOfWeek(currentDate), "MMM d, yyyy")}`
         : format(currentDate, "MMMM yyyy");
 
+  // At-a-glance metrics for the current view, derived from already-loaded board
+  // data (no extra requests). Fills the header band and gives the dispatcher a
+  // quick read on workload, backlog, crew availability, and booked revenue.
+  const scheduledJobs = techRows.flatMap((t) => t.jobs);
+  const completedCount = scheduledJobs.filter(
+    (j) => j.status === "completed",
+  ).length;
+  const bookedRevenue = scheduledJobs.reduce(
+    (sum, j) => sum + (j.totalAmount || 0),
+    0,
+  );
+  const availableTechCount = allTechs.filter((t) => t.isAvailable).length;
+  const summaryStats: {
+    label: string;
+    value: string | number;
+    alert?: boolean;
+  }[] = [
+    { label: "Scheduled", value: scheduledJobs.length },
+    { label: "Completed", value: completedCount },
+    {
+      label: "Unassigned",
+      value: unassignedJobs.length,
+      alert: unassignedJobs.length > 0,
+    },
+    {
+      label: "Undated",
+      value: undatedJobs.length,
+      alert: undatedJobs.length > 0,
+    },
+    {
+      label: "Techs available",
+      value: `${String(availableTechCount)}/${String(allTechs.length)}`,
+    },
+    { label: "Booked revenue", value: formatCurrency(bookedRevenue) },
+  ];
+
+  // Live "current time" indicator for the day view: only shown when viewing
+  // today and the clock is within the board's visible hours.
+  const now = new Date();
+  const nowOffsetMins =
+    now.getHours() * 60 + now.getMinutes() - HOUR_START * 60;
+  const showNowLine =
+    viewMode === "day" &&
+    isSameDay(currentDate, now) &&
+    nowOffsetMins >= 0 &&
+    nowOffsetMins <= (HOUR_END - HOUR_START) * 60;
+  const nowLeft = (nowOffsetMins / 60) * HOUR_WIDTH;
+
   return (
     <div className="flex flex-col h-full gap-4">
       {/* Date Navigation */}
@@ -1056,6 +1104,39 @@ export default function DispatchPage() {
         </div>
       </div>
 
+      {/* Summary metrics + status legend for the current view */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          {summaryStats.map((s) => (
+            <div key={s.label} className="flex items-baseline gap-1.5">
+              <span
+                className={clsx(
+                  "text-lg font-bold",
+                  s.alert ? "text-amber-600" : "text-gray-900",
+                )}
+              >
+                {s.value}
+              </span>
+              <span className="text-xs text-gray-500">{s.label}</span>
+            </div>
+          ))}
+        </div>
+        {/* Status color key (matches the job-card colors on the board) */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {statusOptions.map((o) => (
+            <div key={o.value} className="flex items-center gap-1.5">
+              <span
+                className={clsx(
+                  "h-2.5 w-2.5 rounded-sm shrink-0",
+                  solidStatusColor(o.color ?? ""),
+                )}
+              />
+              <span className="text-[11px] text-gray-500">{o.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {isLoading ? (
         <PageSpinner />
       ) : (
@@ -1082,7 +1163,7 @@ export default function DispatchPage() {
                         Technician
                       </span>
                     </div>
-                    <div className="flex">
+                    <div className="flex relative">
                       {HOURS.map((h) => (
                         <div
                           key={h}
@@ -1098,6 +1179,14 @@ export default function DispatchPage() {
                           </span>
                         </div>
                       ))}
+                      {showNowLine && (
+                        <span
+                          className="absolute top-1.5 z-20 -translate-x-1/2 rounded bg-red-500 px-1 py-0.5 text-[9px] font-bold leading-none text-white pointer-events-none"
+                          style={{ left: nowLeft }}
+                        >
+                          {format(now, "h:mm")}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -1108,57 +1197,100 @@ export default function DispatchPage() {
                       board.
                     </div>
                   ) : (
-                    techRows.map((techRow) => (
-                      <div
-                        key={techRow.id}
-                        className="flex border-b border-gray-100"
-                      >
-                        {/* Tech info */}
+                    techRows.map((techRow) => {
+                      // Daily load for this technician: booked hours vs. the
+                      // length of the visible workday, shown as a utilization bar.
+                      const rowBookedMins = techRow.jobs.reduce((sum, j) => {
+                        if (!j.scheduledStart) return sum;
+                        const dur = j.scheduledEnd
+                          ? (parseISO(j.scheduledEnd).getTime() -
+                              parseISO(j.scheduledStart).getTime()) /
+                            60000
+                          : 60;
+                        return sum + Math.max(0, dur);
+                      }, 0);
+                      const rowHours = (rowBookedMins / 60).toFixed(1);
+                      const util =
+                        rowBookedMins / ((HOUR_END - HOUR_START) * 60);
+                      const utilPct = Math.min(100, Math.round(util * 100));
+                      const utilColor =
+                        util > 1
+                          ? "bg-red-500"
+                          : util >= 0.8
+                            ? "bg-amber-500"
+                            : "bg-green-500";
+                      return (
                         <div
-                          className="shrink-0 border-r border-gray-200 flex items-center gap-3 px-4 bg-gray-50"
-                          style={{ width: 180, minHeight: ROW_HEIGHT }}
+                          key={techRow.id}
+                          className="flex border-b border-gray-100"
                         >
-                          <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
-                            <span className="text-xs font-semibold text-primary-700">
-                              {techRow.user.firstName.charAt(0)}
-                              {techRow.user.lastName.charAt(0)}
-                            </span>
+                          {/* Tech info */}
+                          <div
+                            className="shrink-0 border-r border-gray-200 flex items-center gap-3 px-4 bg-gray-50"
+                            style={{ width: 180, minHeight: ROW_HEIGHT }}
+                          >
+                            <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+                              <span className="text-xs font-semibold text-primary-700">
+                                {techRow.user.firstName.charAt(0)}
+                                {techRow.user.lastName.charAt(0)}
+                              </span>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-gray-900 truncate">
+                                {techRow.user.firstName} {techRow.user.lastName}
+                              </p>
+                              <p
+                                className={clsx(
+                                  "text-xs",
+                                  techRow.isAvailable
+                                    ? "text-green-600"
+                                    : "text-gray-400",
+                                )}
+                              >
+                                {techRow.isAvailable ? "Available" : "Busy"}
+                              </p>
+                              <p className="text-[11px] text-gray-500 mt-1">
+                                {techRow.jobs.length}{" "}
+                                {techRow.jobs.length === 1 ? "job" : "jobs"} ·{" "}
+                                {rowHours}h
+                              </p>
+                              <div className="mt-1 h-1.5 w-full rounded-full bg-gray-200 overflow-hidden">
+                                <div
+                                  className={clsx(
+                                    "h-full rounded-full",
+                                    utilColor,
+                                  )}
+                                  style={{ width: `${String(utilPct)}%` }}
+                                />
+                              </div>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-gray-900 truncate">
-                              {techRow.user.firstName} {techRow.user.lastName}
-                            </p>
-                            <p
-                              className={clsx(
-                                "text-xs",
-                                techRow.isAvailable
-                                  ? "text-green-600"
-                                  : "text-gray-400",
-                              )}
-                            >
-                              {techRow.isAvailable ? "Available" : "Busy"}
-                            </p>
-                          </div>
-                        </div>
 
-                        {/* Time grid */}
-                        <div
-                          className="relative flex-1"
-                          style={{
-                            minWidth: HOURS.length * HOUR_WIDTH,
-                            minHeight: ROW_HEIGHT,
-                          }}
-                        >
-                          <DroppableTechRow
-                            techId={techRow.id}
-                            jobs={techRow.jobs}
-                            onJobClick={(job) => {
-                              setSelectedJobId(job.id);
+                          {/* Time grid */}
+                          <div
+                            className="relative flex-1"
+                            style={{
+                              minWidth: HOURS.length * HOUR_WIDTH,
+                              minHeight: ROW_HEIGHT,
                             }}
-                          />
+                          >
+                            {showNowLine && (
+                              <div
+                                className="absolute top-0 bottom-0 z-20 w-0.5 bg-red-500 pointer-events-none"
+                                style={{ left: nowLeft }}
+                              />
+                            )}
+                            <DroppableTechRow
+                              techId={techRow.id}
+                              jobs={techRow.jobs}
+                              onJobClick={(job) => {
+                                setSelectedJobId(job.id);
+                              }}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}
