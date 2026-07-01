@@ -12,7 +12,7 @@ import {
   WrenchScrewdriverIcon,
   BookOpenIcon,
   ArchiveBoxIcon,
-  CpuChipIcon,
+  // CpuChipIcon, // Equipment tab hidden for now
   ClipboardDocumentCheckIcon,
   MegaphoneIcon,
   ChartBarIcon,
@@ -36,7 +36,8 @@ const navItems = [
   { to: "/technicians", label: "Technicians", icon: WrenchScrewdriverIcon },
   { to: "/pricebook", label: "Pricebook", icon: BookOpenIcon },
   { to: "/inventory", label: "Inventory", icon: ArchiveBoxIcon },
-  { to: "/equipment", label: "Equipment", icon: CpuChipIcon },
+  // Equipment tab hidden for now (route/page kept intact):
+  // { to: "/equipment", label: "Equipment", icon: CpuChipIcon },
   { to: "/agreements", label: "Agreements", icon: ClipboardDocumentCheckIcon },
   { to: "/marketing", label: "Marketing", icon: MegaphoneIcon },
   { to: "/reports", label: "Reports", icon: ChartBarIcon },
