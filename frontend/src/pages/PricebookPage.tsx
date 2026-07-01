@@ -211,7 +211,13 @@ export default function PricebookPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {items.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
+                    <tr
+                      key={item.id}
+                      onClick={() => {
+                        openEditItem(item);
+                      }}
+                      className="hover:bg-gray-50 cursor-pointer"
+                    >
                       <td className="py-3 px-5 font-mono text-xs text-gray-600">
                         {item.sku}
                       </td>
@@ -251,7 +257,8 @@ export default function PricebookPage() {
                       </td>
                       <td className="py-3 px-5 text-right">
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             openEditItem(item);
                           }}
                           className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
