@@ -9,6 +9,8 @@ export interface User {
   isActive: boolean;
   lastLogin?: string;
   createdAt: string;
+  // Effective permission keys for the user's role (from /auth/login and /auth/me).
+  permissions?: string[];
 }
 
 export interface Location {
@@ -423,6 +425,23 @@ export interface ApiResponse<T> {
   success: boolean;
   data: T;
   error?: string;
+}
+
+export interface PermissionDef {
+  key: string;
+  label: string;
+}
+
+export interface PermissionGroup {
+  group: string;
+  permissions: PermissionDef[];
+}
+
+export interface RolePermissions {
+  role: string;
+  label: string;
+  isSystem: boolean;
+  permissions: string[];
 }
 
 export interface PaginatedResponse<T> {

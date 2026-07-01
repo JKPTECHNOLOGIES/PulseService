@@ -7,7 +7,14 @@ import clsx from "clsx";
 import toast from "react-hot-toast";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
-import { CompanySettings, User, BusinessUnit, ApiResponse } from "../types";
+import {
+  CompanySettings,
+  User,
+  BusinessUnit,
+  ApiResponse,
+  PermissionGroup,
+  RolePermissions,
+} from "../types";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
@@ -15,6 +22,7 @@ import { LookupSelect } from "../components/ui/LookupSelect";
 import Modal from "../components/ui/Modal";
 import { PageSpinner } from "../components/ui/Spinner";
 import { useLookup } from "../hooks/useMetadata";
+import { usePermissions } from "../hooks/usePermissions";
 
 interface BillingForm {
   taxRate?: number;
@@ -30,6 +38,12 @@ interface InviteForm {
   role: string;
   firstName: string;
   lastName: string;
+  phone?: string;
+}
+
+interface EditUserForm {
+  role: string;
+  isActive: boolean;
 }
 
 interface BusinessUnitForm {
@@ -42,8 +56,7 @@ function useCompanySettings() {
   return useQuery({
     queryKey: ["settings", "company"],
     queryFn: async () => {
-      const res =
-        await api.get<ApiResponse<CompanySettings>>("/settings/company");
+      const res = await api.get<ApiResponse<CompanySettings>>("/settings");
       return res.data;
     },
   });
@@ -53,7 +66,7 @@ function useUpdateCompanySettings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: Partial<CompanySettings>) =>
-      api.put("/settings/company", payload),
+      api.put("/settings", payload),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["settings"] });
       toast.success("Settings saved");
@@ -71,6 +84,27 @@ function useUsers() {
       const res = await api.get<ApiResponse<User[]>>("/users", {
         params: { limit: 100 },
       });
+      return res.data;
+    },
+  });
+}
+
+function useRoles() {
+  return useQuery({
+    queryKey: ["roles"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<RolePermissions[]>>("/roles");
+      return res.data;
+    },
+  });
+}
+
+function usePermissionCatalog() {
+  return useQuery({
+    queryKey: ["roles", "catalog"],
+    queryFn: async () => {
+      const res =
+        await api.get<ApiResponse<PermissionGroup[]>>("/roles/catalog");
       return res.data;
     },
   });
@@ -298,20 +332,66 @@ function UsersTab() {
   const { data: users, isLoading } = useUsers();
   const qc = useQueryClient();
   const [inviteModal, setInviteModal] = useState(false);
+  const [editUser, setEditUser] = useState<User | null>(null);
+  // Holds a one-time credential to display after invite / password reset.
+  const [credential, setCredential] = useState<{
+    name: string;
+    password: string;
+  } | null>(null);
   const { getLabel: getRoleLabel, getColor: getRoleColor } =
     useLookup("userRole");
   const { register, handleSubmit, reset } = useForm<InviteForm>();
 
   const inviteMutation = useMutation({
-    mutationFn: (payload: InviteForm) => api.post("/users", payload),
-    onSuccess: () => {
+    mutationFn: (payload: InviteForm) =>
+      api.post<ApiResponse<User> & { temporaryPassword?: string }>(
+        "/users",
+        payload,
+      ),
+    onSuccess: (res, vars) => {
       void qc.invalidateQueries({ queryKey: ["users"] });
-      toast.success("User invited");
       setInviteModal(false);
       reset();
+      if (res.temporaryPassword) {
+        setCredential({
+          name: `${vars.firstName} ${vars.lastName}`,
+          password: res.temporaryPassword,
+        });
+      } else {
+        toast.success("User invited");
+      }
     },
     onError: (err: unknown) => {
       toast.error(getErrorMessage(err, "Failed to invite user"));
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: EditUserForm }) =>
+      api.put(`/users/${id}`, payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["users"] });
+      toast.success("User updated");
+      setEditUser(null);
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to update user"));
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: (u: User) =>
+      api.post<ApiResponse<{ temporaryPassword: string }>>(
+        `/users/${u.id}/reset-password`,
+      ),
+    onSuccess: (res, u) => {
+      setCredential({
+        name: `${u.firstName} ${u.lastName}`,
+        password: res.data.temporaryPassword,
+      });
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to reset password"));
     },
   });
 
@@ -332,50 +412,75 @@ function UsersTab() {
         </Button>
       }
     >
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-gray-100">
-            <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
-              Name
-            </th>
-            <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
-              Email
-            </th>
-            <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
-              Role
-            </th>
-            <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
-              Status
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-50">
-          {(users ?? []).map((u) => (
-            <tr key={u.id} className="hover:bg-gray-50">
-              <td className="py-3 font-medium text-gray-900">
-                {u.firstName} {u.lastName}
-              </td>
-              <td className="py-3 text-gray-600">{u.email}</td>
-              <td className="py-3">
-                <Badge className={getRoleColor(u.role)}>
-                  {getRoleLabel(u.role)}
-                </Badge>
-              </td>
-              <td className="py-3">
-                <Badge
-                  className={
-                    u.isActive
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100 text-gray-500"
-                  }
-                >
-                  {u.isActive ? "Active" : "Inactive"}
-                </Badge>
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[36rem]">
+          <thead>
+            <tr className="border-b border-gray-100">
+              <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
+                Name
+              </th>
+              <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
+                Email
+              </th>
+              <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
+                Role
+              </th>
+              <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
+                Status
+              </th>
+              <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
+                Actions
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {(users ?? []).map((u) => (
+              <tr key={u.id} className="hover:bg-gray-50">
+                <td className="py-3 font-medium text-gray-900">
+                  {u.firstName} {u.lastName}
+                </td>
+                <td className="py-3 text-gray-600">{u.email}</td>
+                <td className="py-3">
+                  <Badge className={getRoleColor(u.role)}>
+                    {getRoleLabel(u.role)}
+                  </Badge>
+                </td>
+                <td className="py-3">
+                  <Badge
+                    className={
+                      u.isActive
+                        ? "bg-green-100 text-green-700"
+                        : "bg-gray-100 text-gray-500"
+                    }
+                  >
+                    {u.isActive ? "Active" : "Inactive"}
+                  </Badge>
+                </td>
+                <td className="py-3">
+                  <div className="flex justify-end gap-2">
+                    <button
+                      className="text-primary-600 hover:text-primary-800 text-xs font-medium"
+                      onClick={() => {
+                        setEditUser(u);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="text-gray-500 hover:text-gray-700 text-xs font-medium"
+                      onClick={() => {
+                        resetPasswordMutation.mutate(u);
+                      }}
+                    >
+                      Reset Password
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <Modal
         isOpen={inviteModal}
@@ -424,6 +529,15 @@ function UsersTab() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Phone
+            </label>
+            <input
+              {...register("phone")}
+              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Role
             </label>
             <LookupSelect category="userRole" {...register("role")} />
@@ -444,7 +558,111 @@ function UsersTab() {
           </div>
         </form>
       </Modal>
+
+      {editUser && (
+        <EditUserModal
+          user={editUser}
+          isPending={updateMutation.isPending}
+          onClose={() => {
+            setEditUser(null);
+          }}
+          onSubmit={(payload) => {
+            updateMutation.mutate({ id: editUser.id, payload });
+          }}
+        />
+      )}
+
+      <Modal
+        isOpen={credential !== null}
+        onClose={() => {
+          setCredential(null);
+        }}
+        title="Temporary Password"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Share this one-time password with{" "}
+            <span className="font-medium text-gray-900">
+              {credential?.name}
+            </span>
+            . It won&apos;t be shown again — they should change it after signing
+            in.
+          </p>
+          <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 font-mono text-lg text-gray-900 text-center select-all">
+            {credential?.password}
+          </div>
+          <div className="flex justify-end">
+            <Button
+              onClick={() => {
+                setCredential(null);
+              }}
+            >
+              Done
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Card>
+  );
+}
+
+function EditUserModal({
+  user,
+  isPending,
+  onClose,
+  onSubmit,
+}: {
+  user: User;
+  isPending: boolean;
+  onClose: () => void;
+  onSubmit: (payload: EditUserForm) => void;
+}) {
+  const { register, handleSubmit } = useForm<EditUserForm>({
+    defaultValues: { role: user.role, isActive: user.isActive },
+  });
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={`Edit ${user.firstName} ${user.lastName}`}
+    >
+      <form
+        onSubmit={(e) =>
+          void handleSubmit((d) => {
+            onSubmit({ role: d.role, isActive: String(d.isActive) === "true" });
+          })(e)
+        }
+        className="space-y-4"
+      >
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Role
+          </label>
+          <LookupSelect category="userRole" {...register("role")} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Status
+          </label>
+          <select
+            {...register("isActive")}
+            className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={isPending}>
+            Save
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -589,9 +807,152 @@ function BusinessUnitsTab() {
   );
 }
 
+// ----- Roles & Permissions Tab -----
+function RolesTab() {
+  const { data: roles, isLoading } = useRoles();
+  const { data: catalog, isLoading: catalogLoading } = usePermissionCatalog();
+  const qc = useQueryClient();
+  const { getLabel: getRoleLabel } = useLookup("userRole");
+  const [role, setRole] = useState("");
+  const [draft, setDraft] = useState<string[]>([]);
+
+  // Select a default role once data loads.
+  useEffect(() => {
+    if (!role && roles && roles.length > 0) {
+      setRole(roles[0].role);
+      setDraft(roles[0].permissions);
+    }
+  }, [roles, role]);
+
+  const current = roles?.find((r) => r.role === role);
+  const isSystem = current?.isSystem ?? false;
+
+  const saveMutation = useMutation({
+    mutationFn: (payload: { role: string; permissions: string[] }) =>
+      api.put(`/roles/${payload.role}/permissions`, {
+        permissions: payload.permissions,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["roles"] });
+      toast.success("Permissions updated");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to update permissions"));
+    },
+  });
+
+  if (isLoading || catalogLoading) return <PageSpinner />;
+
+  const toggle = (key: string) => {
+    if (isSystem) return;
+    setDraft((d) =>
+      d.includes(key) ? d.filter((k) => k !== key) : [...d, key],
+    );
+  };
+
+  return (
+    <Card
+      title="Roles & Permissions"
+      actions={
+        <Button
+          size="sm"
+          loading={saveMutation.isPending}
+          disabled={isSystem}
+          onClick={() => {
+            saveMutation.mutate({ role, permissions: draft });
+          }}
+        >
+          Save
+        </Button>
+      }
+    >
+      <div className="mb-5 max-w-xs">
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          Role
+        </label>
+        <select
+          value={role}
+          onChange={(e) => {
+            const r = e.target.value;
+            setRole(r);
+            const found = roles?.find((x) => x.role === r);
+            setDraft(found ? found.permissions : []);
+          }}
+          className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          {(roles ?? []).map((r) => (
+            <option key={r.role} value={r.role}>
+              {getRoleLabel(r.role)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {isSystem && (
+        <p className="mb-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          The administrator role always has every permission and can&apos;t be
+          edited.
+        </p>
+      )}
+
+      <div className="space-y-5">
+        {(catalog ?? []).map((group) => (
+          <div key={group.group}>
+            <h4 className="text-xs font-semibold uppercase text-gray-500 mb-2">
+              {group.group}
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {group.permissions.map((p) => {
+                const checked = isSystem || draft.includes(p.key);
+                return (
+                  <label
+                    key={p.key}
+                    className={clsx(
+                      "flex items-center gap-2.5 p-2.5 border rounded-lg text-sm",
+                      checked
+                        ? "border-primary-200 bg-primary-50"
+                        : "border-gray-200",
+                      isSystem ? "opacity-70" : "cursor-pointer",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={isSystem}
+                      onChange={() => {
+                        toggle(p.key);
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-gray-700">{p.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const [selectedTab, setSelectedTab] = useState(0);
-  const tabs = ["Company", "Billing", "Users", "Business Units"];
+  const { can } = usePermissions();
+
+  const tabs = [
+    { label: "Company", panel: <CompanyTab /> },
+    { label: "Billing", panel: <BillingTab /> },
+    ...(can("users.manage")
+      ? [
+          { label: "Users", panel: <UsersTab /> },
+          { label: "Roles", panel: <RolesTab /> },
+        ]
+      : []),
+    ...(can("settings.manage")
+      ? [{ label: "Business Units", panel: <BusinessUnitsTab /> }]
+      : []),
+  ];
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -599,7 +960,7 @@ export default function SettingsPage() {
         <Tab.List className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
           {tabs.map((tab) => (
             <Tab
-              key={tab}
+              key={tab.label}
               className={({ selected }) =>
                 clsx(
                   "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
@@ -609,23 +970,14 @@ export default function SettingsPage() {
                 )
               }
             >
-              {tab}
+              {tab.label}
             </Tab>
           ))}
         </Tab.List>
         <Tab.Panels className="mt-5">
-          <Tab.Panel>
-            <CompanyTab />
-          </Tab.Panel>
-          <Tab.Panel>
-            <BillingTab />
-          </Tab.Panel>
-          <Tab.Panel>
-            <UsersTab />
-          </Tab.Panel>
-          <Tab.Panel>
-            <BusinessUnitsTab />
-          </Tab.Panel>
+          {tabs.map((tab) => (
+            <Tab.Panel key={tab.label}>{tab.panel}</Tab.Panel>
+          ))}
         </Tab.Panels>
       </Tab.Group>
     </div>

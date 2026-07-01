@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth.middleware");
+const { requirePermission } = require("../middleware/permission.middleware");
 const validateLookups = require("../middleware/validateLookups.middleware");
 const c = require("../controllers/estimates.controller");
 
@@ -11,13 +12,27 @@ const validateEstimate = validateLookups({
 });
 
 router.get("/", c.list);
-router.post("/", validateEstimate, c.create);
+router.post(
+  "/",
+  requirePermission("estimates.manage"),
+  validateEstimate,
+  c.create,
+);
 router.get("/:id", c.get);
-router.put("/:id", validateEstimate, c.update);
+router.put(
+  "/:id",
+  requirePermission("estimates.manage"),
+  validateEstimate,
+  c.update,
+);
 
-router.post("/:id/send", c.send);
-router.post("/:id/approve", c.approve);
-router.post("/:id/reject", c.reject);
-router.post("/:id/convert", c.convertToInvoice);
+router.post("/:id/send", requirePermission("estimates.manage"), c.send);
+router.post("/:id/approve", requirePermission("estimates.manage"), c.approve);
+router.post("/:id/reject", requirePermission("estimates.manage"), c.reject);
+router.post(
+  "/:id/convert",
+  requirePermission("estimates.manage"),
+  c.convertToInvoice,
+);
 
 module.exports = router;

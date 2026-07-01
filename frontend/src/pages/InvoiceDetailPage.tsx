@@ -28,6 +28,7 @@ import {
   formatDateTime,
 } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
+import { usePermissions } from "../hooks/usePermissions";
 
 interface PaymentForm {
   amount: number;
@@ -47,6 +48,7 @@ export default function InvoiceDetailPage() {
   const paymentMutation = useRecordPayment();
   const voidMutation = useVoidInvoice();
   const { getLabel: getPaymentMethodLabel } = useLookup("paymentMethod");
+  const { can } = usePermissions();
 
   const { register, handleSubmit, reset } = useForm<PaymentForm>({
     defaultValues: { method: "cash" },
@@ -122,19 +124,21 @@ export default function InvoiceDetailPage() {
             )}
           </div>
           <div className="flex gap-2 shrink-0 flex-wrap justify-end">
-            {invoice.amountPaid === 0 && invoice.status !== "void" && (
-              <Button
-                variant="outline"
-                size="sm"
-                icon={<PencilIcon className="h-4 w-4" />}
-                onClick={() => {
-                  navigate(`/invoices/${id ?? ""}/edit`);
-                }}
-              >
-                Edit
-              </Button>
-            )}
-            {invoice.status === "draft" && (
+            {can("invoices.manage") &&
+              invoice.amountPaid === 0 &&
+              invoice.status !== "void" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<PencilIcon className="h-4 w-4" />}
+                  onClick={() => {
+                    navigate(`/invoices/${id ?? ""}/edit`);
+                  }}
+                >
+                  Edit
+                </Button>
+              )}
+            {can("invoices.manage") && invoice.status === "draft" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -147,31 +151,35 @@ export default function InvoiceDetailPage() {
                 Send
               </Button>
             )}
-            {invoice.balance > 0 && invoice.status !== "void" && (
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<BanknotesIcon className="h-4 w-4" />}
-                onClick={() => {
-                  reset({ method: "cash", amount: invoice.balance });
-                  setPaymentModal(true);
-                }}
-              >
-                Record Payment
-              </Button>
-            )}
-            {invoice.status !== "void" && invoice.status !== "paid" && (
-              <Button
-                variant="danger"
-                size="sm"
-                icon={<NoSymbolIcon className="h-4 w-4" />}
-                onClick={() => {
-                  setVoidConfirm(true);
-                }}
-              >
-                Void
-              </Button>
-            )}
+            {can("invoices.manage") &&
+              invoice.balance > 0 &&
+              invoice.status !== "void" && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<BanknotesIcon className="h-4 w-4" />}
+                  onClick={() => {
+                    reset({ method: "cash", amount: invoice.balance });
+                    setPaymentModal(true);
+                  }}
+                >
+                  Record Payment
+                </Button>
+              )}
+            {can("invoices.void") &&
+              invoice.status !== "void" &&
+              invoice.status !== "paid" && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<NoSymbolIcon className="h-4 w-4" />}
+                  onClick={() => {
+                    setVoidConfirm(true);
+                  }}
+                >
+                  Void
+                </Button>
+              )}
           </div>
         </div>
 

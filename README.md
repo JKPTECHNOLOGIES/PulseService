@@ -146,7 +146,15 @@ Use `npm run lint:fix` to auto-fix what's mechanically fixable.
 
 ## API
 
-All endpoints are namespaced under `/api/v1` and require a `Bearer` JWT except `POST /auth/login`. Key route groups: `auth`, `customers`, `jobs`, `dispatch`, `estimates`, `invoices`, `payments`, `technicians`, `pricebook`, `inventory`, `agreements`, `reports`, `settings`, `notifications`, `calls`, `campaigns`.
+All endpoints are namespaced under `/api/v1` and require a `Bearer` JWT except `POST /auth/login`. Key route groups: `auth`, `users`, `roles`, `customers`, `jobs`, `dispatch`, `estimates`, `invoices`, `payments`, `technicians`, `pricebook`, `inventory`, `agreements`, `reports`, `settings`, `notifications`, `calls`, `campaigns`.
+
+## Authorization (roles & permissions)
+
+Every user has one `role` (see the `userRole` lookup: `admin`, `exec`, `manager`, `dispatcher`, `csr`, `technician`). Roles map to fine-grained **permission keys** (e.g. `invoices.void`, `reports.financial`) via the `RolePermission` table. Defaults live in `backend/src/constants/permissions.js` and are seeded on first boot; an admin can re-map any role's permissions at runtime from **Settings → Roles & Permissions** (`PUT /roles/:role/permissions`). The `admin` role always retains every permission.
+
+Read endpoints are generally open to any authenticated user; **write / sensitive / financial actions are gated** by the `requirePermission(...)` middleware (`src/middleware/permission.middleware.js`), backed by a cached `permissions.service.js`. A user's effective permissions are returned on `POST /auth/login` and `GET /auth/me`, and the React app consumes them through the `usePermissions` hook / `<Can>` component to hide actions the user can't perform. User administration (`/users`) and role administration (`/roles`) require the `users.manage` permission.
+
+After changing default permission sets in `permissions.js`, re-seed (`npm run db:seed`, or `docker compose down -v` for a fresh start) to apply them.
 
 ## Notes
 

@@ -221,6 +221,8 @@ app.get("/", (req, res) => {
 });
 
 const authRoutes = require("./routes/auth.routes");
+const userRoutes = require("./routes/users.routes");
+const roleRoutes = require("./routes/roles.routes");
 const customerRoutes = require("./routes/customers.routes");
 const jobRoutes = require("./routes/jobs.routes");
 const dispatchRoutes = require("./routes/dispatch.routes");
@@ -242,6 +244,8 @@ const searchRoutes = require("./routes/search.routes");
 const attachmentRoutes = require("./routes/attachments.routes");
 
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/roles", roleRoutes);
 app.use("/api/v1/metadata", metadataRoutes);
 app.use("/api/v1/customers", customerRoutes);
 app.use("/api/v1/jobs", jobRoutes);

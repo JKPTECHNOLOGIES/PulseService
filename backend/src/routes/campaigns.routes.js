@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth.middleware");
+const { requirePermission } = require("../middleware/permission.middleware");
 const validateLookups = require("../middleware/validateLookups.middleware");
 const c = require("../controllers/campaigns.controller");
 
@@ -11,8 +12,18 @@ const validateCampaign = validateLookups({
 });
 
 router.get("/", c.list);
-router.post("/", validateCampaign, c.create);
-router.put("/:id", validateCampaign, c.update);
-router.delete("/:id", c["delete"]);
+router.post(
+  "/",
+  requirePermission("campaigns.manage"),
+  validateCampaign,
+  c.create,
+);
+router.put(
+  "/:id",
+  requirePermission("campaigns.manage"),
+  validateCampaign,
+  c.update,
+);
+router.delete("/:id", requirePermission("campaigns.manage"), c["delete"]);
 
 module.exports = router;

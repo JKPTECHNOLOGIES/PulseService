@@ -602,3 +602,15 @@ model Lookup {
   @@unique([category, value])
   @@index([category])
 }
+
+// Maps a role (see Lookup category "userRole") to the permission keys it grants.
+// Seeded from src/constants/permissions.js; editable by admins at runtime.
+model RolePermission {
+  id         String   @id @default(uuid())
+  role       String
+  permission String
+  createdAt  DateTime @default(now())
+
+  @@unique([role, permission])
+  @@index([role])
+}

@@ -2,6 +2,7 @@ require("dotenv").config();
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const { LOOKUPS } = require("../src/constants/lookups");
+const { DEFAULT_ROLE_PERMISSIONS } = require("../src/constants/permissions");
 
 const prisma = new PrismaClient();
 
@@ -39,6 +40,7 @@ async function main() {
   await prisma.campaign.deleteMany();
   await prisma.zone.deleteMany();
   await prisma.companySettings.deleteMany();
+  await prisma.rolePermission.deleteMany();
   await prisma.lookup.deleteMany();
 
   // ── Lookups (DB-driven enums: statuses, types, roles, priorities, ...) ────────
@@ -52,6 +54,14 @@ async function main() {
         color: entry.color ?? null,
         sortOrder: index,
       })),
+    });
+  }
+
+  // ── Role permissions (default per-role permission sets) ───────────────────────
+  console.log("  Creating role permissions...");
+  for (const [role, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+    await prisma.rolePermission.createMany({
+      data: permissions.map((permission) => ({ role, permission })),
     });
   }
 

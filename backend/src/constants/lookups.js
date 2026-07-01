@@ -145,6 +145,7 @@ const LOOKUPS = {
   ],
   userRole: [
     { value: "admin", label: "Administrator" },
+    { value: "exec", label: "Executive" },
     { value: "manager", label: "Manager" },
     { value: "dispatcher", label: "Dispatcher" },
     { value: "csr", label: "Customer Service Rep" },

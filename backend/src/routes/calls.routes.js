@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth.middleware");
+const { requirePermission } = require("../middleware/permission.middleware");
 const validateLookups = require("../middleware/validateLookups.middleware");
 const {
   list,
@@ -16,8 +17,8 @@ const validateCall = validateLookups({
 });
 
 router.get("/", list);
-router.post("/", validateCall, create);
+router.post("/", requirePermission("calls.manage"), validateCall, create);
 router.get("/:id", get);
-router.put("/:id", validateCall, update);
+router.put("/:id", requirePermission("calls.manage"), validateCall, update);
 
 module.exports = router;

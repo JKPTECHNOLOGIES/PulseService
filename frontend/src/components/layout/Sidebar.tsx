@@ -25,7 +25,10 @@ import {
 } from "@heroicons/react/24/outline";
 import { useAuthStore } from "../../store/authStore";
 import { useLookup } from "../../hooks/useMetadata";
+import { usePermissions } from "../../hooks/usePermissions";
 
+// `perm` (optional) hides the item unless the user holds one of the listed
+// permissions. Items without `perm` are visible to every authenticated user.
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: HomeIcon },
   { to: "/customers", label: "Customers", icon: UsersIcon },
@@ -33,7 +36,12 @@ const navItems = [
   { to: "/dispatch", label: "Dispatch", icon: MapIcon },
   { to: "/estimates", label: "Estimates", icon: DocumentTextIcon },
   { to: "/invoices", label: "Invoices", icon: DocumentDuplicateIcon },
-  { to: "/payments", label: "Payments", icon: CreditCardIcon },
+  {
+    to: "/payments",
+    label: "Payments",
+    icon: CreditCardIcon,
+    perm: ["payments.view"],
+  },
   { to: "/technicians", label: "Technicians", icon: WrenchScrewdriverIcon },
   { to: "/pricebook", label: "Pricebook", icon: BookOpenIcon },
   { to: "/inventory", label: "Inventory", icon: ArchiveBoxIcon },
@@ -41,7 +49,12 @@ const navItems = [
   // { to: "/equipment", label: "Equipment", icon: CpuChipIcon },
   { to: "/agreements", label: "Agreements", icon: ClipboardDocumentCheckIcon },
   { to: "/marketing", label: "Marketing", icon: MegaphoneIcon },
-  { to: "/reports", label: "Reports", icon: ChartBarIcon },
+  {
+    to: "/reports",
+    label: "Reports",
+    icon: ChartBarIcon,
+    perm: ["reports.operational", "reports.financial"],
+  },
   { to: "/settings", label: "Settings", icon: Cog6ToothIcon },
 ];
 
@@ -55,6 +68,11 @@ export default function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const { getLabel: getRoleLabel } = useLookup("userRole");
+  const { canAny } = usePermissions();
+
+  const visibleNavItems = navItems.filter(
+    (item) => !item.perm || canAny(...item.perm),
+  );
 
   const handleLogout = () => {
     logout();
@@ -138,7 +156,7 @@ export default function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-0.5">
-          {navItems.map(({ to, label, icon: Icon }) => (
+          {visibleNavItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}

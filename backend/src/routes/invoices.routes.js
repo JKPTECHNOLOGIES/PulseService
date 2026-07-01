@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth.middleware");
+const { requirePermission } = require("../middleware/permission.middleware");
 const validateLookups = require("../middleware/validateLookups.middleware");
 const c = require("../controllers/invoices.controller");
 
@@ -11,16 +12,27 @@ const validateInvoice = validateLookups({
 });
 
 router.get("/", c.list);
-router.post("/", validateInvoice, c.create);
+router.post(
+  "/",
+  requirePermission("invoices.manage"),
+  validateInvoice,
+  c.create,
+);
 router.get("/:id", c.get);
-router.put("/:id", validateInvoice, c.update);
+router.put(
+  "/:id",
+  requirePermission("invoices.manage"),
+  validateInvoice,
+  c.update,
+);
 
-router.post("/:id/send", c.send);
+router.post("/:id/send", requirePermission("invoices.manage"), c.send);
 router.post(
   "/:id/payments",
+  requirePermission("invoices.manage"),
   validateLookups({ method: "paymentMethod" }),
   c.recordPayment,
 );
-router.post("/:id/void", c["void"]);
+router.post("/:id/void", requirePermission("invoices.void"), c["void"]);
 
 module.exports = router;
