@@ -1,14 +1,30 @@
-const prisma = require('../config/database');
-const { paginate, paginatedResponse, generateNumber, calculateTotals } = require('../utils/helpers');
+const prisma = require("../config/database");
+const {
+  paginate,
+  paginatedResponse,
+  generateNumber,
+  calculateTotals,
+} = require("../utils/helpers");
 
 const list = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, customerId } = req.query;
+    const { page = 1, limit = 20, status, customerId, search } = req.query;
     const { skip, take } = paginate(page, limit);
 
     const where = {};
     if (status) where.status = status;
     if (customerId) where.customerId = customerId;
+    if (search) {
+      where.OR = [
+        { estimateNumber: { contains: search, mode: "insensitive" } },
+        { title: { contains: search, mode: "insensitive" } },
+        { customer: { firstName: { contains: search, mode: "insensitive" } } },
+        { customer: { lastName: { contains: search, mode: "insensitive" } } },
+        {
+          customer: { companyName: { contains: search, mode: "insensitive" } },
+        },
+      ];
+    }
 
     const [estimates, total] = await Promise.all([
       prisma.estimate.findMany({
@@ -16,18 +32,28 @@ const list = async (req, res) => {
         skip,
         take,
         include: {
-          customer: { select: { id: true, firstName: true, lastName: true, companyName: true } },
+          customer: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              companyName: true,
+            },
+          },
           _count: { select: { lineItems: true } },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
       prisma.estimate.count({ where }),
     ]);
 
-    return res.json({ success: true, ...paginatedResponse(estimates, total, page, limit) });
+    return res.json({
+      success: true,
+      ...paginatedResponse(estimates, total, page, limit),
+    });
   } catch (err) {
-    console.error('estimates.list error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("estimates.list error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -37,31 +63,57 @@ const get = async (req, res) => {
       where: { id: req.params.id },
       include: {
         customer: true,
-        job: { select: { id: true, jobNumber: true, summary: true, status: true } },
-        lineItems: { orderBy: { sortOrder: 'asc' } },
+        job: {
+          select: { id: true, jobNumber: true, summary: true, status: true },
+        },
+        lineItems: { orderBy: { sortOrder: "asc" } },
         createdBy: { select: { id: true, firstName: true, lastName: true } },
-        invoice: { select: { id: true, invoiceNumber: true, status: true, total: true } },
+        invoice: {
+          select: { id: true, invoiceNumber: true, status: true, total: true },
+        },
       },
     });
 
-    if (!estimate) return res.status(404).json({ success: false, error: 'Estimate not found' });
+    if (!estimate)
+      return res
+        .status(404)
+        .json({ success: false, error: "Estimate not found" });
     return res.json({ success: true, data: estimate });
   } catch (err) {
-    console.error('estimates.get error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("estimates.get error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
 const create = async (req, res) => {
   try {
     const settings = await prisma.companySettings.findFirst();
-    if (!settings) return res.status(500).json({ success: false, error: 'Company settings not found' });
+    if (!settings)
+      return res
+        .status(500)
+        .json({ success: false, error: "Company settings not found" });
 
-    const estimateNumber = generateNumber(settings.estimatePrefix, settings.nextEstimateNumber);
-    await prisma.companySettings.updateMany({ data: { nextEstimateNumber: { increment: 1 } } });
+    const estimateNumber = generateNumber(
+      settings.estimatePrefix,
+      settings.nextEstimateNumber,
+    );
+    await prisma.companySettings.updateMany({
+      data: { nextEstimateNumber: { increment: 1 } },
+    });
 
-    const { lineItems = [], discountType, discountValue = 0, taxRate = 0, ...estimateData } = req.body;
-    const totals = calculateTotals(lineItems, discountType, discountValue, taxRate);
+    const {
+      lineItems = [],
+      discountType,
+      discountValue = 0,
+      taxRate = 0,
+      ...estimateData
+    } = req.body;
+    const totals = calculateTotals(
+      lineItems,
+      discountType,
+      discountValue,
+      taxRate,
+    );
 
     const estimate = await prisma.estimate.create({
       data: {
@@ -76,7 +128,7 @@ const create = async (req, res) => {
         total: totals.total,
         lineItems: {
           create: lineItems.map((item, i) => ({
-            type: item.type || 'service',
+            type: item.type || "service",
             name: item.name,
             description: item.description,
             quantity: item.quantity,
@@ -87,13 +139,13 @@ const create = async (req, res) => {
           })),
         },
       },
-      include: { lineItems: { orderBy: { sortOrder: 'asc' } }, customer: true },
+      include: { lineItems: { orderBy: { sortOrder: "asc" } }, customer: true },
     });
 
     return res.status(201).json({ success: true, data: estimate });
   } catch (err) {
-    console.error('estimates.create error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("estimates.create error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -111,18 +163,30 @@ const update = async (req, res) => {
       ...estimateData
     } = req.body;
 
-    const updateData = { ...estimateData, discountType, discountValue, taxRate };
+    const updateData = {
+      ...estimateData,
+      discountType,
+      discountValue,
+      taxRate,
+    };
 
     if (lineItems) {
-      const totals = calculateTotals(lineItems, discountType, discountValue, taxRate);
+      const totals = calculateTotals(
+        lineItems,
+        discountType,
+        discountValue,
+        taxRate,
+      );
       updateData.subtotal = totals.subtotal;
       updateData.taxAmount = totals.taxAmount;
       updateData.total = totals.total;
 
-      await prisma.estimateLineItem.deleteMany({ where: { estimateId: req.params.id } });
+      await prisma.estimateLineItem.deleteMany({
+        where: { estimateId: req.params.id },
+      });
       updateData.lineItems = {
         create: lineItems.map((item, i) => ({
-          type: item.type || 'service',
+          type: item.type || "service",
           name: item.name,
           description: item.description,
           quantity: item.quantity,
@@ -137,14 +201,17 @@ const update = async (req, res) => {
     const estimate = await prisma.estimate.update({
       where: { id: req.params.id },
       data: updateData,
-      include: { lineItems: { orderBy: { sortOrder: 'asc' } } },
+      include: { lineItems: { orderBy: { sortOrder: "asc" } } },
     });
 
     return res.json({ success: true, data: estimate });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, error: 'Estimate not found' });
-    console.error('estimates.update error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    if (err.code === "P2025")
+      return res
+        .status(404)
+        .json({ success: false, error: "Estimate not found" });
+    console.error("estimates.update error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -152,12 +219,15 @@ const send = async (req, res) => {
   try {
     const estimate = await prisma.estimate.update({
       where: { id: req.params.id },
-      data: { status: 'sent', sentAt: new Date() },
+      data: { status: "sent", sentAt: new Date() },
     });
     return res.json({ success: true, data: estimate });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, error: 'Estimate not found' });
-    return res.status(500).json({ success: false, error: 'Server error' });
+    if (err.code === "P2025")
+      return res
+        .status(404)
+        .json({ success: false, error: "Estimate not found" });
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -165,12 +235,15 @@ const approve = async (req, res) => {
   try {
     const estimate = await prisma.estimate.update({
       where: { id: req.params.id },
-      data: { status: 'approved', approvedAt: new Date() },
+      data: { status: "approved", approvedAt: new Date() },
     });
     return res.json({ success: true, data: estimate });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, error: 'Estimate not found' });
-    return res.status(500).json({ success: false, error: 'Server error' });
+    if (err.code === "P2025")
+      return res
+        .status(404)
+        .json({ success: false, error: "Estimate not found" });
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -179,12 +252,15 @@ const reject = async (req, res) => {
     const { rejectionReason } = req.body;
     const estimate = await prisma.estimate.update({
       where: { id: req.params.id },
-      data: { status: 'rejected', rejectedAt: new Date(), rejectionReason },
+      data: { status: "rejected", rejectedAt: new Date(), rejectionReason },
     });
     return res.json({ success: true, data: estimate });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, error: 'Estimate not found' });
-    return res.status(500).json({ success: false, error: 'Server error' });
+    if (err.code === "P2025")
+      return res
+        .status(404)
+        .json({ success: false, error: "Estimate not found" });
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -194,16 +270,32 @@ const convertToInvoice = async (req, res) => {
       where: { id: req.params.id },
       include: { lineItems: true, invoice: true },
     });
-    if (!estimate) return res.status(404).json({ success: false, error: 'Estimate not found' });
+    if (!estimate)
+      return res
+        .status(404)
+        .json({ success: false, error: "Estimate not found" });
     if (estimate.invoice) {
-      return res.status(400).json({ success: false, error: 'Estimate has already been converted to an invoice' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: "Estimate has already been converted to an invoice",
+        });
     }
 
     const settings = await prisma.companySettings.findFirst();
-    if (!settings) return res.status(500).json({ success: false, error: 'Company settings not found' });
+    if (!settings)
+      return res
+        .status(500)
+        .json({ success: false, error: "Company settings not found" });
 
-    const invoiceNumber = generateNumber(settings.invoicePrefix, settings.nextInvoiceNumber);
-    await prisma.companySettings.updateMany({ data: { nextInvoiceNumber: { increment: 1 } } });
+    const invoiceNumber = generateNumber(
+      settings.invoicePrefix,
+      settings.nextInvoiceNumber,
+    );
+    await prisma.companySettings.updateMany({
+      data: { nextInvoiceNumber: { increment: 1 } },
+    });
 
     const invoice = await prisma.invoice.create({
       data: {
@@ -211,7 +303,7 @@ const convertToInvoice = async (req, res) => {
         customerId: estimate.customerId,
         jobId: estimate.jobId,
         estimateId: estimate.id,
-        status: 'draft',
+        status: "draft",
         subtotal: estimate.subtotal,
         discountType: estimate.discountType,
         discountValue: estimate.discountValue,
@@ -235,22 +327,31 @@ const convertToInvoice = async (req, res) => {
           })),
         },
       },
-      include: { lineItems: { orderBy: { sortOrder: 'asc' } }, customer: true },
+      include: { lineItems: { orderBy: { sortOrder: "asc" } }, customer: true },
     });
 
     // Mark estimate as approved if it was in draft/sent
-    if (['draft', 'sent'].includes(estimate.status)) {
+    if (["draft", "sent"].includes(estimate.status)) {
       await prisma.estimate.update({
         where: { id: estimate.id },
-        data: { status: 'approved', approvedAt: new Date() },
+        data: { status: "approved", approvedAt: new Date() },
       });
     }
 
     return res.status(201).json({ success: true, data: invoice });
   } catch (err) {
-    console.error('estimates.convertToInvoice error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("estimates.convertToInvoice error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
-module.exports = { list, get, create, update, send, approve, reject, convertToInvoice };
+module.exports = {
+  list,
+  get,
+  create,
+  update,
+  send,
+  approve,
+  reject,
+  convertToInvoice,
+};

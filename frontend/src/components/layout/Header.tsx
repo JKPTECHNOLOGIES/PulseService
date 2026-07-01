@@ -1,10 +1,6 @@
 import { Fragment } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import {
-  BellIcon,
-  MagnifyingGlassIcon,
-  ChevronDownIcon,
-} from "@heroicons/react/24/outline";
+import { BellIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import { Menu, Transition } from "@headlessui/react";
 import clsx from "clsx";
 import { useAuthStore } from "../../store/authStore";
@@ -62,18 +58,6 @@ export default function Header() {
       <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
 
       <div className="flex items-center gap-3">
-        {/* Search */}
-        <div className="relative hidden md:block">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search..."
-            className="pl-9 pr-4 py-1.5 text-sm border border-gray-200 rounded-lg bg-gray-50
-              focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white
-              placeholder-gray-400 w-48 focus:w-64 transition-all"
-          />
-        </div>
-
         {/* Notifications */}
         <button
           onClick={() => {

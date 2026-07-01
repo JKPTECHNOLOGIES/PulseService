@@ -1,14 +1,29 @@
-const prisma = require('../config/database');
-const { paginate, paginatedResponse, generateNumber, calculateTotals } = require('../utils/helpers');
+const prisma = require("../config/database");
+const {
+  paginate,
+  paginatedResponse,
+  generateNumber,
+  calculateTotals,
+} = require("../utils/helpers");
 
 const list = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, customerId } = req.query;
+    const { page = 1, limit = 20, status, customerId, search } = req.query;
     const { skip, take } = paginate(page, limit);
 
     const where = {};
     if (status) where.status = status;
     if (customerId) where.customerId = customerId;
+    if (search) {
+      where.OR = [
+        { invoiceNumber: { contains: search, mode: "insensitive" } },
+        { customer: { firstName: { contains: search, mode: "insensitive" } } },
+        { customer: { lastName: { contains: search, mode: "insensitive" } } },
+        {
+          customer: { companyName: { contains: search, mode: "insensitive" } },
+        },
+      ];
+    }
 
     const [invoices, total] = await Promise.all([
       prisma.invoice.findMany({
@@ -16,18 +31,28 @@ const list = async (req, res) => {
         skip,
         take,
         include: {
-          customer: { select: { id: true, firstName: true, lastName: true, companyName: true } },
+          customer: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              companyName: true,
+            },
+          },
           job: { select: { id: true, jobNumber: true, summary: true } },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
       prisma.invoice.count({ where }),
     ]);
 
-    return res.json({ success: true, ...paginatedResponse(invoices, total, page, limit) });
+    return res.json({
+      success: true,
+      ...paginatedResponse(invoices, total, page, limit),
+    });
   } catch (err) {
-    console.error('invoices.list error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("invoices.list error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -37,32 +62,56 @@ const get = async (req, res) => {
       where: { id: req.params.id },
       include: {
         customer: true,
-        job: { select: { id: true, jobNumber: true, summary: true, status: true } },
+        job: {
+          select: { id: true, jobNumber: true, summary: true, status: true },
+        },
         estimate: { select: { id: true, estimateNumber: true } },
-        lineItems: { orderBy: { sortOrder: 'asc' } },
-        payments: { orderBy: { createdAt: 'desc' } },
+        lineItems: { orderBy: { sortOrder: "asc" } },
+        payments: { orderBy: { createdAt: "desc" } },
         createdBy: { select: { id: true, firstName: true, lastName: true } },
       },
     });
 
-    if (!invoice) return res.status(404).json({ success: false, error: 'Invoice not found' });
+    if (!invoice)
+      return res
+        .status(404)
+        .json({ success: false, error: "Invoice not found" });
     return res.json({ success: true, data: invoice });
   } catch (err) {
-    console.error('invoices.get error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("invoices.get error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
 const create = async (req, res) => {
   try {
     const settings = await prisma.companySettings.findFirst();
-    if (!settings) return res.status(500).json({ success: false, error: 'Company settings not found' });
+    if (!settings)
+      return res
+        .status(500)
+        .json({ success: false, error: "Company settings not found" });
 
-    const invoiceNumber = generateNumber(settings.invoicePrefix, settings.nextInvoiceNumber);
-    await prisma.companySettings.updateMany({ data: { nextInvoiceNumber: { increment: 1 } } });
+    const invoiceNumber = generateNumber(
+      settings.invoicePrefix,
+      settings.nextInvoiceNumber,
+    );
+    await prisma.companySettings.updateMany({
+      data: { nextInvoiceNumber: { increment: 1 } },
+    });
 
-    const { lineItems = [], discountType, discountValue = 0, taxRate = 0, ...invoiceData } = req.body;
-    const totals = calculateTotals(lineItems, discountType, discountValue, taxRate);
+    const {
+      lineItems = [],
+      discountType,
+      discountValue = 0,
+      taxRate = 0,
+      ...invoiceData
+    } = req.body;
+    const totals = calculateTotals(
+      lineItems,
+      discountType,
+      discountValue,
+      taxRate,
+    );
 
     const invoice = await prisma.invoice.create({
       data: {
@@ -78,7 +127,7 @@ const create = async (req, res) => {
         balance: totals.total,
         lineItems: {
           create: lineItems.map((item, i) => ({
-            type: item.type || 'service',
+            type: item.type || "service",
             name: item.name,
             description: item.description,
             quantity: item.quantity,
@@ -89,13 +138,13 @@ const create = async (req, res) => {
           })),
         },
       },
-      include: { lineItems: { orderBy: { sortOrder: 'asc' } }, customer: true },
+      include: { lineItems: { orderBy: { sortOrder: "asc" } }, customer: true },
     });
 
     return res.status(201).json({ success: true, data: invoice });
   } catch (err) {
-    console.error('invoices.create error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("invoices.create error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -116,18 +165,30 @@ const update = async (req, res) => {
     const updateData = { ...invoiceData, discountType, discountValue, taxRate };
 
     if (lineItems) {
-      const totals = calculateTotals(lineItems, discountType, discountValue, taxRate);
-      const existing = await prisma.invoice.findUnique({ where: { id: req.params.id } });
+      const totals = calculateTotals(
+        lineItems,
+        discountType,
+        discountValue,
+        taxRate,
+      );
+      const existing = await prisma.invoice.findUnique({
+        where: { id: req.params.id },
+      });
 
       updateData.subtotal = totals.subtotal;
       updateData.taxAmount = totals.taxAmount;
       updateData.total = totals.total;
-      updateData.balance = Math.max(0, totals.total - (existing?.amountPaid || 0));
+      updateData.balance = Math.max(
+        0,
+        totals.total - (existing?.amountPaid || 0),
+      );
 
-      await prisma.invoiceLineItem.deleteMany({ where: { invoiceId: req.params.id } });
+      await prisma.invoiceLineItem.deleteMany({
+        where: { invoiceId: req.params.id },
+      });
       updateData.lineItems = {
         create: lineItems.map((item, i) => ({
-          type: item.type || 'service',
+          type: item.type || "service",
           name: item.name,
           description: item.description,
           quantity: item.quantity,
@@ -142,14 +203,17 @@ const update = async (req, res) => {
     const invoice = await prisma.invoice.update({
       where: { id: req.params.id },
       data: updateData,
-      include: { lineItems: { orderBy: { sortOrder: 'asc' } } },
+      include: { lineItems: { orderBy: { sortOrder: "asc" } } },
     });
 
     return res.json({ success: true, data: invoice });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, error: 'Invoice not found' });
-    console.error('invoices.update error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    if (err.code === "P2025")
+      return res
+        .status(404)
+        .json({ success: false, error: "Invoice not found" });
+    console.error("invoices.update error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -157,12 +221,15 @@ const send = async (req, res) => {
   try {
     const invoice = await prisma.invoice.update({
       where: { id: req.params.id },
-      data: { status: 'sent', sentAt: new Date() },
+      data: { status: "sent", sentAt: new Date() },
     });
     return res.json({ success: true, data: invoice });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, error: 'Invoice not found' });
-    return res.status(500).json({ success: false, error: 'Server error' });
+    if (err.code === "P2025")
+      return res
+        .status(404)
+        .json({ success: false, error: "Invoice not found" });
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -170,13 +237,25 @@ const recordPayment = async (req, res) => {
   try {
     const { amount, method, referenceNumber, notes, paidAt } = req.body;
     if (!amount || !method) {
-      return res.status(400).json({ success: false, error: 'amount and method are required' });
+      return res
+        .status(400)
+        .json({ success: false, error: "amount and method are required" });
     }
 
-    const invoice = await prisma.invoice.findUnique({ where: { id: req.params.id } });
-    if (!invoice) return res.status(404).json({ success: false, error: 'Invoice not found' });
-    if (invoice.status === 'void') {
-      return res.status(400).json({ success: false, error: 'Cannot record payment on a voided invoice' });
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!invoice)
+      return res
+        .status(404)
+        .json({ success: false, error: "Invoice not found" });
+    if (invoice.status === "void") {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: "Cannot record payment on a voided invoice",
+        });
     }
 
     const payment = await prisma.payment.create({
@@ -188,13 +267,18 @@ const recordPayment = async (req, res) => {
         referenceNumber,
         notes,
         paidAt: paidAt ? new Date(paidAt) : new Date(),
-        status: 'completed',
+        status: "completed",
       },
     });
 
     const newAmountPaid = invoice.amountPaid + parseFloat(amount);
     const newBalance = Math.max(0, invoice.total - newAmountPaid);
-    const newStatus = newBalance === 0 ? 'paid' : invoice.status === 'draft' ? 'sent' : invoice.status;
+    const newStatus =
+      newBalance === 0
+        ? "paid"
+        : invoice.status === "draft"
+          ? "sent"
+          : invoice.status;
 
     const updatedInvoice = await prisma.invoice.update({
       where: { id: invoice.id },
@@ -206,10 +290,13 @@ const recordPayment = async (req, res) => {
       },
     });
 
-    return res.json({ success: true, data: { payment, invoice: updatedInvoice } });
+    return res.json({
+      success: true,
+      data: { payment, invoice: updatedInvoice },
+    });
   } catch (err) {
-    console.error('invoices.recordPayment error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("invoices.recordPayment error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -218,14 +305,25 @@ const voidInvoice = async (req, res) => {
     const { voidReason } = req.body;
     const invoice = await prisma.invoice.update({
       where: { id: req.params.id },
-      data: { status: 'void', voidedAt: new Date(), voidReason },
+      data: { status: "void", voidedAt: new Date(), voidReason },
     });
     return res.json({ success: true, data: invoice });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, error: 'Invoice not found' });
-    console.error('invoices.void error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    if (err.code === "P2025")
+      return res
+        .status(404)
+        .json({ success: false, error: "Invoice not found" });
+    console.error("invoices.void error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
-module.exports = { list, get, create, update, send, recordPayment, void: voidInvoice };
+module.exports = {
+  list,
+  get,
+  create,
+  update,
+  send,
+  recordPayment,
+  void: voidInvoice,
+};
