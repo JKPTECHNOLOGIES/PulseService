@@ -557,17 +557,28 @@ function WeekGrid({ techRows, days, onJobClick }: WeekGridProps) {
             Technician
           </span>
         </div>
-        {days.map((d) => (
-          <div
-            key={d.toISOString()}
-            className="flex-1 border-l border-gray-100 px-2 py-3 text-center"
-            style={{ minWidth: 120 }}
-          >
-            <span className="text-xs text-gray-500 font-medium">
-              {format(d, "EEE d")}
-            </span>
-          </div>
-        ))}
+        {days.map((d) => {
+          const isToday = isSameDay(d, new Date());
+          return (
+            <div
+              key={d.toISOString()}
+              className={clsx(
+                "flex-1 border-l border-gray-100 px-2 py-3 text-center",
+                isToday && "bg-primary-50",
+              )}
+              style={{ minWidth: 120 }}
+            >
+              <span
+                className={clsx(
+                  "text-xs font-medium",
+                  isToday ? "text-primary-700 font-semibold" : "text-gray-500",
+                )}
+              >
+                {format(d, "EEE d")}
+              </span>
+            </div>
+          );
+        })}
       </div>
       {techRows.length === 0 ? (
         <div className="py-16 text-center text-gray-400 text-sm">
@@ -640,13 +651,16 @@ function MonthDayCell({ day, jobs, inMonth, onJobClick }: MonthDayCellProps) {
       )}
       style={{ minHeight: 104 }}
     >
-      <span
-        className={clsx(
-          "text-xs font-medium",
-          inMonth ? "text-gray-500" : "text-gray-300",
+      <span className="text-xs font-medium">
+        {isSameDay(day, new Date()) ? (
+          <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary-600 px-1 text-white">
+            {format(day, "d")}
+          </span>
+        ) : (
+          <span className={inMonth ? "text-gray-500" : "text-gray-300"}>
+            {format(day, "d")}
+          </span>
         )}
-      >
-        {format(day, "d")}
       </span>
       <div className="space-y-1 overflow-y-auto">
         {dayJobs.slice(0, 4).map((job) => (
@@ -890,7 +904,9 @@ export default function DispatchPage() {
   };
   const rangeLabel =
     viewMode === "day"
-      ? format(currentDate, "EEEE, MMMM d, yyyy")
+      ? `${format(currentDate, "EEEE, MMMM d, yyyy")}${
+          isSameDay(currentDate, new Date()) ? " \u00b7 Today" : ""
+        }`
       : viewMode === "week"
         ? `${format(startOfWeek(currentDate), "MMM d")} - ${format(endOfWeek(currentDate), "MMM d, yyyy")}`
         : format(currentDate, "MMMM yyyy");
@@ -936,14 +952,6 @@ export default function DispatchPage() {
               </button>
             ))}
           </div>
-          <button
-            onClick={() => {
-              setCurrentDate(new Date());
-            }}
-            className="px-3 py-1.5 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            Today
-          </button>
           <Button
             size="sm"
             icon={<PlusIcon className="h-4 w-4" />}
