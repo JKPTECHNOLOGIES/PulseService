@@ -103,10 +103,10 @@ export default function PricebookPage() {
   };
 
   return (
-    <div className="flex gap-5 h-full">
-      {/* Categories */}
-      <div className="w-64 shrink-0">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 h-full flex flex-col">
+    <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 lg:h-full">
+      {/* Categories: full-width horizontal chip bar on mobile, fixed side rail on desktop */}
+      <div className="w-full lg:w-64 lg:shrink-0">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 lg:h-full flex flex-col">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">Categories</h3>
             <button
@@ -118,13 +118,13 @@ export default function PricebookPage() {
               <PlusIcon className="h-4 w-4" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+          <div className="lg:flex-1 flex lg:flex-col gap-1 lg:gap-0.5 overflow-x-auto lg:overflow-y-auto p-2">
             <button
               onClick={() => {
                 setSelectedCategory(null);
               }}
               className={clsx(
-                "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left",
+                "shrink-0 lg:w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left whitespace-nowrap",
                 selectedCategory === null
                   ? "bg-primary-50 text-primary-700 font-medium"
                   : "text-gray-600 hover:bg-gray-50",
@@ -143,14 +143,14 @@ export default function PricebookPage() {
                     setSelectedCategory(cat.id);
                   }}
                   className={clsx(
-                    "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left",
+                    "shrink-0 lg:w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left whitespace-nowrap",
                     selectedCategory === cat.id
                       ? "bg-primary-50 text-primary-700 font-medium"
                       : "text-gray-600 hover:bg-gray-50",
                   )}
                 >
                   <FolderIcon className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{cat.name}</span>
+                  <span className="lg:truncate">{cat.name}</span>
                 </button>
               ))
             )}
