@@ -162,6 +162,24 @@ const update = async (req, res) => {
       ...invoiceData
     } = req.body;
 
+    // Lock edits once a payment is applied or the invoice is void, to protect
+    // accounting integrity (void & reissue instead).
+    const existing = await prisma.invoice.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Invoice not found" });
+    }
+    if (existing.status === "void" || existing.amountPaid > 0) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "This invoice can't be edited because a payment has been recorded or it is void. Void and reissue instead.",
+      });
+    }
+
     const updateData = { ...invoiceData, discountType, discountValue, taxRate };
 
     if (lineItems) {
@@ -171,9 +189,6 @@ const update = async (req, res) => {
         discountValue,
         taxRate,
       );
-      const existing = await prisma.invoice.findUnique({
-        where: { id: req.params.id },
-      });
 
       updateData.subtotal = totals.subtotal;
       updateData.taxAmount = totals.taxAmount;
@@ -250,12 +265,10 @@ const recordPayment = async (req, res) => {
         .status(404)
         .json({ success: false, error: "Invoice not found" });
     if (invoice.status === "void") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Cannot record payment on a voided invoice",
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Cannot record payment on a voided invoice",
+      });
     }
 
     const payment = await prisma.payment.create({

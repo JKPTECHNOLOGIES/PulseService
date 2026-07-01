@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import {
   ChevronRightIcon,
   PaperAirplaneIcon,
   BanknotesIcon,
   NoSymbolIcon,
+  PencilIcon,
 } from "@heroicons/react/24/outline";
 import {
   useInvoice,
@@ -36,6 +37,7 @@ interface PaymentForm {
 
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [paymentModal, setPaymentModal] = useState(false);
   const [voidConfirm, setVoidConfirm] = useState(false);
 
@@ -119,6 +121,18 @@ export default function InvoiceDetailPage() {
             )}
           </div>
           <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+            {invoice.amountPaid === 0 && invoice.status !== "void" && (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<PencilIcon className="h-4 w-4" />}
+                onClick={() => {
+                  navigate(`/invoices/${id ?? ""}/edit`);
+                }}
+              >
+                Edit
+              </Button>
+            )}
             {invoice.status === "draft" && (
               <Button
                 variant="outline"
