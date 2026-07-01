@@ -517,14 +517,35 @@ function moveToDay(
   };
 }
 
-// Small draggable job chip for the Week/Month grids (date/tech buckets,
-// no time axis).
+// Draggable job chip for the Week/Month grids (date/tech buckets, no time
+// axis). Mirrors the richer day-view card so all views surface the same
+// customer / summary / location / amount / lead-tech details.
 function JobChip({ job, onClick }: { job: Job; onClick: () => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: job.id,
   });
   const { getColor } = useLookup("jobStatus");
   const color = solidStatusColor(getColor(job.status));
+
+  const customerName = job.customer
+    ? `${job.customer.firstName} ${job.customer.lastName}`
+    : "Unknown";
+  const leadTech =
+    job.technicians?.find((t) => t.isLead) ?? job.technicians?.[0];
+  const leadTechName = leadTech?.technician?.user
+    ? `${leadTech.technician.user.firstName} ${leadTech.technician.user.lastName}`
+    : null;
+  const timeRange = job.scheduledStart
+    ? `${format(parseISO(job.scheduledStart), "h:mmaaa")}${
+        job.scheduledEnd
+          ? `\u2013${format(parseISO(job.scheduledEnd), "h:mmaaa")}`
+          : ""
+      }`
+    : null;
+  const locationText = job.location
+    ? [job.location.address, job.location.city].filter(Boolean).join(", ")
+    : null;
+
   return (
     <div
       ref={setNodeRef}
@@ -532,17 +553,36 @@ function JobChip({ job, onClick }: { job: Job; onClick: () => void }) {
       {...attributes}
       onClick={onClick}
       className={clsx(
-        "rounded text-white px-1.5 py-1 cursor-pointer select-none shadow-sm",
+        "rounded-md text-white px-2 py-1.5 cursor-pointer select-none shadow-sm space-y-0.5",
         color,
         isDragging ? "opacity-50" : "hover:opacity-90",
       )}
       style={{ fontSize: "10px", lineHeight: "1.3" }}
     >
-      <div className="font-semibold truncate">#{job.jobNumber}</div>
-      <div className="truncate opacity-90">
-        {job.customer
-          ? `${job.customer.firstName} ${job.customer.lastName}`
-          : ""}
+      <div className="flex items-center justify-between gap-1">
+        <span className="font-bold truncate">#{job.jobNumber}</span>
+        {timeRange && (
+          <span className="shrink-0 opacity-90 text-[9px] font-medium">
+            {timeRange}
+          </span>
+        )}
+      </div>
+      <div className="font-medium truncate">{customerName}</div>
+      {job.summary && <div className="truncate opacity-90">{job.summary}</div>}
+      {locationText && (
+        <div className="flex items-center gap-0.5 opacity-80 min-w-0">
+          <MapPinIcon className="h-2.5 w-2.5 shrink-0" />
+          <span className="truncate">{locationText}</span>
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-1">
+        <span className="font-semibold">{formatCurrency(job.totalAmount)}</span>
+        {leadTechName && (
+          <span className="flex items-center gap-0.5 truncate opacity-80 text-[9px] min-w-0">
+            <UserIcon className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">{leadTechName}</span>
+          </span>
+        )}
       </div>
     </div>
   );
@@ -694,7 +734,7 @@ function MonthDayCell({ day, jobs, inMonth, onJobClick }: MonthDayCellProps) {
         !inMonth && "bg-gray-50",
         isOver && "bg-primary-50",
       )}
-      style={{ minHeight: 104 }}
+      style={{ minHeight: 180 }}
     >
       <span className="text-xs font-medium">
         {isSameDay(day, new Date()) ? (
@@ -708,7 +748,7 @@ function MonthDayCell({ day, jobs, inMonth, onJobClick }: MonthDayCellProps) {
         )}
       </span>
       <div className="space-y-1 overflow-y-auto">
-        {dayJobs.slice(0, 4).map((job) => (
+        {dayJobs.slice(0, 3).map((job) => (
           <JobChip
             key={job.id}
             job={job}
@@ -717,9 +757,9 @@ function MonthDayCell({ day, jobs, inMonth, onJobClick }: MonthDayCellProps) {
             }}
           />
         ))}
-        {dayJobs.length > 4 && (
+        {dayJobs.length > 3 && (
           <span className="text-[10px] text-gray-400">
-            +{dayJobs.length - 4} more
+            +{dayJobs.length - 3} more
           </span>
         )}
       </div>
