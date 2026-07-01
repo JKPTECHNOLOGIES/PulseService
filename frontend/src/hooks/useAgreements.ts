@@ -37,6 +37,21 @@ export function useAgreement(id: string) {
   });
 }
 
+export function useCreateAgreement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Partial<ServiceAgreement>) =>
+      api.post<ApiResponse<ServiceAgreement>>("/agreements", payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["agreements"] });
+      toast.success("Agreement created");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to create agreement"));
+    },
+  });
+}
+
 export function useUpdateAgreement() {
   const qc = useQueryClient();
   return useMutation({

@@ -2,14 +2,19 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
-import { useAgreements } from "../hooks/useAgreements";
+import { useAgreements, useCreateAgreement } from "../hooks/useAgreements";
+import { useCustomers } from "../hooks/useCustomers";
 import Button from "../components/ui/Button";
+import Modal from "../components/ui/Modal";
 import Pagination from "../components/ui/Pagination";
 import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
+
+const inputClass =
+  "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white";
 
 export default function AgreementsPage() {
   const navigate = useNavigate();
@@ -21,7 +26,52 @@ export default function AgreementsPage() {
   });
   const { options: statusOptions } = useLookup("agreementStatus");
   const statusFilters = [{ value: "all", label: "All" }, ...statusOptions];
-  const { getLabel: getBillingLabel } = useLookup("billingFrequency");
+  const { options: billingOptions, getLabel: getBillingLabel } =
+    useLookup("billingFrequency");
+  const { data: customersData } = useCustomers({ limit: 200 });
+  const customers = customersData?.data ?? [];
+  const createAgreement = useCreateAgreement();
+
+  const [newOpen, setNewOpen] = useState(false);
+  const [form, setForm] = useState({
+    customerId: "",
+    name: "",
+    status: "active",
+    billingFrequency: "monthly",
+    amount: 0,
+    startDate: "",
+    endDate: "",
+    autoRenew: false,
+    terms: "",
+    notes: "",
+  });
+
+  const submitNew = () => {
+    if (
+      !form.customerId ||
+      !form.name.trim() ||
+      !form.startDate ||
+      !form.endDate
+    )
+      return;
+    void createAgreement
+      .mutateAsync({
+        customerId: form.customerId,
+        name: form.name.trim(),
+        status: form.status,
+        billingFrequency: form.billingFrequency,
+        amount: Number(form.amount),
+        startDate: new Date(form.startDate).toISOString(),
+        endDate: new Date(form.endDate).toISOString(),
+        autoRenew: form.autoRenew,
+        terms: form.terms,
+        notes: form.notes,
+      })
+      .then((res) => {
+        setNewOpen(false);
+        navigate(`/agreements/${res.data.id}`);
+      });
+  };
 
   const agreements = data?.data ?? [];
   const pagination = data?.pagination;
@@ -32,7 +82,14 @@ export default function AgreementsPage() {
         <p className="text-sm text-gray-500">
           {pagination ? `${String(pagination.total)} agreements` : ""}
         </p>
-        <Button icon={<PlusIcon className="h-4 w-4" />}>New Agreement</Button>
+        <Button
+          icon={<PlusIcon className="h-4 w-4" />}
+          onClick={() => {
+            setNewOpen(true);
+          }}
+        >
+          New Agreement
+        </Button>
       </div>
 
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
@@ -145,6 +202,182 @@ export default function AgreementsPage() {
           </>
         )}
       </div>
+
+      <Modal
+        isOpen={newOpen}
+        onClose={() => {
+          setNewOpen(false);
+        }}
+        title="New Agreement"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Customer <span className="text-red-500">*</span>
+            </label>
+            <select
+              className={inputClass}
+              value={form.customerId}
+              onChange={(e) => setForm({ ...form, customerId: e.target.value })}
+            >
+              <option value="">Select customer…</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.firstName} {c.lastName}
+                  {c.companyName ? ` (${c.companyName})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              className={inputClass}
+              placeholder="e.g. Residential Comfort Plan"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Status
+              </label>
+              <select
+                className={inputClass}
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+              >
+                {statusOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Billing Frequency
+              </label>
+              <select
+                className={inputClass}
+                value={form.billingFrequency}
+                onChange={(e) =>
+                  setForm({ ...form, billingFrequency: e.target.value })
+                }
+              >
+                {billingOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Amount
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                className={inputClass}
+                value={form.amount}
+                onChange={(e) =>
+                  setForm({ ...form, amount: Number(e.target.value) })
+                }
+              />
+            </div>
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 text-sm text-gray-700 pb-2.5">
+                <input
+                  type="checkbox"
+                  checked={form.autoRenew}
+                  onChange={(e) =>
+                    setForm({ ...form, autoRenew: e.target.checked })
+                  }
+                  className="rounded text-primary-600 focus:ring-primary-500"
+                />
+                Auto-renew
+              </label>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Start Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                className={inputClass}
+                value={form.startDate}
+                onChange={(e) =>
+                  setForm({ ...form, startDate: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                End Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                className={inputClass}
+                value={form.endDate}
+                onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Terms
+            </label>
+            <textarea
+              rows={2}
+              className={inputClass}
+              value={form.terms}
+              onChange={(e) => setForm({ ...form, terms: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Notes
+            </label>
+            <textarea
+              rows={2}
+              className={inputClass}
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNewOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={submitNew}
+              loading={createAgreement.isPending}
+              disabled={
+                !form.customerId ||
+                !form.name.trim() ||
+                !form.startDate ||
+                !form.endDate
+              }
+            >
+              Create Agreement
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
