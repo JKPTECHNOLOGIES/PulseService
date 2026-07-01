@@ -43,7 +43,7 @@ import {
   useRescheduleJob,
   useUnscheduleJob,
 } from "../hooks/useDispatch";
-import { useJobs, useDeleteJob } from "../hooks/useJobs";
+import { useJobs, useDeleteJob, useUpdateJobStatus } from "../hooks/useJobs";
 import { useTechnicians } from "../hooks/useTechnicians";
 import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
@@ -764,6 +764,8 @@ export default function DispatchPage() {
   const reschedule = useRescheduleJob();
   const unschedule = useUnscheduleJob();
   const deleteJob = useDeleteJob();
+  const updateStatus = useUpdateJobStatus();
+  const { options: statusOptions } = useLookup("jobStatus");
 
   // Require an 8px drag before dragging starts, so a plain click still opens
   // the job modal (where you can delete it) instead of being swallowed.
@@ -1143,8 +1145,25 @@ export default function DispatchPage() {
               </div>
               <div>
                 <dt className="text-xs text-gray-500">Status</dt>
-                <dd className="mt-1">
+                <dd className="mt-1 flex items-center gap-2">
                   <StatusBadge status={selectedJob.status} type="job" />
+                  <select
+                    value={selectedJob.status}
+                    onChange={(e) => {
+                      updateStatus.mutate({
+                        id: selectedJob.id,
+                        status: e.target.value,
+                      });
+                    }}
+                    disabled={updateStatus.isPending}
+                    className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white disabled:opacity-50"
+                  >
+                    {statusOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
                 </dd>
               </div>
               <div>

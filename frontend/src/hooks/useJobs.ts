@@ -79,6 +79,7 @@ export function useUpdateJobStatus() {
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["jobs"] });
       void qc.invalidateQueries({ queryKey: ["job", vars.id] });
+      void qc.invalidateQueries({ queryKey: ["dispatch"] });
       toast.success("Job status updated");
     },
     onError: (err: unknown) => {
