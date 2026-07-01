@@ -57,7 +57,7 @@ export default function InvoicesPage() {
           placeholder="Search invoices..."
           className="sm:w-72"
         />
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+        <div className="flex flex-wrap gap-1 bg-gray-100 rounded-xl p-1">
           {statusFilters.map((s) => (
             <button
               key={s.value}

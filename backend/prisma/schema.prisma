@@ -566,6 +566,25 @@ model Zone {
   createdAt   DateTime @default(now())
 }
 
+// Polymorphic file/image store. Binary data is kept in Postgres (bytea) so that
+// both the web (PC) and mobile clients read/write attachments through the same
+// authenticated API with no shared filesystem. `entityType`/`entityId` link an
+// attachment to any record (job, estimate, invoice, inventory item, customer).
+model Attachment {
+  id           String   @id @default(uuid())
+  entityType   String
+  entityId     String
+  filename     String
+  mimeType     String
+  size         Int
+  data         Bytes
+  caption      String?
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  @@index([entityType, entityId])
+}
+
 // DB-driven single source of truth for enumerated values (statuses, types,
 // roles, priorities, etc.). Seeded from src/constants/lookups.js and served to
 // the frontend via GET /api/v1/metadata.

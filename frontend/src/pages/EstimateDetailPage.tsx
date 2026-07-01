@@ -14,6 +14,7 @@ import {
 import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
 import LineItemsTable from "../components/ui/LineItemsTable";
+import AttachmentGallery from "../components/ui/AttachmentGallery";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency, formatDate } from "../utils/formatters";
 
@@ -62,7 +63,7 @@ export default function EstimateDetailPage() {
 
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-bold text-gray-900">
@@ -137,7 +138,7 @@ export default function EstimateDetailPage() {
           </div>
         </div>
 
-        <div className="mt-5 pt-5 border-t border-gray-100 grid grid-cols-3 gap-4">
+        <div className="mt-5 pt-5 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div>
             <p className="text-xs text-gray-500">Created</p>
             <p className="text-sm font-medium text-gray-900 mt-0.5">
@@ -235,6 +236,11 @@ export default function EstimateDetailPage() {
           )}
         </div>
       )}
+
+      {/* Photos & Attachments */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <AttachmentGallery entityType="estimate" entityId={estimate.id} />
+      </div>
     </div>
   );
 }

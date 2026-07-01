@@ -24,6 +24,8 @@ import {
   XMarkIcon,
   PlusIcon,
   TrashIcon,
+  MapPinIcon,
+  UserIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import {
@@ -33,7 +35,8 @@ import {
   useDraggable,
   useDroppable,
   DragStartEvent,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -57,7 +60,7 @@ import { Job, Technician } from "../types";
 const HOUR_START = 7;
 const HOUR_END = 19;
 const HOUR_WIDTH = 120;
-const ROW_HEIGHT = 84;
+const ROW_HEIGHT = 128;
 const HOURS = Array.from(
   { length: HOUR_END - HOUR_START },
   (_, i) => HOUR_START + i,
@@ -187,6 +190,25 @@ function JobCard({
   const color = solidStatusColor(getColor(job.status));
 
   if (compact) {
+    const customerName = job.customer
+      ? `${job.customer.firstName} ${job.customer.lastName}`
+      : "Unknown";
+    const leadTech =
+      job.technicians?.find((t) => t.isLead) ?? job.technicians?.[0];
+    const leadTechName = leadTech?.technician?.user
+      ? `${leadTech.technician.user.firstName} ${leadTech.technician.user.lastName}`
+      : null;
+    const timeRange = job.scheduledStart
+      ? `${format(parseISO(job.scheduledStart), "h:mmaaa")}${
+          job.scheduledEnd
+            ? `\u2013${format(parseISO(job.scheduledEnd), "h:mmaaa")}`
+            : ""
+        }`
+      : null;
+    const locationText = job.location
+      ? [job.location.address, job.location.city].filter(Boolean).join(", ")
+      : null;
+
     return (
       <div
         ref={setNodeRef}
@@ -194,18 +216,41 @@ function JobCard({
         {...attributes}
         onClick={onClick}
         className={clsx(
-          "h-full flex flex-col justify-center overflow-hidden rounded-md text-white px-2.5 py-1.5 cursor-pointer select-none",
+          "h-full flex flex-col overflow-hidden rounded-md text-white px-2 py-1.5 cursor-pointer select-none",
           color,
           isDragging ? "opacity-50" : "hover:opacity-90",
           "shadow-sm",
         )}
-        style={{ fontSize: "11px", lineHeight: "1.35" }}
+        style={{ fontSize: "11px", lineHeight: "1.3" }}
       >
-        <div className="font-semibold truncate">#{job.jobNumber}</div>
-        <div className="truncate opacity-90">
-          {job.customer
-            ? `${job.customer.firstName} ${job.customer.lastName}`
-            : ""}
+        <div className="flex items-center justify-between gap-1">
+          <span className="font-bold truncate">#{job.jobNumber}</span>
+          {timeRange && (
+            <span className="shrink-0 opacity-90 text-[10px] font-medium">
+              {timeRange}
+            </span>
+          )}
+        </div>
+        <div className="font-medium truncate">{customerName}</div>
+        {job.summary && (
+          <div className="truncate opacity-90">{job.summary}</div>
+        )}
+        {locationText && (
+          <div className="flex items-center gap-0.5 opacity-80 min-w-0">
+            <MapPinIcon className="h-3 w-3 shrink-0" />
+            <span className="truncate">{locationText}</span>
+          </div>
+        )}
+        <div className="mt-auto flex items-center justify-between gap-1 pt-0.5">
+          <span className="font-semibold">
+            {formatCurrency(job.totalAmount)}
+          </span>
+          {leadTechName && (
+            <span className="flex items-center gap-0.5 truncate opacity-80 text-[10px] min-w-0">
+              <UserIcon className="h-3 w-3 shrink-0" />
+              <span className="truncate">{leadTechName}</span>
+            </span>
+          )}
         </div>
       </div>
     );
@@ -767,10 +812,15 @@ export default function DispatchPage() {
   const updateStatus = useUpdateJobStatus();
   const { options: statusOptions } = useLookup("jobStatus");
 
-  // Require an 8px drag before dragging starts, so a plain click still opens
-  // the job modal (where you can delete it) instead of being swallowed.
+  // Mouse: require an 8px drag before dragging starts, so a plain click still
+  // opens the job modal instead of being swallowed.
+  // Touch: require a 200ms press-and-hold before dragging, so a quick tap opens
+  // the job modal and a swipe scrolls the board rather than dragging a card.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
   );
 
   const board = boardData;
@@ -916,7 +966,7 @@ export default function DispatchPage() {
   return (
     <div className="flex flex-col h-full gap-4">
       {/* Date Navigation */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-3 flex items-center justify-between">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 sm:px-5 py-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button
             onClick={stepBack}

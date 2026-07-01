@@ -4,6 +4,7 @@ import {
   ExclamationTriangleIcon,
   AdjustmentsHorizontalIcon,
   ClockIcon,
+  PhotoIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import {
@@ -13,6 +14,7 @@ import {
 } from "../hooks/useInventory";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
+import AttachmentGallery from "../components/ui/AttachmentGallery";
 import EmptyState from "../components/ui/EmptyState";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency, formatDateTime } from "../utils/formatters";
@@ -31,6 +33,7 @@ export default function InventoryPage() {
 
   const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
   const [txItem, setTxItem] = useState<InventoryItem | null>(null);
+  const [photoItem, setPhotoItem] = useState<InventoryItem | null>(null);
 
   const { register, handleSubmit, reset } = useForm<AdjustForm>({
     defaultValues: { type: "add", quantity: 0 },
@@ -155,6 +158,15 @@ export default function InventoryPage() {
                             title="Adjust"
                           >
                             <AdjustmentsHorizontalIcon className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setPhotoItem(item);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
+                            title="Photos"
+                          >
+                            <PhotoIcon className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => {
@@ -292,6 +304,20 @@ export default function InventoryPage() {
           <p className="text-sm text-gray-400 py-4 text-center">
             No transactions recorded
           </p>
+        )}
+      </Modal>
+
+      {/* Photos Modal */}
+      <Modal
+        isOpen={!!photoItem}
+        onClose={() => {
+          setPhotoItem(null);
+        }}
+        title={`Photos: ${photoItem?.name ?? ""}`}
+        size="lg"
+      >
+        {photoItem && (
+          <AttachmentGallery entityType="inventory" entityId={photoItem.id} />
         )}
       </Modal>
     </div>

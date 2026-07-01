@@ -82,7 +82,7 @@ export default function JobsPage() {
           setPage(1);
         }}
         placeholder="Search jobs..."
-        className="w-72"
+        className="w-full sm:w-72"
       />
 
       {/* Table */}

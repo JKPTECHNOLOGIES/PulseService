@@ -1,4 +1,5 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../store/authStore";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
@@ -6,6 +7,14 @@ import CommandPalette from "./CommandPalette";
 
 export default function AppLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const location = useLocation();
+
+  // Close the mobile drawer whenever the route changes so navigating from the
+  // drawer doesn't leave it hanging open over the new page.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -13,10 +22,19 @@ export default function AppLayout() {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <Sidebar />
+      <Sidebar
+        mobileOpen={mobileOpen}
+        onCloseMobile={() => {
+          setMobileOpen(false);
+        }}
+      />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <Header />
-        <main className="flex-1 overflow-auto p-6">
+        <Header
+          onMenuClick={() => {
+            setMobileOpen(true);
+          }}
+        />
+        <main className="flex-1 overflow-auto p-4 md:p-6">
           <Outlet />
         </main>
       </div>

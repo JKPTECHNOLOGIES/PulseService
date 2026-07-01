@@ -402,6 +402,23 @@ export interface Equipment {
   serviceHistory?: EquipmentServiceJob[];
 }
 
+// Entity types that can own image/file attachments. Mirrors the backend
+// ALLOWED_TYPES in attachments.controller.js.
+export type AttachmentEntityType =
+  "job" | "estimate" | "invoice" | "inventory" | "customer" | "equipment";
+
+export interface Attachment {
+  id: string;
+  entityType: AttachmentEntityType;
+  entityId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  caption?: string | null;
+  uploadedById?: string | null;
+  createdAt: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data: T;

@@ -20,6 +20,7 @@ import { useEstimates } from "../hooks/useEstimates";
 import { useInvoices } from "../hooks/useInvoices";
 import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
+import AttachmentGallery from "../components/ui/AttachmentGallery";
 import { PageSpinner } from "../components/ui/Spinner";
 import {
   formatCurrency,
@@ -80,7 +81,7 @@ export default function CustomerDetailPage() {
 
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-4">
             <div className="h-14 w-14 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
               <span className="text-xl font-bold text-primary-700">
@@ -106,7 +107,7 @@ export default function CustomerDetailPage() {
               </p>
             </div>
           </div>
-          <div className="flex gap-2 shrink-0">
+          <div className="flex gap-2 shrink-0 flex-wrap">
             <Button
               variant="outline"
               size="sm"
@@ -282,6 +283,11 @@ export default function CustomerDetailPage() {
                   <p className="text-sm text-gray-400">No locations on file</p>
                 )}
               </div>
+            </div>
+
+            {/* Photos & Attachments */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <AttachmentGallery entityType="customer" entityId={customer.id} />
             </div>
           </Tab.Panel>
 
