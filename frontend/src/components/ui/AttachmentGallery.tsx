@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   PhotoIcon,
   ArrowUpTrayIcon,
@@ -180,44 +181,48 @@ export default function AttachmentGallery({
         </div>
       )}
 
-      {/* Full-size preview. The image is constrained to both the viewport width
-          and height (preserving aspect ratio) and the wrapper shrinks to fit it,
-          so the window matches the image size and nothing is ever cropped. */}
-      {preview && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => {
-            setPreview(null);
-          }}
-        >
-          <button
-            type="button"
+      {/* Full-size preview. Rendered through a portal to <body> so it escapes any
+          transformed/overflow-hidden ancestor (e.g. the inventory Photos modal),
+          which would otherwise trap this fixed overlay and clip the image. The
+          image is constrained to both the viewport width and height (preserving
+          aspect ratio) so the window fits it and nothing is ever cropped. */}
+      {preview &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
             onClick={() => {
               setPreview(null);
             }}
-            className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
           >
-            <XMarkIcon className="h-6 w-6" />
-          </button>
-          <div
-            className="flex max-h-full max-w-full flex-col items-center"
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
-          >
-            <AttachmentImage
-              id={preview.id}
-              alt={preview.caption ?? preview.filename}
-              className="h-auto w-auto max-h-[85vh] max-w-[92vw] rounded-lg object-contain"
-            />
-            {preview.caption && (
-              <p className="mt-2 max-w-[92vw] text-center text-sm text-white/80">
-                {preview.caption}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={() => {
+                setPreview(null);
+              }}
+              className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+            >
+              <XMarkIcon className="h-6 w-6" />
+            </button>
+            <div
+              className="flex max-h-full max-w-full flex-col items-center"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              <AttachmentImage
+                id={preview.id}
+                alt={preview.caption ?? preview.filename}
+                className="h-auto w-auto max-h-[85vh] max-w-[92vw] rounded-lg object-contain"
+              />
+              {preview.caption && (
+                <p className="mt-2 max-w-[92vw] text-center text-sm text-white/80">
+                  {preview.caption}
+                </p>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
 
       <ConfirmDialog
         isOpen={!!toDelete}

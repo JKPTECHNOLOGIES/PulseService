@@ -348,7 +348,7 @@ function UnassignedPanel({ jobs, onJobClick }: UnassignedPanelProps) {
   const { setNodeRef, isOver } = useDroppable({ id: UNASSIGNED_ID });
 
   return (
-    <div className="w-56 shrink-0">
+    <div className="w-full h-72 lg:h-auto lg:w-56 lg:shrink-0">
       <div
         ref={setNodeRef}
         className={clsx(
@@ -392,7 +392,7 @@ interface UndatedPanelProps {
 function UndatedPanel({ jobs, onJobClick }: UndatedPanelProps) {
   const { setNodeRef, isOver } = useDroppable({ id: UNDATED_ID });
   return (
-    <div className="w-56 shrink-0">
+    <div className="w-full h-72 lg:h-auto lg:w-56 lg:shrink-0">
       <div
         ref={setNodeRef}
         className={clsx(
@@ -1064,121 +1064,126 @@ export default function DispatchPage() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex gap-4 flex-1 min-h-0">
-            {/* Day view: technician rows x hourly columns */}
-            {viewMode === "day" && (
-              <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto">
-                {/* Header row: Technician label + time slots */}
-                <div className="flex sticky top-0 z-10 bg-white border-b border-gray-200">
-                  <div
-                    className="shrink-0 border-r border-gray-200 flex items-center px-4 py-3"
-                    style={{ width: 180 }}
-                  >
-                    <span className="text-xs font-semibold text-gray-500 uppercase">
-                      Technician
-                    </span>
-                  </div>
-                  <div className="flex">
-                    {HOURS.map((h) => (
-                      <div
-                        key={h}
-                        className="border-l border-gray-100 flex items-center justify-start px-2 py-3"
-                        style={{ width: HOUR_WIDTH, minWidth: HOUR_WIDTH }}
-                      >
-                        <span className="text-xs text-gray-400 font-medium">
-                          {h === 12
-                            ? "12pm"
-                            : h > 12
-                              ? `${String(h - 12)}pm`
-                              : `${String(h)}am`}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tech rows */}
-                {techRows.length === 0 ? (
-                  <div className="py-16 text-center text-gray-400 text-sm">
-                    No technicians found. Add technicians to see the dispatch
-                    board.
-                  </div>
-                ) : (
-                  techRows.map((techRow) => (
+          <div className="flex flex-col lg:flex-row gap-4 lg:flex-1 lg:min-h-0">
+            {/* Board area. On mobile it gets an explicit height so the calendar
+                is visible and scrolls internally (the fixed-width side panels
+                otherwise crowded it off screen); on desktop it fills the row. */}
+            <div className="flex h-[65vh] lg:h-auto lg:flex-1 min-h-0">
+              {/* Day view: technician rows x hourly columns */}
+              {viewMode === "day" && (
+                <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto">
+                  {/* Header row: Technician label + time slots */}
+                  <div className="flex sticky top-0 z-10 bg-white border-b border-gray-200">
                     <div
-                      key={techRow.id}
-                      className="flex border-b border-gray-100"
+                      className="shrink-0 border-r border-gray-200 flex items-center px-4 py-3"
+                      style={{ width: 180 }}
                     >
-                      {/* Tech info */}
-                      <div
-                        className="shrink-0 border-r border-gray-200 flex items-center gap-3 px-4 bg-gray-50"
-                        style={{ width: 180, minHeight: ROW_HEIGHT }}
-                      >
-                        <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
-                          <span className="text-xs font-semibold text-primary-700">
-                            {techRow.user.firstName.charAt(0)}
-                            {techRow.user.lastName.charAt(0)}
+                      <span className="text-xs font-semibold text-gray-500 uppercase">
+                        Technician
+                      </span>
+                    </div>
+                    <div className="flex">
+                      {HOURS.map((h) => (
+                        <div
+                          key={h}
+                          className="border-l border-gray-100 flex items-center justify-start px-2 py-3"
+                          style={{ width: HOUR_WIDTH, minWidth: HOUR_WIDTH }}
+                        >
+                          <span className="text-xs text-gray-400 font-medium">
+                            {h === 12
+                              ? "12pm"
+                              : h > 12
+                                ? `${String(h - 12)}pm`
+                                : `${String(h)}am`}
                           </span>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-gray-900 truncate">
-                            {techRow.user.firstName} {techRow.user.lastName}
-                          </p>
-                          <p
-                            className={clsx(
-                              "text-xs",
-                              techRow.isAvailable
-                                ? "text-green-600"
-                                : "text-gray-400",
-                            )}
-                          >
-                            {techRow.isAvailable ? "Available" : "Busy"}
-                          </p>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tech rows */}
+                  {techRows.length === 0 ? (
+                    <div className="py-16 text-center text-gray-400 text-sm">
+                      No technicians found. Add technicians to see the dispatch
+                      board.
+                    </div>
+                  ) : (
+                    techRows.map((techRow) => (
+                      <div
+                        key={techRow.id}
+                        className="flex border-b border-gray-100"
+                      >
+                        {/* Tech info */}
+                        <div
+                          className="shrink-0 border-r border-gray-200 flex items-center gap-3 px-4 bg-gray-50"
+                          style={{ width: 180, minHeight: ROW_HEIGHT }}
+                        >
+                          <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-semibold text-primary-700">
+                              {techRow.user.firstName.charAt(0)}
+                              {techRow.user.lastName.charAt(0)}
+                            </span>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-gray-900 truncate">
+                              {techRow.user.firstName} {techRow.user.lastName}
+                            </p>
+                            <p
+                              className={clsx(
+                                "text-xs",
+                                techRow.isAvailable
+                                  ? "text-green-600"
+                                  : "text-gray-400",
+                              )}
+                            >
+                              {techRow.isAvailable ? "Available" : "Busy"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Time grid */}
+                        <div
+                          className="relative flex-1"
+                          style={{
+                            minWidth: HOURS.length * HOUR_WIDTH,
+                            minHeight: ROW_HEIGHT,
+                          }}
+                        >
+                          <DroppableTechRow
+                            techId={techRow.id}
+                            jobs={techRow.jobs}
+                            onJobClick={(job) => {
+                              setSelectedJobId(job.id);
+                            }}
+                          />
                         </div>
                       </div>
+                    ))
+                  )}
+                </div>
+              )}
 
-                      {/* Time grid */}
-                      <div
-                        className="relative flex-1"
-                        style={{
-                          minWidth: HOURS.length * HOUR_WIDTH,
-                          minHeight: ROW_HEIGHT,
-                        }}
-                      >
-                        <DroppableTechRow
-                          techId={techRow.id}
-                          jobs={techRow.jobs}
-                          onJobClick={(job) => {
-                            setSelectedJobId(job.id);
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+              {viewMode === "week" && (
+                <WeekGrid
+                  techRows={techRows}
+                  days={weekDays}
+                  onJobClick={(job) => {
+                    setSelectedJobId(job.id);
+                  }}
+                />
+              )}
 
-            {viewMode === "week" && (
-              <WeekGrid
-                techRows={techRows}
-                days={weekDays}
-                onJobClick={(job) => {
-                  setSelectedJobId(job.id);
-                }}
-              />
-            )}
-
-            {viewMode === "month" && (
-              <MonthGrid
-                days={monthDays}
-                jobs={techRows.flatMap((t) => t.jobs)}
-                currentMonth={currentDate}
-                onJobClick={(job) => {
-                  setSelectedJobId(job.id);
-                }}
-              />
-            )}
+              {viewMode === "month" && (
+                <MonthGrid
+                  days={monthDays}
+                  jobs={techRows.flatMap((t) => t.jobs)}
+                  currentMonth={currentDate}
+                  onJobClick={(job) => {
+                    setSelectedJobId(job.id);
+                  }}
+                />
+              )}
+            </div>
 
             {/* Unassigned panel (drop here to unassign) */}
             <UnassignedPanel
