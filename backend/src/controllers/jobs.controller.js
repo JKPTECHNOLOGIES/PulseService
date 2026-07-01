@@ -5,13 +5,20 @@ const {
   generateNumber,
 } = require("../utils/helpers");
 
+// Status rules:
+//  - scheduled / dispatched / in_progress / on_hold interchange freely.
+//  - No status can move back to "new" (it is only an initial state).
+//  - "completed" can only be reached from "in_progress".
+//  - "cancelled" can be entered from anywhere and reactivated to a working
+//    status.
 const STATUS_TRANSITIONS = {
-  new: ["scheduled", "cancelled"],
-  scheduled: ["in_progress", "cancelled"],
-  in_progress: ["completed", "on_hold", "cancelled"],
-  on_hold: ["in_progress", "cancelled"],
-  completed: [],
-  cancelled: [],
+  new: ["scheduled", "dispatched", "in_progress", "on_hold", "cancelled"],
+  scheduled: ["dispatched", "in_progress", "on_hold", "cancelled"],
+  dispatched: ["scheduled", "in_progress", "on_hold", "cancelled"],
+  in_progress: ["scheduled", "dispatched", "on_hold", "completed", "cancelled"],
+  on_hold: ["scheduled", "dispatched", "in_progress", "cancelled"],
+  completed: ["scheduled", "dispatched", "in_progress", "on_hold", "cancelled"],
+  cancelled: ["scheduled", "dispatched", "in_progress", "on_hold"],
 };
 
 const list = async (req, res) => {
