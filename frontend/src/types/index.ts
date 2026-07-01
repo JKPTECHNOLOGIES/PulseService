@@ -444,6 +444,22 @@ export interface RolePermissions {
   permissions: string[];
 }
 
+export interface AuditLogEntry {
+  id: string;
+  userId?: string;
+  userEmail?: string;
+  userRole?: string;
+  action: string;
+  method: string;
+  path: string;
+  entity?: string;
+  entityId?: string;
+  statusCode: number;
+  metadata?: string;
+  ip?: string;
+  createdAt: string;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   pagination: {

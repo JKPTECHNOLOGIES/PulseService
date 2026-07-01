@@ -6,6 +6,7 @@ const {
   jobs,
   technicians,
   customers,
+  arAging,
 } = require("../controllers/reports.controller");
 
 router.use(auth);
@@ -18,5 +19,6 @@ router.get(
   technicians,
 );
 router.get("/customers", requirePermission("reports.financial"), customers);
+router.get("/ar-aging", requirePermission("reports.financial"), arAging);
 
 module.exports = router;

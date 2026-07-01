@@ -614,3 +614,25 @@ model RolePermission {
   @@unique([role, permission])
   @@index([role])
 }
+
+// Append-only trail of mutating API actions, written automatically by the audit
+// middleware. Used by the Settings → Activity Log viewer.
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  userEmail  String?
+  userRole   String?
+  action     String
+  method     String
+  path       String
+  entity     String?
+  entityId   String?
+  statusCode Int
+  metadata   String?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entity])
+  @@index([userId])
+}

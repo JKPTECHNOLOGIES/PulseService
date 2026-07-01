@@ -14,13 +14,17 @@ import {
   ApiResponse,
   PermissionGroup,
   RolePermissions,
+  AuditLogEntry,
+  PaginatedResponse,
 } from "../types";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import { LookupSelect } from "../components/ui/LookupSelect";
 import Modal from "../components/ui/Modal";
+import Pagination from "../components/ui/Pagination";
 import { PageSpinner } from "../components/ui/Spinner";
+import { formatDateTime } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import { usePermissions } from "../hooks/usePermissions";
 
@@ -936,6 +940,100 @@ function RolesTab() {
   );
 }
 
+// ----- Activity Log Tab -----
+const ACTION_COLORS: Record<string, string> = {
+  create: "bg-green-100 text-green-700",
+  update: "bg-blue-100 text-blue-700",
+  delete: "bg-red-100 text-red-700",
+  void: "bg-red-100 text-red-700",
+  login: "bg-gray-100 text-gray-600",
+};
+
+function AuditTab() {
+  const [page, setPage] = useState(1);
+  const { data, isLoading } = useQuery({
+    queryKey: ["audit", page],
+    queryFn: async () => {
+      const res = await api.get<PaginatedResponse<AuditLogEntry>>("/audit", {
+        params: { page, limit: 25 },
+      });
+      return res;
+    },
+  });
+
+  if (isLoading) return <PageSpinner />;
+
+  const logs = data?.data ?? [];
+  const pagination = data?.pagination;
+
+  return (
+    <Card title="Activity Log">
+      {logs.length === 0 ? (
+        <p className="text-sm text-gray-400 py-6 text-center">
+          No activity recorded yet
+        </p>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
+                    When
+                  </th>
+                  <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
+                    User
+                  </th>
+                  <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
+                    Action
+                  </th>
+                  <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
+                    Resource
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {logs.map((log) => (
+                  <tr key={log.id} className="hover:bg-gray-50">
+                    <td className="py-3 text-gray-500 whitespace-nowrap">
+                      {formatDateTime(log.createdAt)}
+                    </td>
+                    <td className="py-3 text-gray-700">
+                      {log.userEmail ?? "—"}
+                    </td>
+                    <td className="py-3">
+                      <Badge
+                        className={
+                          ACTION_COLORS[log.action] ??
+                          "bg-gray-100 text-gray-600"
+                        }
+                      >
+                        {log.action}
+                      </Badge>
+                    </td>
+                    <td className="py-3 text-gray-600 font-mono text-xs">
+                      {log.method} {log.path}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {pagination && pagination.totalPages > 1 && (
+            <div className="pt-4">
+              <Pagination
+                page={pagination.page}
+                totalPages={pagination.totalPages}
+                onPageChange={setPage}
+              />
+            </div>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const [selectedTab, setSelectedTab] = useState(0);
   const { can } = usePermissions();
@@ -951,6 +1049,9 @@ export default function SettingsPage() {
       : []),
     ...(can("settings.manage")
       ? [{ label: "Business Units", panel: <BusinessUnitsTab /> }]
+      : []),
+    ...(can("audit.view")
+      ? [{ label: "Activity Log", panel: <AuditTab /> }]
       : []),
   ];
 

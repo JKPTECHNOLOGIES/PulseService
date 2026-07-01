@@ -4,6 +4,7 @@ import { useAuthStore } from "../../store/authStore";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import CommandPalette from "./CommandPalette";
+import ErrorBoundary from "../ErrorBoundary";
 
 export default function AppLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -35,7 +36,11 @@ export default function AppLayout() {
           }}
         />
         <main className="flex-1 overflow-auto p-4 md:p-6">
-          <Outlet />
+          {/* Keyed by path so a crashed page recovers automatically once the
+              user navigates elsewhere. */}
+          <ErrorBoundary key={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
       <CommandPalette />

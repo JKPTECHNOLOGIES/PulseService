@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PlusIcon, PencilIcon } from "@heroicons/react/24/outline";
+import {
+  PlusIcon,
+  PencilIcon,
+  ArrowDownTrayIcon,
+} from "@heroicons/react/24/outline";
 import { useCustomers } from "../hooks/useCustomers";
 import { useLookup } from "../hooks/useMetadata";
 import Button from "../components/ui/Button";
@@ -8,15 +12,39 @@ import SearchInput from "../components/ui/SearchInput";
 import Pagination from "../components/ui/Pagination";
 import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
+import DataTable, { Column, SortState } from "../components/ui/DataTable";
+import SavedViewsMenu from "../components/ui/SavedViewsMenu";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatPhone, formatCurrency, formatDate } from "../utils/formatters";
+import { downloadCsv } from "../utils/csv";
+import type { Customer } from "../types";
 import clsx from "clsx";
+
+interface CustomersView {
+  search: string;
+  type: string;
+  sort: SortState | null;
+}
+
+const csvColumns = [
+  { header: "Number", value: (c: Customer) => c.customerNumber },
+  { header: "First Name", value: (c: Customer) => c.firstName },
+  { header: "Last Name", value: (c: Customer) => c.lastName },
+  { header: "Company", value: (c: Customer) => c.companyName ?? "" },
+  { header: "Type", value: (c: Customer) => c.type },
+  { header: "Phone", value: (c: Customer) => c.phone ?? "" },
+  { header: "Email", value: (c: Customer) => c.email ?? "" },
+  { header: "Balance", value: (c: Customer) => c.balance },
+  { header: "Created", value: (c: Customer) => formatDate(c.createdAt) },
+];
 
 export default function CustomersPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [type, setType] = useState("all");
+  const [sort, setSort] = useState<SortState | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const {
     options: customerTypeOptions,
@@ -34,6 +62,94 @@ export default function CustomersPage() {
 
   const customers = data?.data ?? [];
   const pagination = data?.pagination;
+
+  const resetPage = () => {
+    setPage(1);
+    setSelectedIds([]);
+  };
+
+  const applyView = (view: CustomersView) => {
+    setSearch(view.search);
+    setType(view.type);
+    setSort(view.sort);
+    resetPage();
+  };
+
+  const columns: Column<Customer>[] = [
+    {
+      key: "name",
+      header: "Customer",
+      sortValue: (c) => `${c.lastName} ${c.firstName}`.toLowerCase(),
+      exportValue: (c) => `${c.firstName} ${c.lastName}`,
+      render: (c) => (
+        <div>
+          <p className="font-semibold text-gray-900">
+            {c.firstName} {c.lastName}
+          </p>
+          {c.companyName && (
+            <p className="text-xs text-gray-500 mt-0.5">{c.companyName}</p>
+          )}
+          <p className="text-xs text-gray-400">#{c.customerNumber}</p>
+        </div>
+      ),
+    },
+    {
+      key: "type",
+      header: "Type",
+      sortValue: (c) => c.type,
+      exportValue: (c) => c.type,
+      render: (c) => (
+        <Badge className={getCustomerTypeColor(c.type)}>
+          {getCustomerTypeLabel(c.type)}
+        </Badge>
+      ),
+    },
+    {
+      key: "phone",
+      header: "Phone",
+      exportValue: (c) => c.phone ?? "",
+      render: (c) => (
+        <span className="text-gray-600">{formatPhone(c.phone)}</span>
+      ),
+    },
+    {
+      key: "email",
+      header: "Email",
+      sortValue: (c) => (c.email ?? "").toLowerCase(),
+      exportValue: (c) => c.email ?? "",
+      render: (c) => (
+        <span className="text-gray-600 truncate max-w-[180px] inline-block align-middle">
+          {c.email ?? "-"}
+        </span>
+      ),
+    },
+    {
+      key: "created",
+      header: "Created",
+      sortValue: (c) => new Date(c.createdAt).getTime(),
+      exportValue: (c) => formatDate(c.createdAt),
+      render: (c) => (
+        <span className="text-gray-500 text-xs">{formatDate(c.createdAt)}</span>
+      ),
+    },
+    {
+      key: "balance",
+      header: "Balance",
+      align: "right",
+      sortValue: (c) => c.balance,
+      exportValue: (c) => c.balance,
+      render: (c) => (
+        <span
+          className={clsx(
+            "font-medium",
+            c.balance > 0 ? "text-red-600" : "text-gray-900",
+          )}
+        >
+          {formatCurrency(c.balance)}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-5">
@@ -60,7 +176,7 @@ export default function CustomersPage() {
           value={search}
           onChange={(v) => {
             setSearch(v);
-            setPage(1);
+            resetPage();
           }}
           placeholder="Search customers..."
           className="sm:w-72"
@@ -71,7 +187,7 @@ export default function CustomersPage() {
               key={t}
               onClick={() => {
                 setType(t);
-                setPage(1);
+                resetPage();
               }}
               className={clsx(
                 "px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors",
@@ -83,6 +199,13 @@ export default function CustomersPage() {
               {t === "all" ? "All" : getCustomerTypeLabel(t)}
             </button>
           ))}
+        </div>
+        <div className="sm:ml-auto">
+          <SavedViewsMenu<CustomersView>
+            tableId="customers"
+            currentState={{ search, type, sort }}
+            onApply={applyView}
+          />
         </div>
       </div>
 
@@ -103,101 +226,42 @@ export default function CustomersPage() {
           />
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase tracking-wide">
-                      Customer
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
-                      Type
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
-                      Phone
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
-                      Email
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
-                      Created
-                    </th>
-                    <th className="text-right py-3 px-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
-                      Balance
-                    </th>
-                    <th className="text-right py-3 px-5 font-medium text-gray-500 text-xs uppercase tracking-wide">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {customers.map((customer) => (
-                    <tr
-                      key={customer.id}
-                      onClick={() => {
-                        navigate(`/customers/${customer.id}`);
-                      }}
-                      className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    >
-                      <td className="py-3.5 px-5">
-                        <div>
-                          <p className="font-semibold text-gray-900">
-                            {customer.firstName} {customer.lastName}
-                          </p>
-                          {customer.companyName && (
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {customer.companyName}
-                            </p>
-                          )}
-                          <p className="text-xs text-gray-400">
-                            #{customer.customerNumber}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-3">
-                        <Badge className={getCustomerTypeColor(customer.type)}>
-                          {getCustomerTypeLabel(customer.type)}
-                        </Badge>
-                      </td>
-                      <td className="py-3.5 px-3 text-gray-600">
-                        {formatPhone(customer.phone)}
-                      </td>
-                      <td className="py-3.5 px-3 text-gray-600 truncate max-w-[180px]">
-                        {customer.email ?? "-"}
-                      </td>
-                      <td className="py-3.5 px-3 text-gray-500 text-xs">
-                        {formatDate(customer.createdAt)}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-medium">
-                        <span
-                          className={
-                            customer.balance > 0
-                              ? "text-red-600"
-                              : "text-gray-900"
-                          }
-                        >
-                          {formatCurrency(customer.balance)}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-5">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/customers/${customer.id}/edit`);
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                            title="Edit"
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable<Customer>
+              columns={columns}
+              rows={customers}
+              getRowId={(c) => c.id}
+              onRowClick={(c) => {
+                navigate(`/customers/${c.id}`);
+              }}
+              sort={sort}
+              onSortChange={setSort}
+              selectable
+              selectedIds={selectedIds}
+              onSelectionChange={setSelectedIds}
+              csvFilename="customers"
+              bulkActions={(rows) => (
+                <button
+                  onClick={() => {
+                    downloadCsv("customers-selected", rows, csvColumns);
+                  }}
+                  className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-800"
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4" />
+                  Export selected
+                </button>
+              )}
+              rowActions={(c) => (
+                <button
+                  onClick={() => {
+                    navigate(`/customers/${c.id}/edit`);
+                  }}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Edit"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </button>
+              )}
+            />
             {pagination && (
               <div className="px-5 py-4 border-t border-gray-100">
                 <Pagination

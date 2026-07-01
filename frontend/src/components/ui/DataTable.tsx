@@ -1,0 +1,294 @@
+import { ReactNode, useMemo } from "react";
+import {
+  ChevronUpIcon,
+  ChevronDownIcon,
+  ChevronUpDownIcon,
+  ArrowDownTrayIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
+import clsx from "clsx";
+import { downloadCsv, CsvColumn } from "../../utils/csv";
+
+export type SortDir = "asc" | "desc";
+export interface SortState {
+  key: string;
+  dir: SortDir;
+}
+
+export interface Column<T> {
+  key: string;
+  header: string;
+  render: (row: T) => ReactNode;
+  /** Provide to make the column sortable. */
+  sortValue?: (row: T) => string | number;
+  /** Provide to include the column in CSV export (falls back to no export). */
+  exportValue?: (row: T) => string | number | null | undefined;
+  align?: "left" | "right";
+  thClassName?: string;
+  tdClassName?: string;
+}
+
+interface DataTableProps<T> {
+  columns: Column<T>[];
+  rows: T[];
+  getRowId: (row: T) => string;
+  onRowClick?: (row: T) => void;
+
+  // Sorting (controlled so it can be persisted in saved views).
+  sort?: SortState | null;
+  onSortChange?: (sort: SortState | null) => void;
+
+  // Selection / bulk actions.
+  selectable?: boolean;
+  selectedIds?: string[];
+  onSelectionChange?: (ids: string[]) => void;
+  bulkActions?: (selectedRows: T[]) => ReactNode;
+
+  // CSV export of the currently displayed rows.
+  csvFilename?: string;
+
+  /** Trailing per-row actions cell (e.g. edit button). */
+  rowActions?: (row: T) => ReactNode;
+}
+
+export default function DataTable<T>({
+  columns,
+  rows,
+  getRowId,
+  onRowClick,
+  sort,
+  onSortChange,
+  selectable,
+  selectedIds = [],
+  onSelectionChange,
+  bulkActions,
+  csvFilename,
+  rowActions,
+}: DataTableProps<T>) {
+  const sortedRows = useMemo(() => {
+    if (!sort) return rows;
+    const col = columns.find((c) => c.key === sort.key);
+    if (!col?.sortValue) return rows;
+    const accessor = col.sortValue;
+    const factor = sort.dir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = accessor(a);
+      const bv = accessor(b);
+      if (av === bv) return 0;
+      if (typeof av === "number" && typeof bv === "number") {
+        return (av - bv) * factor;
+      }
+      return String(av).localeCompare(String(bv)) * factor;
+    });
+  }, [rows, sort, columns]);
+
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const selectedRows = useMemo(
+    () => rows.filter((r) => selectedSet.has(getRowId(r))),
+    [rows, selectedSet, getRowId],
+  );
+
+  const allSelected =
+    sortedRows.length > 0 &&
+    sortedRows.every((r) => selectedSet.has(getRowId(r)));
+
+  const toggleAll = () => {
+    if (!onSelectionChange) return;
+    onSelectionChange(allSelected ? [] : sortedRows.map(getRowId));
+  };
+
+  const toggleOne = (id: string) => {
+    if (!onSelectionChange) return;
+    const next = new Set(selectedSet);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onSelectionChange([...next]);
+  };
+
+  const handleSort = (col: Column<T>) => {
+    if (!col.sortValue || !onSortChange) return;
+    if (sort?.key === col.key) {
+      onSortChange(sort.dir === "asc" ? { key: col.key, dir: "desc" } : null);
+    } else {
+      onSortChange({ key: col.key, dir: "asc" });
+    }
+  };
+
+  const handleExport = () => {
+    const csvColumns: CsvColumn<T>[] = [];
+    for (const col of columns) {
+      const accessor = col.exportValue;
+      if (accessor) {
+        csvColumns.push({
+          header: col.header,
+          value: (row: T) => accessor(row),
+        });
+      }
+    }
+    if (csvColumns.length === 0) return;
+    downloadCsv(csvFilename ?? "export", sortedRows, csvColumns);
+  };
+
+  const renderSortIcon = (col: Column<T>) => {
+    if (!col.sortValue) return null;
+    if (sort?.key !== col.key) {
+      return <ChevronUpDownIcon className="h-3.5 w-3.5 text-gray-300" />;
+    }
+    return sort.dir === "asc" ? (
+      <ChevronUpIcon className="h-3.5 w-3.5" />
+    ) : (
+      <ChevronDownIcon className="h-3.5 w-3.5" />
+    );
+  };
+
+  const showToolbar = Boolean(csvFilename);
+  const showBulkBar = selectable && selectedIds.length > 0;
+
+  return (
+    <div>
+      {(showToolbar || showBulkBar) && (
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-100 min-h-[52px]">
+          {showBulkBar ? (
+            <div className="flex items-center gap-3 w-full">
+              <span className="text-sm font-medium text-gray-700">
+                {selectedIds.length} selected
+              </span>
+              <div className="flex items-center gap-2">
+                {bulkActions?.(selectedRows)}
+              </div>
+              <button
+                onClick={() => onSelectionChange?.([])}
+                className="ml-auto flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+              >
+                <XMarkIcon className="h-4 w-4" />
+                Clear
+              </button>
+            </div>
+          ) : (
+            <>
+              <div />
+              {csvFilename && (
+                <button
+                  onClick={handleExport}
+                  className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4" />
+                  Export CSV
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 bg-gray-50">
+              {selectable && (
+                <th className="w-10 py-3 px-4">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                </th>
+              )}
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  onClick={() => {
+                    handleSort(col);
+                  }}
+                  className={clsx(
+                    "py-3 px-3 font-medium text-gray-500 text-xs uppercase tracking-wide",
+                    col.align === "right" ? "text-right" : "text-left",
+                    col.sortValue &&
+                      "cursor-pointer select-none hover:text-gray-700",
+                    col.thClassName,
+                  )}
+                >
+                  <span
+                    className={clsx(
+                      "inline-flex items-center gap-1",
+                      col.align === "right" && "flex-row-reverse",
+                    )}
+                  >
+                    {col.header}
+                    {renderSortIcon(col)}
+                  </span>
+                </th>
+              ))}
+              {rowActions && <th className="w-16 py-3 px-5" />}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {sortedRows.map((row) => {
+              const id = getRowId(row);
+              return (
+                <tr
+                  key={id}
+                  onClick={
+                    onRowClick
+                      ? () => {
+                          onRowClick(row);
+                        }
+                      : undefined
+                  }
+                  className={clsx(
+                    "transition-colors",
+                    onRowClick && "hover:bg-gray-50 cursor-pointer",
+                    selectedSet.has(id) && "bg-primary-50/40",
+                  )}
+                >
+                  {selectable && (
+                    <td
+                      className="w-10 py-3.5 px-4"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedSet.has(id)}
+                        onChange={() => {
+                          toggleOne(id);
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                    </td>
+                  )}
+                  {columns.map((col) => (
+                    <td
+                      key={col.key}
+                      className={clsx(
+                        "py-3.5 px-3",
+                        col.align === "right" ? "text-right" : "text-left",
+                        col.tdClassName,
+                      )}
+                    >
+                      {col.render(row)}
+                    </td>
+                  ))}
+                  {rowActions && (
+                    <td
+                      className="py-3.5 px-5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      <div className="flex items-center justify-end gap-2">
+                        {rowActions(row)}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

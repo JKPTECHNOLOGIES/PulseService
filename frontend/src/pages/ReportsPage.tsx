@@ -19,18 +19,21 @@ import {
   CheckCircleIcon,
   ClockIcon,
   UsersIcon,
+  CurrencyDollarIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
+import { Link } from "react-router-dom";
 import {
   useRevenueReport,
   useJobsReport,
   useTechniciansReport,
   useCustomersReport,
+  useArAgingReport,
 } from "../hooks/useReports";
 import StatCard from "../components/ui/StatCard";
 import Card from "../components/ui/Card";
 import { PageSpinner } from "../components/ui/Spinner";
-import { formatCurrency } from "../utils/formatters";
+import { formatCurrency, formatDate } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 
 const CHART_COLORS = [
@@ -356,14 +359,114 @@ function CustomersTab() {
   );
 }
 
+function ArAgingTab() {
+  const { data, isLoading } = useArAgingReport();
+  if (isLoading) return <PageSpinner />;
+
+  const buckets = data?.buckets ?? [];
+  const invoices = data?.invoices ?? [];
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <StatCard
+          title="Total Outstanding"
+          value={formatCurrency(data?.totalOutstanding ?? 0)}
+          icon={<CurrencyDollarIcon />}
+          color="blue"
+        />
+        {buckets.map((b) => (
+          <StatCard
+            key={b.key}
+            title={b.label}
+            value={formatCurrency(b.amount)}
+            subtitle={`${String(b.count)} invoice${b.count === 1 ? "" : "s"}`}
+            icon={<ClockIcon />}
+            color={
+              b.key === "90+" ? "red" : b.key === "current" ? "green" : "yellow"
+            }
+          />
+        ))}
+      </div>
+
+      <Card title="Outstanding Invoices">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[36rem]">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
+                  Invoice
+                </th>
+                <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
+                  Customer
+                </th>
+                <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
+                  Due
+                </th>
+                <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
+                  Days Overdue
+                </th>
+                <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
+                  Balance
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {invoices.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-gray-400">
+                    No outstanding invoices to show.
+                  </td>
+                </tr>
+              ) : (
+                invoices.map((inv) => (
+                  <tr key={inv.id} className="hover:bg-gray-50">
+                    <td className="py-3 font-medium">
+                      <Link
+                        to={`/invoices/${inv.id}`}
+                        className="text-primary-600 hover:text-primary-700"
+                      >
+                        {inv.invoiceNumber}
+                      </Link>
+                    </td>
+                    <td className="py-3 text-gray-700">{inv.customerName}</td>
+                    <td className="py-3 text-gray-500">
+                      {formatDate(inv.dueDate)}
+                    </td>
+                    <td
+                      className={clsx(
+                        "py-3 text-right font-medium",
+                        inv.daysOverdue > 60
+                          ? "text-red-600"
+                          : inv.daysOverdue > 0
+                            ? "text-amber-600"
+                            : "text-gray-500",
+                      )}
+                    >
+                      {inv.daysOverdue > 0 ? inv.daysOverdue : "\u2014"}
+                    </td>
+                    <td className="py-3 text-right font-semibold text-gray-900">
+                      {formatCurrency(inv.balance)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 export default function ReportsPage() {
   const [selectedTab, setSelectedTab] = useState(0);
-  const tabs = ["Revenue", "Jobs", "Technicians", "Customers"];
+  const tabs = ["Revenue", "Jobs", "Technicians", "Customers", "AR Aging"];
 
   return (
     <div className="space-y-5">
       <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
-        <Tab.List className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+        <Tab.List className="flex flex-wrap gap-1 bg-gray-100 rounded-xl p-1 w-fit max-w-full">
           {tabs.map((tab) => (
             <Tab
               key={tab}
@@ -392,6 +495,9 @@ export default function ReportsPage() {
           </Tab.Panel>
           <Tab.Panel>
             <CustomersTab />
+          </Tab.Panel>
+          <Tab.Panel>
+            <ArAgingTab />
           </Tab.Panel>
         </Tab.Panels>
       </Tab.Group>

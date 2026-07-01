@@ -40,6 +40,7 @@ async function main() {
   await prisma.campaign.deleteMany();
   await prisma.zone.deleteMany();
   await prisma.companySettings.deleteMany();
+  await prisma.auditLog.deleteMany();
   await prisma.rolePermission.deleteMany();
   await prisma.lookup.deleteMany();
 

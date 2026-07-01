@@ -220,9 +220,11 @@ app.get("/", (req, res) => {
   res.send(html);
 });
 
+const auditLogger = require("./middleware/audit.middleware");
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/users.routes");
 const roleRoutes = require("./routes/roles.routes");
+const auditRoutes = require("./routes/audit.routes");
 const customerRoutes = require("./routes/customers.routes");
 const jobRoutes = require("./routes/jobs.routes");
 const dispatchRoutes = require("./routes/dispatch.routes");
@@ -242,10 +244,16 @@ const metadataRoutes = require("./routes/metadata.routes");
 const equipmentRoutes = require("./routes/equipment.routes");
 const searchRoutes = require("./routes/search.routes");
 const attachmentRoutes = require("./routes/attachments.routes");
+const publicRoutes = require("./routes/public.routes");
+
+// Record mutating actions across every resource (must run before the routers so
+// it can hook the response; req.user is populated by each router's auth guard).
+app.use("/api/v1", auditLogger);
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/roles", roleRoutes);
+app.use("/api/v1/audit", auditRoutes);
 app.use("/api/v1/metadata", metadataRoutes);
 app.use("/api/v1/customers", customerRoutes);
 app.use("/api/v1/jobs", jobRoutes);
@@ -265,6 +273,7 @@ app.use("/api/v1/campaigns", campaignRoutes);
 app.use("/api/v1/payments", paymentRoutes);
 app.use("/api/v1/search", searchRoutes);
 app.use("/api/v1/attachments", attachmentRoutes);
+app.use("/api/v1/public", publicRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get("/api/health", (req, res) =>

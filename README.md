@@ -156,8 +156,14 @@ Read endpoints are generally open to any authenticated user; **write / sensitive
 
 After changing default permission sets in `permissions.js`, re-seed (`npm run db:seed`, or `docker compose down -v` for a fresh start) to apply them.
 
+## Audit log
+
+Every mutating request (`POST`/`PUT`/`PATCH`/`DELETE`) is recorded to the `AuditLog` table by a global middleware (`src/middleware/audit.middleware.js`) — capturing the acting user, action, resource, status code, IP, and a redacted body summary (passwords/tokens are stripped). Entries are viewable at **Settings → Activity Log** (`GET /audit`), gated by the `audit.view` permission (granted to `admin`, `manager`, and `exec` by default).
+
 ## Notes
 
 - Document numbers (jobs, invoices, estimates, customers) auto-increment from values stored in `CompanySettings`.
 - Dispatch changes and job updates emit Socket.io events for live board updates.
+- The React SPA is wrapped in an `ErrorBoundary` (root + per-route) so a single render error shows a recoverable fallback instead of a white screen, and route pages are code-split (`React.lazy` + Vite `manualChunks`) so heavy deps like charts load only when needed.
+- List tables use a reusable `DataTable` (column sorting, row selection + bulk actions, CSV export) with per-user **saved views** persisted in `localStorage` (see the Customers page).
 - This is a foundation covering the core ServiceTitan feature set; integrations like Stripe payment processing, QuickBooks sync, SMS/email delivery, and a technician mobile app are stubbed/structured for future build-out.

@@ -7,6 +7,7 @@ const {
 } = require("../utils/helpers");
 const { generateEstimatePdf } = require("../services/pdf.service");
 const { sendMail } = require("../services/email.service");
+const { publicToken } = require("../utils/publicToken");
 
 const money = (n) => "$" + Number(n || 0).toFixed(2);
 
@@ -274,14 +275,22 @@ const send = async (req, res) => {
     const companyName = settings?.name || "PulseService";
     const pdf = await generateEstimatePdf(estimate, settings);
 
+    // Public, token-gated link the customer can open to review and approve or
+    // reject the estimate online without logging in.
+    const baseUrl = process.env.FRONTEND_URL || "http://localhost:8080";
+    const approvalUrl = `${baseUrl}/estimate/${estimate.id}?token=${publicToken(
+      "estimate",
+      estimate.id,
+    )}`;
+
     let emailPreviewUrl = null;
     let emailWarning = null;
     try {
       const result = await sendMail({
         to: estimate.customer.email,
         subject: `${companyName} \u2014 Estimate ${estimate.estimateNumber}`,
-        text: `Hi ${estimate.customer.firstName},\n\nPlease find attached estimate ${estimate.estimateNumber} for ${money(estimate.total)}.\n\nThank you,\n${companyName}`,
-        html: `<p>Hi ${estimate.customer.firstName},</p><p>Please find attached estimate <strong>${estimate.estimateNumber}</strong> for <strong>${money(estimate.total)}</strong>.</p><p>Thank you,<br/>${companyName}</p>`,
+        text: `Hi ${estimate.customer.firstName},\n\nPlease find attached estimate ${estimate.estimateNumber} for ${money(estimate.total)}.\n\nReview and approve it online: ${approvalUrl}\n\nThank you,\n${companyName}`,
+        html: `<p>Hi ${estimate.customer.firstName},</p><p>Please find attached estimate <strong>${estimate.estimateNumber}</strong> for <strong>${money(estimate.total)}</strong>.</p><p><a href="${approvalUrl}">Review &amp; approve your estimate online</a></p><p>Thank you,<br/>${companyName}</p>`,
         attachments: [
           {
             filename: `Estimate-${estimate.estimateNumber}.pdf`,

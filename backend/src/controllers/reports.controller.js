@@ -229,4 +229,85 @@ const customers = async (req, res) => {
   }
 };
 
-module.exports = { revenue, jobs, technicians, customers };
+// Accounts-receivable aging: outstanding invoice balances bucketed by how far
+// past due they are. Standard buckets: current (not yet due), 1-30, 31-60,
+// 61-90, and 90+ days overdue.
+const arAging = async (req, res) => {
+  try {
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        status: { notIn: ["void", "paid"] },
+        balance: { gt: 0 },
+      },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        balance: true,
+        dueDate: true,
+        createdAt: true,
+        customer: {
+          select: { firstName: true, lastName: true, companyName: true },
+        },
+      },
+    });
+
+    const BUCKETS = [
+      { key: "current", label: "Current", min: -Infinity, max: 0 },
+      { key: "1-30", label: "1\u201330 days", min: 1, max: 30 },
+      { key: "31-60", label: "31\u201360 days", min: 31, max: 60 },
+      { key: "61-90", label: "61\u201390 days", min: 61, max: 90 },
+      { key: "90+", label: "90+ days", min: 91, max: Infinity },
+    ];
+    const totals = Object.fromEntries(
+      BUCKETS.map((b) => [b.key, { count: 0, amount: 0 }]),
+    );
+
+    const now = Date.now();
+    const DAY = 86400000;
+
+    const rows = invoices.map((inv) => {
+      const due = inv.dueDate ? new Date(inv.dueDate) : new Date(inv.createdAt);
+      const daysOverdue = Math.floor((now - due.getTime()) / DAY);
+      const bucket =
+        BUCKETS.find((b) => daysOverdue >= b.min && daysOverdue <= b.max) ??
+        BUCKETS[0];
+      totals[bucket.key].count += 1;
+      totals[bucket.key].amount += inv.balance;
+      return {
+        id: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        customerName:
+          inv.customer?.companyName ||
+          `${inv.customer?.firstName ?? ""} ${inv.customer?.lastName ?? ""}`.trim() ||
+          "Unknown",
+        dueDate: inv.dueDate,
+        balance: Math.round(inv.balance * 100) / 100,
+        daysOverdue,
+        bucket: bucket.key,
+      };
+    });
+
+    rows.sort((a, b) => b.daysOverdue - a.daysOverdue);
+    const totalOutstanding =
+      Math.round(rows.reduce((s, r) => s + r.balance, 0) * 100) / 100;
+
+    return res.json({
+      success: true,
+      data: {
+        totalOutstanding,
+        buckets: BUCKETS.map((b) => ({
+          key: b.key,
+          label: b.label,
+          count: totals[b.key].count,
+          amount: Math.round(totals[b.key].amount * 100) / 100,
+        })),
+        invoices: rows,
+      },
+    });
+  } catch (err) {
+    console.error("reports.arAging error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+module.exports = { revenue, jobs, technicians, customers, arAging };

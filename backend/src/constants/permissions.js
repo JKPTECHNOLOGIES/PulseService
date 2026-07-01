@@ -38,11 +38,15 @@ const PERMISSION_GROUPS = [
   },
   {
     group: "Dispatch",
-    permissions: [{ key: "dispatch.manage", label: "Reassign the dispatch board" }],
+    permissions: [
+      { key: "dispatch.manage", label: "Reassign the dispatch board" },
+    ],
   },
   {
     group: "Estimates",
-    permissions: [{ key: "estimates.manage", label: "Create & manage estimates" }],
+    permissions: [
+      { key: "estimates.manage", label: "Create & manage estimates" },
+    ],
   },
   {
     group: "Invoices",
@@ -68,7 +72,9 @@ const PERMISSION_GROUPS = [
   },
   {
     group: "Inventory",
-    permissions: [{ key: "inventory.manage", label: "Adjust & receive inventory" }],
+    permissions: [
+      { key: "inventory.manage", label: "Adjust & receive inventory" },
+    ],
   },
   {
     group: "Service Agreements",
@@ -92,8 +98,15 @@ const PERMISSION_GROUPS = [
   {
     group: "Settings",
     permissions: [
-      { key: "settings.manage", label: "Edit company settings & business units" },
+      {
+        key: "settings.manage",
+        label: "Edit company settings & business units",
+      },
     ],
+  },
+  {
+    group: "Audit",
+    permissions: [{ key: "audit.view", label: "View the activity log" }],
   },
 ];
 
@@ -129,6 +142,7 @@ const DEFAULT_ROLE_PERMISSIONS = {
     "calls.manage",
     "campaigns.manage",
     "settings.manage",
+    "audit.view",
   ],
   dispatcher: [
     "customers.create",
@@ -160,7 +174,12 @@ const DEFAULT_ROLE_PERMISSIONS = {
     "calls.manage",
   ],
   technician: ["jobs.status"],
-  exec: ["payments.view", "reports.financial", "reports.operational"],
+  exec: [
+    "payments.view",
+    "reports.financial",
+    "reports.operational",
+    "audit.view",
+  ],
 };
 
 module.exports = {

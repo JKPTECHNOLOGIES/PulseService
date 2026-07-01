@@ -58,6 +58,38 @@ export function useTechniciansReport() {
   });
 }
 
+export interface ArAgingBucket {
+  key: string;
+  label: string;
+  count: number;
+  amount: number;
+}
+export interface ArAgingInvoice {
+  id: string;
+  invoiceNumber: string;
+  customerName: string;
+  dueDate: string | null;
+  balance: number;
+  daysOverdue: number;
+  bucket: string;
+}
+export interface ArAgingReport {
+  totalOutstanding: number;
+  buckets: ArAgingBucket[];
+  invoices: ArAgingInvoice[];
+}
+
+export function useArAgingReport() {
+  return useQuery({
+    queryKey: ["reports", "ar-aging"],
+    queryFn: async () => {
+      const res =
+        await api.get<ApiResponse<ArAgingReport>>("/reports/ar-aging");
+      return res.data;
+    },
+  });
+}
+
 export function useCustomersReport() {
   return useQuery({
     queryKey: ["reports", "customers"],
