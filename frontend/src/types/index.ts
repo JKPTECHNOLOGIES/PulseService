@@ -253,6 +253,8 @@ export interface ServiceAgreement {
   amount: number;
   autoRenew: boolean;
   nextBillingDate?: string;
+  terms?: string;
+  notes?: string;
   customer?: Customer;
   visits?: AgreementVisit[];
 }

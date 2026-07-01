@@ -20,6 +20,7 @@ import TechniciansPage from "./pages/TechniciansPage";
 import PricebookPage from "./pages/PricebookPage";
 import InventoryPage from "./pages/InventoryPage";
 import AgreementsPage from "./pages/AgreementsPage";
+import AgreementDetailPage from "./pages/AgreementDetailPage";
 import MarketingPage from "./pages/MarketingPage";
 import ReportsPage from "./pages/ReportsPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="equipment" element={<EquipmentPage />} />
         <Route path="agreements" element={<AgreementsPage />} />
+        <Route path="agreements/:id" element={<AgreementDetailPage />} />
         <Route path="marketing" element={<MarketingPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="settings" element={<SettingsPage />} />

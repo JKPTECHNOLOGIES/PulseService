@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
-import api from "../lib/api";
-import { ServiceAgreement, PaginatedResponse } from "../types";
+import { useAgreements } from "../hooks/useAgreements";
 import Button from "../components/ui/Button";
 import Pagination from "../components/ui/Pagination";
 import { StatusBadge } from "../components/ui/Badge";
@@ -12,24 +11,14 @@ import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 
-function useAgreements(page: number, status: string) {
-  return useQuery({
-    queryKey: ["agreements", page, status],
-    queryFn: () =>
-      api.get<PaginatedResponse<ServiceAgreement>>("/agreements", {
-        params: {
-          page,
-          limit: 20,
-          status: status !== "all" ? status : undefined,
-        },
-      }),
-  });
-}
-
 export default function AgreementsPage() {
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("all");
-  const { data, isLoading } = useAgreements(page, status);
+  const { data, isLoading } = useAgreements({
+    page,
+    status: status !== "all" ? status : undefined,
+  });
   const { options: statusOptions } = useLookup("agreementStatus");
   const statusFilters = [{ value: "all", label: "All" }, ...statusOptions];
   const { getLabel: getBillingLabel } = useLookup("billingFrequency");
@@ -107,7 +96,10 @@ export default function AgreementsPage() {
                   {agreements.map((ag) => (
                     <tr
                       key={ag.id}
-                      className="hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        navigate(`/agreements/${ag.id}`);
+                      }}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       <td className="py-3.5 px-5 font-medium text-primary-600">
                         #{ag.agreementNumber}
