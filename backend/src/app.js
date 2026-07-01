@@ -238,6 +238,7 @@ const campaignRoutes = require("./routes/campaigns.routes");
 const paymentRoutes = require("./routes/payments.routes");
 const metadataRoutes = require("./routes/metadata.routes");
 const equipmentRoutes = require("./routes/equipment.routes");
+const searchRoutes = require("./routes/search.routes");
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/metadata", metadataRoutes);
@@ -257,6 +258,7 @@ app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/calls", callRoutes);
 app.use("/api/v1/campaigns", campaignRoutes);
 app.use("/api/v1/payments", paymentRoutes);
+app.use("/api/v1/search", searchRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get("/api/health", (req, res) =>

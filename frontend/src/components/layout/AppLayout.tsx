@@ -1,7 +1,8 @@
-import { Navigate, Outlet } from 'react-router-dom';
-import { useAuthStore } from '../../store/authStore';
-import Sidebar from './Sidebar';
-import Header from './Header';
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuthStore } from "../../store/authStore";
+import Sidebar from "./Sidebar";
+import Header from "./Header";
+import CommandPalette from "./CommandPalette";
 
 export default function AppLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -19,6 +20,7 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <CommandPalette />
     </div>
   );
 }
