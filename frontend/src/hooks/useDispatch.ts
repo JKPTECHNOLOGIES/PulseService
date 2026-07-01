@@ -1,8 +1,52 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  eachDayOfInterval,
+  parseISO,
+  subDays,
+  addDays,
+  format,
+} from "date-fns";
 import api from "../lib/api";
+import { socket } from "../lib/socket";
 import { getErrorMessage } from "../lib/errors";
 import type { ApiResponse, Technician, Job } from "../types";
 import toast from "react-hot-toast";
+
+/**
+ * Subscribes the open dispatch board to live updates. The backend emits
+ * `dispatch:*` events into per-date rooms whenever a job is assigned,
+ * rescheduled, created, deleted, or has its status changed. We join a room for
+ * every visible date (padded a day on each side to cover any UTC/local date
+ * boundary) and invalidate the board query whenever such an event arrives, so a
+ * change made by one dispatcher shows up for everyone without a manual refresh.
+ */
+export function useDispatchRealtime(fromStr: string, toStr: string) {
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (!fromStr || !toStr) return;
+
+    const dates = eachDayOfInterval({
+      start: subDays(parseISO(fromStr), 1),
+      end: addDays(parseISO(toStr), 1),
+    }).map((d) => format(d, "yyyy-MM-dd"));
+
+    dates.forEach((d) => socket.emit("join:dispatch", d));
+
+    const handler = (event: string) => {
+      if (typeof event === "string" && event.startsWith("dispatch:")) {
+        void qc.invalidateQueries({ queryKey: ["dispatch"] });
+        void qc.invalidateQueries({ queryKey: ["jobs"] });
+      }
+    };
+    socket.onAny(handler);
+
+    return () => {
+      dates.forEach((d) => socket.emit("leave:dispatch", d));
+      socket.offAny(handler);
+    };
+  }, [fromStr, toStr, qc]);
+}
 
 interface DispatchBoard {
   technicians: (Technician & { jobs: Job[] })[];

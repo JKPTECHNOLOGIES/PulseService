@@ -4,6 +4,7 @@ import {
   PaperAirplaneIcon,
   CheckIcon,
   ArrowPathIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import {
   useEstimate,
@@ -16,6 +17,7 @@ import { StatusBadge } from "../components/ui/Badge";
 import LineItemsTable from "../components/ui/LineItemsTable";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
 import { PageSpinner } from "../components/ui/Spinner";
+import { downloadPdf } from "../lib/pdf";
 import { formatCurrency, formatDate } from "../utils/formatters";
 
 export default function EstimateDetailPage() {
@@ -85,6 +87,19 @@ export default function EstimateDetailPage() {
             )}
           </div>
           <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<ArrowDownTrayIcon className="h-4 w-4" />}
+              onClick={() => {
+                void downloadPdf(
+                  `/estimates/${id ?? ""}/pdf`,
+                  `Estimate-${estimate.estimateNumber}.pdf`,
+                );
+              }}
+            >
+              PDF
+            </Button>
             {estimate.status === "draft" && (
               <Button
                 variant="outline"

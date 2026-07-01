@@ -5,6 +5,10 @@ const {
   generateNumber,
   calculateTotals,
 } = require("../utils/helpers");
+const { generateInvoicePdf } = require("../services/pdf.service");
+const { sendMail } = require("../services/email.service");
+
+const money = (n) => "$" + Number(n || 0).toFixed(2);
 
 const list = async (req, res) => {
   try {
@@ -232,18 +236,100 @@ const update = async (req, res) => {
   }
 };
 
+// Streams the invoice as a PDF (opens/downloads in the browser).
+const getPdf = async (req, res) => {
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: req.params.id },
+      include: {
+        customer: true,
+        lineItems: { orderBy: { sortOrder: "asc" } },
+      },
+    });
+    if (!invoice)
+      return res
+        .status(404)
+        .json({ success: false, error: "Invoice not found" });
+
+    const settings = await prisma.companySettings.findFirst();
+    const pdf = await generateInvoicePdf(invoice, settings);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="Invoice-${invoice.invoiceNumber}.pdf"`,
+    );
+    return res.send(pdf);
+  } catch (err) {
+    console.error("invoices.getPdf error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+// Generates the PDF, emails it to the customer, and marks the invoice sent.
 const send = async (req, res) => {
   try {
-    const invoice = await prisma.invoice.update({
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: req.params.id },
+      include: {
+        customer: true,
+        lineItems: { orderBy: { sortOrder: "asc" } },
+      },
+    });
+    if (!invoice)
+      return res
+        .status(404)
+        .json({ success: false, error: "Invoice not found" });
+    if (!invoice.customer?.email) {
+      return res.status(400).json({
+        success: false,
+        error: "Customer has no email address on file",
+      });
+    }
+
+    const settings = await prisma.companySettings.findFirst();
+    const companyName = settings?.name || "PulseService";
+    const pdf = await generateInvoicePdf(invoice, settings);
+
+    let emailPreviewUrl = null;
+    let emailWarning = null;
+    try {
+      const result = await sendMail({
+        to: invoice.customer.email,
+        subject: `${companyName} \u2014 Invoice ${invoice.invoiceNumber}`,
+        text: `Hi ${invoice.customer.firstName},\n\nPlease find attached invoice ${invoice.invoiceNumber} for ${money(invoice.total)}. Balance due: ${money(invoice.balance)}.\n\nThank you,\n${companyName}`,
+        html: `<p>Hi ${invoice.customer.firstName},</p><p>Please find attached invoice <strong>${invoice.invoiceNumber}</strong> for <strong>${money(invoice.total)}</strong>. Balance due: <strong>${money(invoice.balance)}</strong>.</p><p>Thank you,<br/>${companyName}</p>`,
+        attachments: [
+          {
+            filename: `Invoice-${invoice.invoiceNumber}.pdf`,
+            content: pdf,
+            contentType: "application/pdf",
+          },
+        ],
+      });
+      emailPreviewUrl = result.previewUrl;
+    } catch (mailErr) {
+      console.error("invoices.send email failed:", mailErr);
+      emailWarning =
+        "Invoice marked as sent, but the email could not be delivered (mail server unavailable).";
+    }
+
+    const updated = await prisma.invoice.update({
       where: { id: req.params.id },
       data: { status: "sent", sentAt: new Date() },
     });
-    return res.json({ success: true, data: invoice });
+    return res.json({
+      success: true,
+      data: updated,
+      emailPreviewUrl,
+      emailWarning,
+    });
   } catch (err) {
     if (err.code === "P2025")
       return res
         .status(404)
         .json({ success: false, error: "Invoice not found" });
+    console.error("invoices.send error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
   }
 };
@@ -334,6 +420,7 @@ const voidInvoice = async (req, res) => {
 module.exports = {
   list,
   get,
+  getPdf,
   create,
   update,
   send,

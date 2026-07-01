@@ -5,6 +5,10 @@ const {
   generateNumber,
   calculateTotals,
 } = require("../utils/helpers");
+const { generateEstimatePdf } = require("../services/pdf.service");
+const { sendMail } = require("../services/email.service");
+
+const money = (n) => "$" + Number(n || 0).toFixed(2);
 
 const list = async (req, res) => {
   try {
@@ -215,18 +219,100 @@ const update = async (req, res) => {
   }
 };
 
+// Streams the estimate as a PDF (opens/downloads in the browser).
+const getPdf = async (req, res) => {
+  try {
+    const estimate = await prisma.estimate.findUnique({
+      where: { id: req.params.id },
+      include: {
+        customer: true,
+        lineItems: { orderBy: { sortOrder: "asc" } },
+      },
+    });
+    if (!estimate)
+      return res
+        .status(404)
+        .json({ success: false, error: "Estimate not found" });
+
+    const settings = await prisma.companySettings.findFirst();
+    const pdf = await generateEstimatePdf(estimate, settings);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="Estimate-${estimate.estimateNumber}.pdf"`,
+    );
+    return res.send(pdf);
+  } catch (err) {
+    console.error("estimates.getPdf error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+// Generates the PDF, emails it to the customer, and marks the estimate sent.
 const send = async (req, res) => {
   try {
-    const estimate = await prisma.estimate.update({
+    const estimate = await prisma.estimate.findUnique({
+      where: { id: req.params.id },
+      include: {
+        customer: true,
+        lineItems: { orderBy: { sortOrder: "asc" } },
+      },
+    });
+    if (!estimate)
+      return res
+        .status(404)
+        .json({ success: false, error: "Estimate not found" });
+    if (!estimate.customer?.email) {
+      return res.status(400).json({
+        success: false,
+        error: "Customer has no email address on file",
+      });
+    }
+
+    const settings = await prisma.companySettings.findFirst();
+    const companyName = settings?.name || "PulseService";
+    const pdf = await generateEstimatePdf(estimate, settings);
+
+    let emailPreviewUrl = null;
+    let emailWarning = null;
+    try {
+      const result = await sendMail({
+        to: estimate.customer.email,
+        subject: `${companyName} \u2014 Estimate ${estimate.estimateNumber}`,
+        text: `Hi ${estimate.customer.firstName},\n\nPlease find attached estimate ${estimate.estimateNumber} for ${money(estimate.total)}.\n\nThank you,\n${companyName}`,
+        html: `<p>Hi ${estimate.customer.firstName},</p><p>Please find attached estimate <strong>${estimate.estimateNumber}</strong> for <strong>${money(estimate.total)}</strong>.</p><p>Thank you,<br/>${companyName}</p>`,
+        attachments: [
+          {
+            filename: `Estimate-${estimate.estimateNumber}.pdf`,
+            content: pdf,
+            contentType: "application/pdf",
+          },
+        ],
+      });
+      emailPreviewUrl = result.previewUrl;
+    } catch (mailErr) {
+      console.error("estimates.send email failed:", mailErr);
+      emailWarning =
+        "Estimate marked as sent, but the email could not be delivered (mail server unavailable).";
+    }
+
+    const updated = await prisma.estimate.update({
       where: { id: req.params.id },
       data: { status: "sent", sentAt: new Date() },
     });
-    return res.json({ success: true, data: estimate });
+    return res.json({
+      success: true,
+      data: updated,
+      emailPreviewUrl,
+      emailWarning,
+    });
   } catch (err) {
     if (err.code === "P2025")
       return res
         .status(404)
         .json({ success: false, error: "Estimate not found" });
+    console.error("estimates.send error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
   }
 };
@@ -275,12 +361,10 @@ const convertToInvoice = async (req, res) => {
         .status(404)
         .json({ success: false, error: "Estimate not found" });
     if (estimate.invoice) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Estimate has already been converted to an invoice",
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Estimate has already been converted to an invoice",
+      });
     }
 
     const settings = await prisma.companySettings.findFirst();
@@ -348,6 +432,7 @@ const convertToInvoice = async (req, res) => {
 module.exports = {
   list,
   get,
+  getPdf,
   create,
   update,
   send,

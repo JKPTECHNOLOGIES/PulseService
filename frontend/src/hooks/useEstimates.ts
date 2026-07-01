@@ -65,15 +65,29 @@ export function useUpdateEstimate() {
   });
 }
 
+interface SendResult {
+  success: boolean;
+  data: Estimate;
+  emailPreviewUrl?: string | null;
+  emailWarning?: string | null;
+}
+
 export function useSendEstimate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      api.post<ApiResponse<Estimate>>(`/estimates/${id}/send`),
-    onSuccess: (_data, id) => {
+    mutationFn: (id: string) => api.post<SendResult>(`/estimates/${id}/send`),
+    onSuccess: (res, id) => {
       void qc.invalidateQueries({ queryKey: ["estimate", id] });
       void qc.invalidateQueries({ queryKey: ["estimates"] });
-      toast.success("Estimate sent to customer");
+      if (res.emailWarning) {
+        toast(res.emailWarning, { icon: "\u26A0\uFE0F", duration: 6000 });
+      } else {
+        toast.success("Estimate emailed to customer");
+      }
+      // Demo mode (no real SMTP): open the Ethereal preview of the sent email.
+      if (res.emailPreviewUrl) {
+        window.open(res.emailPreviewUrl, "_blank", "noopener");
+      }
     },
     onError: (err: unknown) => {
       toast.error(getErrorMessage(err, "Failed to send estimate"));

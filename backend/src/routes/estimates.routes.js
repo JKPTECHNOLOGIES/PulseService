@@ -19,6 +19,7 @@ router.post(
   c.create,
 );
 router.get("/:id", c.get);
+router.get("/:id/pdf", c.getPdf);
 router.put(
   "/:id",
   requirePermission("estimates.manage"),

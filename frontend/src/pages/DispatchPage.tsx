@@ -45,6 +45,7 @@ import {
   useReassignDispatch,
   useRescheduleJob,
   useUnscheduleJob,
+  useDispatchRealtime,
 } from "../hooks/useDispatch";
 import { useJobs, useDeleteJob, useUpdateJobStatus } from "../hooks/useJobs";
 import { useTechnicians } from "../hooks/useTechnicians";
@@ -843,6 +844,8 @@ export default function DispatchPage() {
   });
 
   const { data: boardData, isLoading } = useDispatchBoard(fromStr, toStr);
+  // Live updates: reflect other users' board changes without a manual refresh.
+  useDispatchRealtime(fromStr, toStr);
   const { data: allJobsData } = useJobs({ status: "new,scheduled", limit: 50 });
   const { data: techsData } = useTechnicians();
   const reassign = useReassignDispatch();

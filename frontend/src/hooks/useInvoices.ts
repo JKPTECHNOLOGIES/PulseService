@@ -64,15 +64,30 @@ export function useUpdateInvoice() {
   });
 }
 
+interface SendResult {
+  success: boolean;
+  data: Invoice;
+  emailPreviewUrl?: string | null;
+  emailWarning?: string | null;
+}
+
 export function useSendInvoice() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      api.post<ApiResponse<Invoice>>(`/invoices/${id}/send`),
-    onSuccess: (_data, id) => {
+    mutationFn: (id: string) => api.post<SendResult>(`/invoices/${id}/send`),
+    onSuccess: (res, id) => {
       void qc.invalidateQueries({ queryKey: ["invoice", id] });
       void qc.invalidateQueries({ queryKey: ["invoices"] });
-      toast.success("Invoice sent to customer");
+      if (res.emailWarning) {
+        toast(res.emailWarning, { icon: "\u26A0\uFE0F", duration: 6000 });
+      } else {
+        toast.success("Invoice emailed to customer");
+      }
+      // In demo mode (no real SMTP) the backend returns an Ethereal preview URL
+      // so you can see the email that would have been delivered.
+      if (res.emailPreviewUrl) {
+        window.open(res.emailPreviewUrl, "_blank", "noopener");
+      }
     },
     onError: (err: unknown) => {
       toast.error(getErrorMessage(err, "Failed to send invoice"));

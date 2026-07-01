@@ -7,6 +7,7 @@ import {
   BanknotesIcon,
   NoSymbolIcon,
   PencilIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import {
   useInvoice,
@@ -22,6 +23,7 @@ import ConfirmDialog from "../components/ui/ConfirmDialog";
 import LineItemsTable from "../components/ui/LineItemsTable";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
 import { PageSpinner } from "../components/ui/Spinner";
+import { downloadPdf } from "../lib/pdf";
 import {
   formatCurrency,
   formatDate,
@@ -124,6 +126,19 @@ export default function InvoiceDetailPage() {
             )}
           </div>
           <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<ArrowDownTrayIcon className="h-4 w-4" />}
+              onClick={() => {
+                void downloadPdf(
+                  `/invoices/${id ?? ""}/pdf`,
+                  `Invoice-${invoice.invoiceNumber}.pdf`,
+                );
+              }}
+            >
+              PDF
+            </Button>
             {can("invoices.manage") &&
               invoice.amountPaid === 0 &&
               invoice.status !== "void" && (
