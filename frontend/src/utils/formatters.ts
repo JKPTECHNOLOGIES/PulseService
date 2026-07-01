@@ -67,5 +67,10 @@ export function getEstimateStatusColor(status: string): string {
 }
 
 export function capitalize(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1).replace(/_/g, " ");
+  return str
+    .replace(/_/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }

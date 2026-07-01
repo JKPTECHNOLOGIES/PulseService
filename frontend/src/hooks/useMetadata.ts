@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
+import { capitalize } from "../utils/formatters";
 import type {
   ApiResponse,
   LookupCategory,
@@ -47,10 +48,11 @@ export function useLookup(category: LookupCategory) {
     options,
     isLoading,
     isError,
-    /** Human-readable label for a value (falls back to the raw value). */
+    /** Human-readable label for a value (falls back to a humanized form of
+     * the raw value, e.g. "credit_card" -> "Credit Card"). */
     getLabel: (value: string | null | undefined): string => {
       if (!value) return "—";
-      return find(value)?.label ?? value;
+      return find(value)?.label ?? capitalize(value);
     },
     /** Tailwind badge classes for a value (with a neutral fallback). */
     getColor: (value: string | null | undefined): string => {

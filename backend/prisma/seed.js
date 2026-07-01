@@ -1111,7 +1111,7 @@ async function main() {
         invoiceId: invoice1.id,
         customerId: customer3.id,
         amount: 949.375,
-        method: "credit_card",
+        method: "card",
         status: "completed",
         referenceNumber: "CC-TXN-00421",
         notes: "Visa ending in 4242",

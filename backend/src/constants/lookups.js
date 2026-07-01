@@ -269,6 +269,7 @@ const LOOKUPS = {
     { value: "service", label: "Service" },
     { value: "part", label: "Part" },
     { value: "material", label: "Material" },
+    { value: "labor", label: "Labor" },
     { value: "equipment", label: "Equipment" },
   ],
   notificationType: [
