@@ -211,4 +211,64 @@ const getAvailability = async (req, res) => {
   }
 };
 
-module.exports = { list, get, updateLocation, getAvailability };
+// Agenda for the logged-in technician: their assigned jobs for a given day
+// (defaults to today), ordered by scheduled start. Self-scoped via req.user, so
+// it needs no special permission. Non-technician users simply get an empty list.
+const getMyJobs = async (req, res) => {
+  try {
+    const tech = await prisma.technician.findUnique({
+      where: { userId: req.user.id },
+    });
+    if (!tech) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const base = req.query.date ? new Date(req.query.date) : new Date();
+    if (Number.isNaN(base.getTime())) {
+      return res.status(400).json({ success: false, error: "Invalid date" });
+    }
+    const start = new Date(base);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+
+    const rows = await prisma.jobTechnician.findMany({
+      where: {
+        technicianId: tech.id,
+        job: {
+          scheduledStart: { gte: start, lt: end },
+          status: { notIn: ["cancelled"] },
+        },
+      },
+      include: {
+        job: {
+          include: {
+            customer: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+                companyName: true,
+              },
+            },
+            location: true,
+          },
+        },
+      },
+      orderBy: { job: { scheduledStart: "asc" } },
+    });
+
+    const jobs = rows.map((r) => ({
+      ...r.job,
+      isLead: r.isLead,
+      assignmentStatus: r.status,
+    }));
+    return res.json({ success: true, data: jobs });
+  } catch (err) {
+    console.error("technicians.getMyJobs error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+module.exports = { list, get, updateLocation, getAvailability, getMyJobs };

@@ -2,12 +2,14 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "./components/layout/AppLayout";
 import { PageSpinner } from "./components/ui/Spinner";
+import { useAuthStore } from "./store/authStore";
 
 // Route pages are code-split so each is fetched on demand, keeping the initial
 // bundle small instead of shipping every page (and its heavy deps like charts
 // and drag-and-drop) up front.
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const MyDayPage = lazy(() => import("./pages/MyDayPage"));
 const CustomersPage = lazy(() => import("./pages/CustomersPage"));
 const CustomerDetailPage = lazy(() => import("./pages/CustomerDetailPage"));
 const CustomerFormPage = lazy(() => import("./pages/CustomerFormPage"));
@@ -34,6 +36,14 @@ const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 const EquipmentPage = lazy(() => import("./pages/EquipmentPage"));
 const PublicEstimatePage = lazy(() => import("./pages/PublicEstimatePage"));
 
+// Technicians land on their field-first agenda; everyone else on the dashboard.
+function HomeRedirect() {
+  const role = useAuthStore((s) => s.user?.role);
+  return (
+    <Navigate to={role === "technician" ? "/my-day" : "/dashboard"} replace />
+  );
+}
+
 export default function App() {
   return (
     <Suspense fallback={<PageSpinner />}>
@@ -42,8 +52,9 @@ export default function App() {
         {/* Public, token-gated customer estimate approval (no login) */}
         <Route path="/estimate/:id" element={<PublicEstimatePage />} />
         <Route path="/" element={<AppLayout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route index element={<HomeRedirect />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="my-day" element={<MyDayPage />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="customers/new" element={<CustomerFormPage />} />
           <Route path="customers/:id" element={<CustomerDetailPage />} />

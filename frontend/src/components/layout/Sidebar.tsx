@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import clsx from "clsx";
 import {
   HomeIcon,
+  CalendarDaysIcon,
   UsersIcon,
   BriefcaseIcon,
   MapIcon,
@@ -31,6 +32,7 @@ import { usePermissions } from "../../hooks/usePermissions";
 // permissions. Items without `perm` are visible to every authenticated user.
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: HomeIcon },
+  { to: "/my-day", label: "My Day", icon: CalendarDaysIcon },
   { to: "/customers", label: "Customers", icon: UsersIcon },
   { to: "/jobs", label: "Jobs", icon: BriefcaseIcon },
   { to: "/dispatch", label: "Dispatch", icon: MapIcon },
