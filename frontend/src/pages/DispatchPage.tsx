@@ -461,7 +461,7 @@ function ScheduleEditor({ job, saving, onSave }: ScheduleEditorProps) {
     <div className="border-t border-gray-100 pt-3">
       <dt className="text-xs text-gray-500 mb-2">Schedule</dt>
       <dd className="space-y-2">
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <input
             type="datetime-local"
             value={start}

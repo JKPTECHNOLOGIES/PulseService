@@ -131,7 +131,7 @@ function CampaignModal({
           {...register("name")}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Type <span className="text-red-500">*</span>
@@ -146,7 +146,7 @@ function CampaignModal({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Budget"
             type="number"
@@ -162,7 +162,7 @@ function CampaignModal({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Start date" type="date" {...register("startDate")} />
           <Input label="End date" type="date" {...register("endDate")} />
         </div>
@@ -423,7 +423,7 @@ function LogCallModal({
         onSubmit={(e) => void handleSubmit(onSubmit)(e)}
         className="space-y-4"
       >
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Direction <span className="text-red-500">*</span>
@@ -463,7 +463,7 @@ function LogCallModal({
           </select>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="From number"
             placeholder="(404) 555-0100"
@@ -476,7 +476,7 @@ function LogCallModal({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Duration (seconds)"
             type="number"

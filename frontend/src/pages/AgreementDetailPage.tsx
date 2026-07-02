@@ -193,7 +193,7 @@ export default function AgreementDetailPage() {
         <div className="lg:col-span-2 space-y-5">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h3 className="font-semibold text-gray-900 mb-4">Details</h3>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
               <div>
                 <dt className="text-xs text-gray-500">Amount</dt>
                 <dd className="text-sm font-semibold text-gray-900 mt-0.5">
@@ -346,7 +346,7 @@ export default function AgreementDetailPage() {
               }}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Status
@@ -384,7 +384,7 @@ export default function AgreementDetailPage() {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Amount
@@ -413,7 +413,7 @@ export default function AgreementDetailPage() {
               </label>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Start Date

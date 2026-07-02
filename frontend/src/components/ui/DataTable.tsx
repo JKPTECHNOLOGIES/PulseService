@@ -1,13 +1,16 @@
 import { ReactNode, useMemo } from "react";
+import { Menu } from "@headlessui/react";
 import {
   ChevronUpIcon,
   ChevronDownIcon,
   ChevronUpDownIcon,
   ArrowDownTrayIcon,
+  ArrowsUpDownIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { downloadCsv, CsvColumn } from "../../utils/csv";
+import { useIsMobile } from "../../hooks/useIsMobile";
 
 export type SortDir = "asc" | "desc";
 export interface SortState {
@@ -153,7 +156,17 @@ export default function DataTable<T>({
     );
   };
 
-  const showToolbar = Boolean(csvFilename);
+  // Render exactly one layout (cards on mobile when a card renderer is given,
+  // the table otherwise) instead of shipping both to the DOM.
+  const isMobile = useIsMobile();
+  const showCards = Boolean(renderMobileCard) && isMobile;
+
+  const sortableColumns = columns.filter((c) => c.sortValue);
+  // On mobile the column headers are gone, so surface sorting via a menu.
+  const showSortMenu =
+    showCards && Boolean(onSortChange) && sortableColumns.length > 0;
+
+  const showToolbar = Boolean(csvFilename) || showSortMenu;
   const showBulkBar = selectable && selectedIds.length > 0;
 
   return (
@@ -178,7 +191,46 @@ export default function DataTable<T>({
             </div>
           ) : (
             <>
-              <div />
+              {showSortMenu ? (
+                <Menu as="div" className="relative">
+                  <Menu.Button className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+                    <ArrowsUpDownIcon className="h-4 w-4" />
+                    Sort
+                  </Menu.Button>
+                  <Menu.Items className="absolute left-0 z-20 mt-1 w-56 origin-top-left rounded-lg bg-white shadow-lg border border-gray-100 focus:outline-none py-1">
+                    {sortableColumns.map((col) => {
+                      const active = sort?.key === col.key;
+                      return (
+                        <Menu.Item key={col.key}>
+                          {() => (
+                            <button
+                              onClick={() => {
+                                handleSort(col);
+                              }}
+                              className={clsx(
+                                "flex w-full items-center justify-between px-3 py-2 text-sm text-left",
+                                active
+                                  ? "text-primary-700 font-medium"
+                                  : "text-gray-700",
+                              )}
+                            >
+                              <span>{col.header}</span>
+                              {active &&
+                                (sort.dir === "asc" ? (
+                                  <ChevronUpIcon className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDownIcon className="h-4 w-4" />
+                                ))}
+                            </button>
+                          )}
+                        </Menu.Item>
+                      );
+                    })}
+                  </Menu.Items>
+                </Menu>
+              ) : (
+                <div />
+              )}
               {csvFilename && (
                 <button
                   onClick={handleExport}
@@ -193,9 +245,9 @@ export default function DataTable<T>({
         </div>
       )}
 
-      {/* Mobile card list (only when a card renderer is supplied). */}
-      {renderMobileCard && (
-        <ul className="sm:hidden divide-y divide-gray-100">
+      {/* One layout at a time: cards on mobile (when provided), table otherwise. */}
+      {showCards ? (
+        <ul className="divide-y divide-gray-100">
           {sortedRows.map((row) => {
             const id = getRowId(row);
             return (
@@ -231,7 +283,7 @@ export default function DataTable<T>({
                       : undefined
                   }
                 >
-                  {renderMobileCard(row)}
+                  {renderMobileCard?.(row)}
                 </div>
                 {rowActions && (
                   <div className="shrink-0 flex items-center gap-1">
@@ -242,122 +294,117 @@ export default function DataTable<T>({
             );
           })}
         </ul>
-      )}
-
-      <div
-        className={clsx(
-          "overflow-x-auto",
-          renderMobileCard && "hidden sm:block",
-        )}
-      >
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 bg-gray-50">
-              {selectable && (
-                <th className="w-10 py-3 px-4">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={toggleAll}
-                    className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                  />
-                </th>
-              )}
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  onClick={() => {
-                    handleSort(col);
-                  }}
-                  className={clsx(
-                    "py-3 px-3 font-medium text-gray-500 text-xs uppercase tracking-wide",
-                    col.align === "right" ? "text-right" : "text-left",
-                    col.sortValue &&
-                      "cursor-pointer select-none hover:text-gray-700",
-                    col.thClassName,
-                  )}
-                >
-                  <span
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50">
+                {selectable && (
+                  <th className="w-10 py-3 px-4">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                  </th>
+                )}
+                {columns.map((col) => (
+                  <th
+                    key={col.key}
+                    onClick={() => {
+                      handleSort(col);
+                    }}
                     className={clsx(
-                      "inline-flex items-center gap-1",
-                      col.align === "right" && "flex-row-reverse",
+                      "py-3 px-3 font-medium text-gray-500 text-xs uppercase tracking-wide",
+                      col.align === "right" ? "text-right" : "text-left",
+                      col.sortValue &&
+                        "cursor-pointer select-none hover:text-gray-700",
+                      col.thClassName,
                     )}
                   >
-                    {col.header}
-                    {renderSortIcon(col)}
-                  </span>
-                </th>
-              ))}
-              {rowActions && <th className="w-16 py-3 px-5" />}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {sortedRows.map((row) => {
-              const id = getRowId(row);
-              return (
-                <tr
-                  key={id}
-                  onClick={
-                    onRowClick
-                      ? () => {
-                          onRowClick(row);
-                        }
-                      : undefined
-                  }
-                  className={clsx(
-                    "transition-colors",
-                    onRowClick && "hover:bg-gray-50 cursor-pointer",
-                    selectedSet.has(id) && "bg-primary-50/40",
-                    rowClassName?.(row),
-                  )}
-                >
-                  {selectable && (
-                    <td
-                      className="w-10 py-3.5 px-4"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedSet.has(id)}
-                        onChange={() => {
-                          toggleOne(id);
-                        }}
-                        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      />
-                    </td>
-                  )}
-                  {columns.map((col) => (
-                    <td
-                      key={col.key}
+                    <span
                       className={clsx(
-                        "py-3.5 px-3",
-                        col.align === "right" ? "text-right" : "text-left",
-                        col.tdClassName,
+                        "inline-flex items-center gap-1",
+                        col.align === "right" && "flex-row-reverse",
                       )}
                     >
-                      {col.render(row)}
-                    </td>
-                  ))}
-                  {rowActions && (
-                    <td
-                      className="py-3.5 px-5"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                    >
-                      <div className="flex items-center justify-end gap-2">
-                        {rowActions(row)}
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                      {col.header}
+                      {renderSortIcon(col)}
+                    </span>
+                  </th>
+                ))}
+                {rowActions && <th className="w-16 py-3 px-5" />}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {sortedRows.map((row) => {
+                const id = getRowId(row);
+                return (
+                  <tr
+                    key={id}
+                    onClick={
+                      onRowClick
+                        ? () => {
+                            onRowClick(row);
+                          }
+                        : undefined
+                    }
+                    className={clsx(
+                      "transition-colors",
+                      onRowClick && "hover:bg-gray-50 cursor-pointer",
+                      selectedSet.has(id) && "bg-primary-50/40",
+                      rowClassName?.(row),
+                    )}
+                  >
+                    {selectable && (
+                      <td
+                        className="w-10 py-3.5 px-4"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedSet.has(id)}
+                          onChange={() => {
+                            toggleOne(id);
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                      </td>
+                    )}
+                    {columns.map((col) => (
+                      <td
+                        key={col.key}
+                        className={clsx(
+                          "py-3.5 px-3",
+                          col.align === "right" ? "text-right" : "text-left",
+                          col.tdClassName,
+                        )}
+                      >
+                        {col.render(row)}
+                      </td>
+                    ))}
+                    {rowActions && (
+                      <td
+                        className="py-3.5 px-5"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                      >
+                        <div className="flex items-center justify-end gap-2">
+                          {rowActions(row)}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
