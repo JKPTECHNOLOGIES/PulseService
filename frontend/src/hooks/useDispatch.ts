@@ -68,6 +68,126 @@ export function useDispatchBoard(from: string, to: string) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Optimistic board updates
+//
+// Every drag mutation snapshots the cached board(s), applies the expected
+// result immediately so the card moves under the cursor without waiting for the
+// round-trip, then reconciles against the server on settle (and rolls back on
+// error). The apply* helpers below are pure functions over a DispatchBoard.
+// ---------------------------------------------------------------------------
+
+type BoardTech = Technician & { jobs: Job[] };
+
+// Remove a job from every bucket, returning the removed job (if present) and
+// the pruned board. A job lives in exactly one bucket, so this is unambiguous.
+function extractJob(
+  board: DispatchBoard,
+  jobId: string,
+): { job: Job | null; board: DispatchBoard } {
+  let found: Job | null = null;
+  const take = (jobs: Job[]): Job[] =>
+    jobs.filter((j) => {
+      if (j.id === jobId) {
+        found = j;
+        return false;
+      }
+      return true;
+    });
+  const technicians = board.technicians.map((t) => ({
+    ...t,
+    jobs: take(t.jobs),
+  }));
+  const unassigned = take(board.unassigned);
+  const undated = take(board.undated);
+  return { job: found, board: { technicians, unassigned, undated } };
+}
+
+function applyReassign(
+  board: DispatchBoard,
+  jobId: string,
+  toTechnicianId: string | null,
+): DispatchBoard {
+  const { job, board: pruned } = extractJob(board, jobId);
+  if (!job) return board;
+
+  const targetTech: BoardTech | undefined = toTechnicianId
+    ? board.technicians.find((t) => t.id === toTechnicianId)
+    : undefined;
+
+  // Rebuild the assignment so the card shows the new lead tech immediately.
+  const technicians: JobTechnician[] =
+    toTechnicianId && targetTech
+      ? [
+          {
+            id: `optimistic-${jobId}`,
+            jobId,
+            technicianId: toTechnicianId,
+            isLead: true,
+            status: "assigned",
+            technician: {
+              id: targetTech.id,
+              userId: targetTech.userId,
+              employeeId: targetTech.employeeId,
+              skills: targetTech.skills,
+              isAvailable: targetTech.isAvailable,
+              user: targetTech.user,
+            },
+          },
+        ]
+      : [];
+  const moved: Job = { ...job, technicians };
+
+  // Undated jobs stay in the backlog — assigning a tech doesn't schedule them.
+  if (!moved.scheduledStart) {
+    return { ...pruned, undated: [...pruned.undated, moved] };
+  }
+  if (toTechnicianId && targetTech) {
+    return {
+      ...pruned,
+      technicians: pruned.technicians.map((t) =>
+        t.id === toTechnicianId ? { ...t, jobs: [...t.jobs, moved] } : t,
+      ),
+    };
+  }
+  return { ...pruned, unassigned: [...pruned.unassigned, moved] };
+}
+
+function applyReschedule(
+  board: DispatchBoard,
+  jobId: string,
+  scheduledStart: string | null,
+  scheduledEnd: string | null,
+): DispatchBoard {
+  const patch = (j: Job): Job =>
+    j.id === jobId
+      ? {
+          ...j,
+          scheduledStart: scheduledStart ?? undefined,
+          scheduledEnd: scheduledEnd ?? undefined,
+        }
+      : j;
+  return {
+    technicians: board.technicians.map((t) => ({
+      ...t,
+      jobs: t.jobs.map(patch),
+    })),
+    unassigned: board.unassigned.map(patch),
+    undated: board.undated.map(patch),
+  };
+}
+
+function applyUnschedule(board: DispatchBoard, jobId: string): DispatchBoard {
+  const { job, board: pruned } = extractJob(board, jobId);
+  if (!job) return board;
+  const moved: Job = {
+    ...job,
+    scheduledStart: undefined,
+    scheduledEnd: undefined,
+  };
+  return { ...pruned, undated: [...pruned.undated, moved] };
+}
+
 interface ReassignVars {
   jobId: string;
   /** Technician to assign the job to (omit/null to unassign). */
@@ -89,13 +209,26 @@ export function useReassignDispatch() {
         jobId,
         toTechnicianId: toTechnicianId ?? undefined,
       }),
-    onSuccess: (_data, vars) => {
+    onMutate: async (vars: ReassignVars) => {
+      await qc.cancelQueries({ queryKey: ["dispatch"] });
+      const snapshots = qc.getQueriesData<DispatchBoard>({
+        queryKey: ["dispatch"],
+      });
+      qc.setQueriesData<DispatchBoard>({ queryKey: ["dispatch"] }, (old) =>
+        old ? applyReassign(old, vars.jobId, vars.toTechnicianId ?? null) : old,
+      );
+      return { snapshots };
+    },
+    onError: (err: unknown, _vars, ctx) => {
+      ctx?.snapshots.forEach(([key, data]) => {
+        qc.setQueryData(key, data);
+      });
+      toast.error(getErrorMessage(err, "Failed to update assignment"));
+    },
+    onSettled: (_data, _err, vars) => {
       void qc.invalidateQueries({ queryKey: ["dispatch"] });
       void qc.invalidateQueries({ queryKey: ["jobs"] });
       void qc.invalidateQueries({ queryKey: ["job", vars.jobId] });
-    },
-    onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to update assignment"));
     },
   });
 }
@@ -118,13 +251,33 @@ export function useRescheduleJob() {
         scheduledStart,
         scheduledEnd,
       }),
-    onSuccess: (_data, vars) => {
+    onMutate: async (vars: RescheduleVars) => {
+      await qc.cancelQueries({ queryKey: ["dispatch"] });
+      const snapshots = qc.getQueriesData<DispatchBoard>({
+        queryKey: ["dispatch"],
+      });
+      qc.setQueriesData<DispatchBoard>({ queryKey: ["dispatch"] }, (old) =>
+        old
+          ? applyReschedule(
+              old,
+              vars.jobId,
+              vars.scheduledStart,
+              vars.scheduledEnd,
+            )
+          : old,
+      );
+      return { snapshots };
+    },
+    onError: (err: unknown, _vars, ctx) => {
+      ctx?.snapshots.forEach(([key, data]) => {
+        qc.setQueryData(key, data);
+      });
+      toast.error(getErrorMessage(err, "Failed to reschedule job"));
+    },
+    onSettled: (_data, _err, vars) => {
       void qc.invalidateQueries({ queryKey: ["dispatch"] });
       void qc.invalidateQueries({ queryKey: ["jobs"] });
       void qc.invalidateQueries({ queryKey: ["job", vars.jobId] });
-    },
-    onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to reschedule job"));
     },
   });
 }
@@ -141,13 +294,26 @@ export function useUnscheduleJob() {
         scheduledStart: null,
         scheduledEnd: null,
       }),
-    onSuccess: (_data, vars) => {
+    onMutate: async (vars: { jobId: string; date: string }) => {
+      await qc.cancelQueries({ queryKey: ["dispatch"] });
+      const snapshots = qc.getQueriesData<DispatchBoard>({
+        queryKey: ["dispatch"],
+      });
+      qc.setQueriesData<DispatchBoard>({ queryKey: ["dispatch"] }, (old) =>
+        old ? applyUnschedule(old, vars.jobId) : old,
+      );
+      return { snapshots };
+    },
+    onError: (err: unknown, _vars, ctx) => {
+      ctx?.snapshots.forEach(([key, data]) => {
+        qc.setQueryData(key, data);
+      });
+      toast.error(getErrorMessage(err, "Failed to move job to undated"));
+    },
+    onSettled: (_data, _err, vars) => {
       void qc.invalidateQueries({ queryKey: ["dispatch"] });
       void qc.invalidateQueries({ queryKey: ["jobs"] });
       void qc.invalidateQueries({ queryKey: ["job", vars.jobId] });
-    },
-    onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to move job to undated"));
     },
   });
 }

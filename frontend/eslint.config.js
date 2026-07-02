@@ -11,6 +11,7 @@ export default tseslint.config(
       "node_modules",
       "eslint.config.js",
       "vite.config.ts",
+      "vitest.config.ts",
       "tailwind.config.js",
       "postcss.config.js",
     ],
@@ -40,6 +41,13 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true },
       ],
+    },
+  },
+  {
+    // Vitest test files + setup use global describe/it/expect/vi/etc.
+    files: ["**/*.test.{ts,tsx}", "src/test/**/*.ts"],
+    languageOptions: {
+      globals: { ...globals.vitest },
     },
   },
 );

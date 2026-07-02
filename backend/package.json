@@ -10,6 +10,8 @@
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.js",
     "db:studio": "prisma studio",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
@@ -35,6 +37,7 @@
     "eslint": "^9.17.0",
     "globals": "^15.14.0",
     "nodemon": "^3.0.2",
-    "prisma": "^5.7.1"
+    "prisma": "^5.7.1",
+    "vitest": "^4.1.9"
   }
 }

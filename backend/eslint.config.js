@@ -18,12 +18,23 @@ module.exports = [
       "prefer-const": "error",
       "no-unused-vars": [
         "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", ignoreRestSiblings: true },
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
       ],
       "no-console": "off",
       "no-throw-literal": "error",
       "require-await": "error",
       "no-return-await": "error",
+    },
+  },
+  {
+    // Vitest test files use global describe/it/expect/vi/etc.
+    files: ["**/*.test.js"],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.vitest },
     },
   },
 ];
