@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { Dialog, Transition } from "@headlessui/react";
 import {
   PhotoIcon,
   ArrowUpTrayIcon,
@@ -181,48 +181,67 @@ export default function AttachmentGallery({
         </div>
       )}
 
-      {/* Full-size preview. Rendered through a portal to <body> so it escapes any
-          transformed/overflow-hidden ancestor (e.g. the inventory Photos modal),
-          which would otherwise trap this fixed overlay and clip the image. The
-          image is constrained to both the viewport width and height (preserving
-          aspect ratio) so the window fits it and nothing is ever cropped. */}
-      {preview &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
-            onClick={() => {
-              setPreview(null);
-            }}
+      {/* Full-size preview in an accessible dialog (focus trap + Escape + aria,
+          via Headless UI). It's portaled to <body>, so it escapes any
+          transformed/overflow-hidden ancestor and the image is never clipped. */}
+      <Transition show={preview !== null} as={Fragment}>
+        <Dialog
+          onClose={() => {
+            setPreview(null);
+          }}
+          className="relative z-[60]"
+        >
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-150"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
           >
+            <div className="fixed inset-0 bg-black/80" aria-hidden="true" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-200"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-150"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="flex max-h-full max-w-full flex-col items-center">
+                {preview && (
+                  <AttachmentImage
+                    id={preview.id}
+                    alt={preview.caption ?? preview.filename}
+                    className="h-auto w-auto max-h-[85vh] max-w-[92vw] rounded-lg object-contain"
+                  />
+                )}
+                {preview?.caption && (
+                  <p className="mt-2 max-w-[92vw] text-center text-sm text-white/80">
+                    {preview.caption}
+                  </p>
+                )}
+              </Dialog.Panel>
+            </Transition.Child>
+
             <button
               type="button"
               onClick={() => {
                 setPreview(null);
               }}
-              className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+              aria-label="Close preview"
+              className="absolute right-4 top-4 z-10 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
             >
               <XMarkIcon className="h-6 w-6" />
             </button>
-            <div
-              className="flex max-h-full max-w-full flex-col items-center"
-              onClick={(e) => {
-                e.stopPropagation();
-              }}
-            >
-              <AttachmentImage
-                id={preview.id}
-                alt={preview.caption ?? preview.filename}
-                className="h-auto w-auto max-h-[85vh] max-w-[92vw] rounded-lg object-contain"
-              />
-              {preview.caption && (
-                <p className="mt-2 max-w-[92vw] text-center text-sm text-white/80">
-                  {preview.caption}
-                </p>
-              )}
-            </div>
-          </div>,
-          document.body,
-        )}
+          </div>
+        </Dialog>
+      </Transition>
 
       <ConfirmDialog
         isOpen={!!toDelete}
