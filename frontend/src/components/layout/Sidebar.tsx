@@ -7,6 +7,7 @@ import {
   UsersIcon,
   BriefcaseIcon,
   MapIcon,
+  GlobeAltIcon,
   DocumentTextIcon,
   DocumentDuplicateIcon,
   CreditCardIcon,
@@ -43,6 +44,7 @@ const navItems = [
     perm: ["jobs.create"],
   },
   { to: "/dispatch", label: "Dispatch", icon: MapIcon },
+  { to: "/map", label: "Map", icon: GlobeAltIcon },
   { to: "/estimates", label: "Estimates", icon: DocumentTextIcon },
   { to: "/invoices", label: "Invoices", icon: DocumentDuplicateIcon },
   {

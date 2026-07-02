@@ -35,6 +35,7 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 const EquipmentPage = lazy(() => import("./pages/EquipmentPage"));
 const RecurringPage = lazy(() => import("./pages/RecurringPage"));
+const MapPage = lazy(() => import("./pages/MapPage"));
 const PublicEstimatePage = lazy(() => import("./pages/PublicEstimatePage"));
 
 // Technicians land on their field-first agenda; everyone else on the dashboard.
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="jobs/:id/edit" element={<JobFormPage />} />
           <Route path="recurring" element={<RecurringPage />} />
           <Route path="dispatch" element={<DispatchPage />} />
+          <Route path="map" element={<MapPage />} />
           <Route path="estimates" element={<EstimatesPage />} />
           <Route path="estimates/new" element={<EstimateFormPage />} />
           <Route path="estimates/:id" element={<EstimateDetailPage />} />

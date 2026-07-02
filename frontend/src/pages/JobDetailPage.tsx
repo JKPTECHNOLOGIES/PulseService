@@ -24,6 +24,7 @@ import Modal from "../components/ui/Modal";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
 import SignatureCard from "../components/ui/SignatureCard";
 import { PageSpinner } from "../components/ui/Spinner";
+import { directionsUrl } from "../lib/maps";
 import {
   formatCurrency,
   formatDateTime,
@@ -229,9 +230,28 @@ export default function JobDetailPage() {
               <div>
                 <dt className="text-xs text-gray-500">Location</dt>
                 <dd className="text-sm font-medium text-gray-900 mt-0.5">
-                  {job.location
-                    ? `${job.location.address}, ${job.location.city}`
-                    : "No location"}
+                  {job.location ? (
+                    <span className="flex items-center gap-2">
+                      <span>
+                        {job.location.address}, {job.location.city}
+                      </span>
+                      <a
+                        href={directionsUrl([
+                          job.location.address,
+                          job.location.city,
+                          job.location.state,
+                          job.location.zip,
+                        ])}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary-600 hover:text-primary-700 text-xs font-medium"
+                      >
+                        Directions
+                      </a>
+                    </span>
+                  ) : (
+                    "No location"
+                  )}
                 </dd>
               </div>
               <div>

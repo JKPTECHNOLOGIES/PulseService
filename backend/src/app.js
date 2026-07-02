@@ -9,6 +9,10 @@ const morgan = require("morgan");
 const app = express();
 const server = http.createServer(app);
 
+// Behind the nginx reverse proxy: trust the first proxy hop so req.ip reflects
+// the real client (X-Forwarded-For) for rate limiting and audit logging.
+app.set("trust proxy", 1);
+
 // CORS configuration - allow frontend URLs (localhost + network IPs)
 const corsOrigin =
   process.env.NODE_ENV === "production"
@@ -248,6 +252,7 @@ const publicRoutes = require("./routes/public.routes");
 const timeRoutes = require("./routes/time.routes");
 const pushRoutes = require("./routes/push.routes");
 const recurringRoutes = require("./routes/recurring.routes");
+const geocodeRoutes = require("./routes/geocode.routes");
 
 // Record mutating actions across every resource (must run before the routers so
 // it can hook the response; req.user is populated by each router's auth guard).
@@ -280,6 +285,7 @@ app.use("/api/v1/public", publicRoutes);
 app.use("/api/v1/time", timeRoutes);
 app.use("/api/v1/push", pushRoutes);
 app.use("/api/v1/recurring", recurringRoutes);
+app.use("/api/v1/geocode", geocodeRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get("/api/health", (req, res) =>

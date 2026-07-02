@@ -4,6 +4,7 @@ const {
   paginatedResponse,
   generateNumber,
 } = require("../utils/helpers");
+const { geocode } = require("../services/geocode.service");
 
 const list = async (req, res) => {
   try {
@@ -246,9 +247,27 @@ const getLocations = async (req, res) => {
 
 const createLocation = async (req, res) => {
   try {
-    const location = await prisma.location.create({
-      data: { ...req.body, customerId: req.params.id },
-    });
+    const data = { ...req.body, customerId: req.params.id };
+    // Fill coordinates from the address (best-effort) so the location can be
+    // plotted on the map without the user entering lat/lng manually.
+    if (
+      (data.lat === null ||
+        data.lat === undefined ||
+        data.lng === null ||
+        data.lng === undefined) &&
+      data.address
+    ) {
+      const geo = await geocode(
+        [data.address, data.city, data.state, data.zip]
+          .filter(Boolean)
+          .join(", "),
+      );
+      if (geo) {
+        data.lat = geo.lat;
+        data.lng = geo.lng;
+      }
+    }
+    const location = await prisma.location.create({ data });
     return res.status(201).json({ success: true, data: location });
   } catch (err) {
     console.error("customers.createLocation error:", err);

@@ -27,6 +27,7 @@ import { PageSpinner } from "../components/ui/Spinner";
 import { formatDateTime } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import { usePermissions } from "../hooks/usePermissions";
+import { useAuthStore } from "../store/authStore";
 
 interface BillingForm {
   taxRate?: number;
@@ -1034,13 +1035,184 @@ function AuditTab() {
   );
 }
 
+// ----- Account Tab (self-service, all users) -----
+interface ProfileForm {
+  firstName: string;
+  lastName: string;
+  phone?: string;
+}
+interface PasswordForm {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+const accountInputClass =
+  "w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500";
+
+function AccountTab() {
+  const user = useAuthStore((s) => s.user);
+  const updateUser = useAuthStore((s) => s.updateUser);
+
+  const profileForm = useForm<ProfileForm>({
+    defaultValues: {
+      firstName: user?.firstName ?? "",
+      lastName: user?.lastName ?? "",
+      phone: user?.phone ?? "",
+    },
+  });
+  const passwordForm = useForm<PasswordForm>();
+
+  const profileMutation = useMutation({
+    mutationFn: (payload: ProfileForm) =>
+      api.put<ApiResponse<User>>("/auth/profile", payload),
+    onSuccess: (res) => {
+      updateUser(res.data);
+      toast.success("Profile updated");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to update profile"));
+    },
+  });
+
+  const passwordMutation = useMutation({
+    mutationFn: (payload: { currentPassword: string; newPassword: string }) =>
+      api.put("/auth/password", payload),
+    onSuccess: () => {
+      toast.success("Password changed");
+      passwordForm.reset();
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to change password"));
+    },
+  });
+
+  const submitPassword = (d: PasswordForm) => {
+    if (d.newPassword.length < 6) {
+      toast.error("New password must be at least 6 characters");
+      return;
+    }
+    if (d.newPassword !== d.confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    passwordMutation.mutate({
+      currentPassword: d.currentPassword,
+      newPassword: d.newPassword,
+    });
+  };
+
+  return (
+    <div className="space-y-5">
+      <Card title="Profile">
+        <form
+          onSubmit={(e) =>
+            void profileForm.handleSubmit((d) => {
+              profileMutation.mutate(d);
+            })(e)
+          }
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                First Name
+              </label>
+              <input
+                {...profileForm.register("firstName")}
+                className={accountInputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Last Name
+              </label>
+              <input
+                {...profileForm.register("lastName")}
+                className={accountInputClass}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Phone
+            </label>
+            <input
+              {...profileForm.register("phone")}
+              type="tel"
+              inputMode="tel"
+              className={accountInputClass}
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button type="submit" loading={profileMutation.isPending}>
+              Save Profile
+            </Button>
+          </div>
+        </form>
+      </Card>
+
+      <Card title="Change Password">
+        <form
+          onSubmit={(e) => void passwordForm.handleSubmit(submitPassword)(e)}
+          className="space-y-4 max-w-md"
+        >
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Current Password
+            </label>
+            <input
+              {...passwordForm.register("currentPassword")}
+              type="password"
+              autoComplete="current-password"
+              className={accountInputClass}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              New Password
+            </label>
+            <input
+              {...passwordForm.register("newPassword")}
+              type="password"
+              autoComplete="new-password"
+              className={accountInputClass}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Confirm New Password
+            </label>
+            <input
+              {...passwordForm.register("confirmPassword")}
+              type="password"
+              autoComplete="new-password"
+              className={accountInputClass}
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button type="submit" loading={passwordMutation.isPending}>
+              Change Password
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [selectedTab, setSelectedTab] = useState(0);
   const { can } = usePermissions();
 
   const tabs = [
-    { label: "Company", panel: <CompanyTab /> },
-    { label: "Billing", panel: <BillingTab /> },
+    { label: "Account", panel: <AccountTab /> },
+    ...(can("settings.manage")
+      ? [
+          { label: "Company", panel: <CompanyTab /> },
+          { label: "Billing", panel: <BillingTab /> },
+        ]
+      : []),
     ...(can("users.manage")
       ? [
           { label: "Users", panel: <UsersTab /> },
