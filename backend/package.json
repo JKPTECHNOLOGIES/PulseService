@@ -9,6 +9,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.js",
+    "db:seed:demo": "node prisma/seed-demo.js",
     "db:studio": "prisma studio",
     "test": "vitest run",
     "test:watch": "vitest",
