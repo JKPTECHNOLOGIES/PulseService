@@ -164,6 +164,7 @@ export default function LineItemsTable({
               <td className="py-2 pr-2">
                 <input
                   type="number"
+                  inputMode="numeric"
                   min="0"
                   step="1"
                   value={item.quantity}
@@ -176,6 +177,7 @@ export default function LineItemsTable({
               <td className="py-2 pr-2">
                 <input
                   type="number"
+                  inputMode="decimal"
                   min="0"
                   step="0.01"
                   value={item.unitPrice}

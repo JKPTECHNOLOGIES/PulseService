@@ -22,7 +22,7 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen-safe bg-gray-50 overflow-hidden pl-safe-left pr-safe-right">
       <Sidebar
         mobileOpen={mobileOpen}
         onCloseMobile={() => {
@@ -35,7 +35,7 @@ export default function AppLayout() {
             setMobileOpen(true);
           }}
         />
-        <main className="flex-1 overflow-auto p-4 md:p-6">
+        <main className="flex-1 overflow-auto scroll-momentum p-4 md:p-6 pb-safe-bottom">
           {/* Keyed by path so a crashed page recovers automatically once the
               user navigates elsewhere. */}
           <ErrorBoundary key={location.pathname}>

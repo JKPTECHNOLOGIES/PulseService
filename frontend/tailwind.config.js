@@ -23,6 +23,14 @@ export default {
   ],
   theme: {
     extend: {
+      // Safe-area inset spacing (notch / home indicator). Usable as e.g.
+      // pt-safe-top, pb-safe-bottom, px utilities via safe-left/right.
+      spacing: {
+        "safe-top": "env(safe-area-inset-top)",
+        "safe-bottom": "env(safe-area-inset-bottom)",
+        "safe-left": "env(safe-area-inset-left)",
+        "safe-right": "env(safe-area-inset-right)",
+      },
       colors: {
         primary: {
           50: "#eff6ff",

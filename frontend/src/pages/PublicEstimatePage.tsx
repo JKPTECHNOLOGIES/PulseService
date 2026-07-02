@@ -108,7 +108,7 @@ export default function PublicEstimatePage() {
 
   if (error || !estimate) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="min-h-screen-safe bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-md text-center">
           <h1 className="text-lg font-semibold text-gray-900">
             Estimate unavailable
@@ -132,7 +132,7 @@ export default function PublicEstimatePage() {
     `${estimate.customer.firstName ?? ""} ${estimate.customer.lastName ?? ""}`.trim();
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4">
+    <div className="min-h-screen-safe bg-gray-100 py-8 px-4">
       <div className="mx-auto max-w-2xl space-y-5">
         {/* Brand */}
         <div className="flex items-center gap-2 justify-center">

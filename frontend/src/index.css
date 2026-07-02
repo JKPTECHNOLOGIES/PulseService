@@ -3,7 +3,47 @@
 @tailwind utilities;
 
 @layer base {
+    html {
+        /* Prevent iOS from auto-inflating text in landscape. */
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+    }
+
     body {
         @apply bg-gray-50 text-gray-900;
+        /* Kill the grey tap flash on touch devices for a more native feel. */
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* iOS zooms the viewport when focusing a form control whose font-size is
+       under 16px. Bump controls to 16px on small screens only, so the desktop
+       (text-sm) sizing is preserved. */
+    @media (max-width: 640px) {
+        input,
+        select,
+        textarea {
+            font-size: 16px;
+        }
+    }
+}
+
+@layer utilities {
+    /* Dynamic viewport height with a static fallback for older browsers, so the
+       app shell doesn't get clipped by the mobile URL bar. */
+    .h-screen-safe {
+        height: 100vh;
+        height: 100dvh;
+    }
+
+    .min-h-screen-safe {
+        min-height: 100vh;
+        min-height: 100dvh;
+    }
+
+    /* Smooth momentum scrolling + contain overscroll so inner scroll areas
+       don't rubber-band the whole page. */
+    .scroll-momentum {
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
     }
 }

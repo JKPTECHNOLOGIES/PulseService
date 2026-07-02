@@ -5,16 +5,24 @@ import {
   ChevronRightIcon,
   UserPlusIcon,
   CheckCircleIcon,
+  ClockIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { useJob } from "../hooks/useJobs";
 import { useUpdateJobStatus, useAssignTechnician } from "../hooks/useJobs";
 import { useTechnicians } from "../hooks/useTechnicians";
+import {
+  useCurrentTimeEntry,
+  useJobTimeEntries,
+  useClockIn,
+  useClockOut,
+} from "../hooks/useTime";
 import { useLookup } from "../hooks/useMetadata";
 import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
+import SignatureCard from "../components/ui/SignatureCard";
 import { PageSpinner } from "../components/ui/Spinner";
 import {
   formatCurrency,
@@ -22,6 +30,13 @@ import {
   formatDate,
   capitalize,
 } from "../utils/formatters";
+
+function formatDuration(mins?: number | null): string {
+  if (!mins || mins <= 0) return "0m";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${String(h)}h ${String(m)}m` : `${String(m)}m`;
+}
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: "text-gray-500",
@@ -76,6 +91,10 @@ export default function JobDetailPage() {
 
   const { data: job, isLoading } = useJob(id ?? "");
   const { data: techsData } = useTechnicians();
+  const { data: currentEntry } = useCurrentTimeEntry();
+  const { data: jobTimeEntries } = useJobTimeEntries(id ?? "");
+  const clockIn = useClockIn();
+  const clockOut = useClockOut();
   const updateStatus = useUpdateJobStatus();
   const assignTech = useAssignTechnician();
   const { options: jobStatusOptions } = useLookup("jobStatus");
@@ -352,6 +371,88 @@ export default function JobDetailPage() {
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* Time Tracking */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-1.5">
+                <ClockIcon className="h-4 w-4 text-gray-400" />
+                Time Tracking
+              </h3>
+              {currentEntry && currentEntry.jobId === job.id ? (
+                <Button
+                  size="sm"
+                  variant="danger"
+                  loading={clockOut.isPending}
+                  onClick={() => {
+                    clockOut.mutate();
+                  }}
+                >
+                  Clock Out
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  loading={clockIn.isPending}
+                  disabled={!!currentEntry && currentEntry.jobId !== job.id}
+                  onClick={() => {
+                    clockIn.mutate({ jobId: job.id });
+                  }}
+                >
+                  Clock In
+                </Button>
+              )}
+            </div>
+            {currentEntry && currentEntry.jobId !== job.id && (
+              <p className="text-xs text-amber-600 mb-3">
+                You're clocked in on another job. Clock out there first.
+              </p>
+            )}
+            {jobTimeEntries && jobTimeEntries.length > 0 ? (
+              <div className="space-y-2">
+                {jobTimeEntries.map((e) => (
+                  <div
+                    key={e.id}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-gray-900 truncate">
+                        {e.user
+                          ? `${e.user.firstName} ${e.user.lastName}`
+                          : "Technician"}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {formatDateTime(e.startTime)}
+                      </p>
+                    </div>
+                    <span
+                      className={clsx(
+                        "text-xs font-medium shrink-0",
+                        e.endTime ? "text-gray-600" : "text-green-600",
+                      )}
+                    >
+                      {e.endTime ? formatDuration(e.duration) : "In progress"}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex justify-between border-t border-gray-100 pt-2 text-sm">
+                  <span className="text-gray-500">Total logged</span>
+                  <span className="font-semibold text-gray-900">
+                    {formatDuration(
+                      jobTimeEntries.reduce((s, e) => s + (e.duration ?? 0), 0),
+                    )}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">No time logged yet.</p>
+            )}
+          </div>
+
+          {/* Signature */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <SignatureCard entityType="job" entityId={job.id} />
           </div>
 
           {/* Photos & Attachments */}

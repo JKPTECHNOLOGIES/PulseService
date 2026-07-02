@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import {
   ExclamationTriangleIcon,
   AdjustmentsHorizontalIcon,
   ClockIcon,
   PhotoIcon,
+  QrCodeIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
+import toast from "react-hot-toast";
 import {
   useInventoryItems,
   useAdjustInventory,
@@ -21,6 +23,10 @@ import { formatCurrency, formatDateTime } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import { InventoryItem } from "../types";
 
+// Lazy-loaded so the ~400KB @zxing barcode library only downloads when a user
+// actually opens the scanner, keeping the Inventory route chunk small.
+const BarcodeScanner = lazy(() => import("../components/ui/BarcodeScanner"));
+
 interface AdjustForm {
   type: "add" | "remove" | "adjust";
   quantity: number;
@@ -34,6 +40,19 @@ export default function InventoryPage() {
   const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
   const [txItem, setTxItem] = useState<InventoryItem | null>(null);
   const [photoItem, setPhotoItem] = useState<InventoryItem | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+
+  // Scanned barcode -> match an item by SKU and open its adjust dialog.
+  const handleScan = (code: string) => {
+    const term = code.trim().toLowerCase();
+    const match = (items ?? []).find((i) => i.sku.toLowerCase() === term);
+    if (match) {
+      reset({ type: "add", quantity: 0 });
+      setAdjustItem(match);
+    } else {
+      toast.error(`No inventory item with SKU \u201C${code}\u201D`);
+    }
+  };
 
   const { register, handleSubmit, reset } = useForm<AdjustForm>({
     defaultValues: { type: "add", quantity: 0 },
@@ -62,6 +81,20 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-5">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500">{items?.length ?? 0} items</p>
+        <Button
+          size="sm"
+          icon={<QrCodeIcon className="h-4 w-4" />}
+          onClick={() => {
+            setScannerOpen(true);
+          }}
+        >
+          Scan
+        </Button>
+      </div>
+
       {/* Low stock alert */}
       {lowStockItems.length > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-5 py-3 flex items-center gap-3">
@@ -320,6 +353,20 @@ export default function InventoryPage() {
           <AttachmentGallery entityType="inventory" entityId={photoItem.id} />
         )}
       </Modal>
+
+      {/* Mounted only while open so its heavy camera library is fetched on
+          demand rather than bundled into the Inventory route chunk. */}
+      {scannerOpen && (
+        <Suspense fallback={null}>
+          <BarcodeScanner
+            isOpen
+            onClose={() => {
+              setScannerOpen(false);
+            }}
+            onDetected={handleScan}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

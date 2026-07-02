@@ -16,6 +16,7 @@ import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
 import LineItemsTable from "../components/ui/LineItemsTable";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
+import SignatureCard from "../components/ui/SignatureCard";
 import { PageSpinner } from "../components/ui/Spinner";
 import { downloadPdf } from "../lib/pdf";
 import { formatCurrency, formatDate } from "../utils/formatters";
@@ -253,6 +254,10 @@ export default function EstimateDetailPage() {
       )}
 
       {/* Photos & Attachments */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <SignatureCard entityType="estimate" entityId={estimate.id} />
+      </div>
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <AttachmentGallery entityType="estimate" entityId={estimate.id} />
       </div>
