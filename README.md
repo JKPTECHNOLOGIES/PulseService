@@ -144,9 +144,38 @@ cd frontend && npm run lint
 
 Use `npm run lint:fix` to auto-fix what's mechanically fixable.
 
+## Testing
+
+Both packages use [Vitest](https://vitest.dev/):
+
+```bash
+cd backend && npm test    # RBAC/middleware unit tests (requirePermission,
+                          # validateBody, rate limiter, permission defaults)
+cd frontend && npm test   # CSV serializer + DataTable component tests (jsdom)
+```
+
+Use `npm run test:watch` for the interactive watcher. The backend tests are
+pure unit tests (no database required).
+
+## Notifications (web push)
+
+Locked-phone push uses the Web Push (VAPID) protocol. Generate a key pair once
+(`npx web-push generate-vapid-keys`) and set these on the **backend**:
+
+```
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:you@yourdomain.com
+```
+
+If the keys are absent, push is simply disabled (the app hides the toggle).
+Users opt in from the Notifications page; the server pushes a technician when a
+job is assigned/reassigned to them. Requires HTTPS (or localhost) for the
+service worker + PushManager.
+
 ## API
 
-All endpoints are namespaced under `/api/v1` and require a `Bearer` JWT except `POST /auth/login`. Key route groups: `auth`, `users`, `roles`, `customers`, `jobs`, `dispatch`, `estimates`, `invoices`, `payments`, `technicians`, `pricebook`, `inventory`, `agreements`, `reports`, `settings`, `notifications`, `calls`, `campaigns`.
+All endpoints are namespaced under `/api/v1` and require a `Bearer` JWT except `POST /auth/login` (which is rate-limited, as is `PUT /auth/password`). Key route groups: `auth`, `users`, `roles`, `audit`, `customers`, `jobs`, `dispatch`, `estimates`, `invoices`, `payments`, `technicians` (incl. `technicians/me/jobs` for the My Day agenda), `pricebook`, `inventory`, `agreements`, `reports`, `settings`, `notifications`, `push`, `calls`, `campaigns`.
 
 ## Authorization (roles & permissions)
 
