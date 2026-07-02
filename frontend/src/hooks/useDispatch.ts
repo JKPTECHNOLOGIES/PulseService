@@ -10,7 +10,7 @@ import {
 import api from "../lib/api";
 import { socket } from "../lib/socket";
 import { getErrorMessage } from "../lib/errors";
-import type { ApiResponse, Technician, Job } from "../types";
+import type { ApiResponse, Technician, Job, JobTechnician } from "../types";
 import toast from "react-hot-toast";
 
 /**
