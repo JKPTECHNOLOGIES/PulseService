@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../store/authStore";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import BottomTabBar from "./BottomTabBar";
 import CommandPalette from "./CommandPalette";
 import ErrorBoundary from "../ErrorBoundary";
 
@@ -35,7 +36,9 @@ export default function AppLayout() {
             setMobileOpen(true);
           }}
         />
-        <main className="flex-1 overflow-auto scroll-momentum p-4 md:p-6 pb-safe-bottom">
+        {/* Extra bottom padding on mobile so content clears the fixed tab bar
+            (bar height + home-indicator inset); normal padding on desktop. */}
+        <main className="flex-1 overflow-auto scroll-momentum p-4 md:p-6 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-6">
           {/* Keyed by path so a crashed page recovers automatically once the
               user navigates elsewhere. */}
           <ErrorBoundary key={location.pathname}>
@@ -43,6 +46,11 @@ export default function AppLayout() {
           </ErrorBoundary>
         </main>
       </div>
+      <BottomTabBar
+        onMore={() => {
+          setMobileOpen(true);
+        }}
+      />
       <CommandPalette />
     </div>
   );

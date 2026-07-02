@@ -101,8 +101,10 @@ export default function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
       <div
         className={clsx(
           "flex flex-col bg-white border-r border-gray-200 transition-all duration-300 shrink-0",
-          // Mobile: fixed off-canvas drawer that slides in when open.
-          "fixed inset-y-0 left-0 z-50 w-64 max-w-[80%]",
+          // Mobile: fixed off-canvas drawer that slides in when open. Safe-area
+          // insets keep the logo/logout clear of the notch & home indicator
+          // (they resolve to 0 on desktop, where the sidebar is md:static).
+          "fixed inset-y-0 left-0 z-50 w-64 max-w-[80%] pt-safe-top pb-safe-bottom pl-safe-left",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           // Desktop: part of the flex layout, no transform, width toggled by collapse.
           "md:static md:translate-x-0 md:max-w-none",
