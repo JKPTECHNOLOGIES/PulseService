@@ -25,7 +25,7 @@ export default function OfflineIndicator() {
       className={clsx(
         // Sits above the mobile bottom tab bar; lower on desktop where there is none.
         "fixed bottom-20 md:bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium shadow-lg",
-        online ? "bg-primary-600 text-white" : "bg-gray-800 text-white",
+        online ? "bg-primary-600 text-oncolor" : "bg-gray-800 text-oncolor",
       )}
     >
       {online ? (

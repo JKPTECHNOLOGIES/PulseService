@@ -66,7 +66,7 @@ export default function Pagination({
               className={clsx(
                 "h-8 w-8 rounded-lg text-sm font-medium transition-colors",
                 p === page
-                  ? "bg-primary-600 text-white"
+                  ? "bg-primary-600 text-oncolor"
                   : "text-gray-600 hover:bg-gray-100",
               )}
             >

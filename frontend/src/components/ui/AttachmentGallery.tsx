@@ -172,7 +172,7 @@ export default function AttachmentGallery({
                   setToDelete(att);
                 }}
                 title="Delete photo"
-                className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+                className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-oncolor opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
               >
                 <TrashIcon className="h-3.5 w-3.5" />
               </button>
@@ -222,7 +222,7 @@ export default function AttachmentGallery({
                   />
                 )}
                 {preview?.caption && (
-                  <p className="mt-2 max-w-[92vw] text-center text-sm text-white/80">
+                  <p className="mt-2 max-w-[92vw] text-center text-sm text-oncolor/80">
                     {preview.caption}
                   </p>
                 )}
@@ -235,7 +235,7 @@ export default function AttachmentGallery({
                 setPreview(null);
               }}
               aria-label="Close preview"
-              className="absolute right-4 top-4 z-10 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+              className="absolute right-4 top-4 z-10 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-oncolor/10 p-2 text-oncolor hover:bg-oncolor/20"
             >
               <XMarkIcon className="h-6 w-6" />
             </button>

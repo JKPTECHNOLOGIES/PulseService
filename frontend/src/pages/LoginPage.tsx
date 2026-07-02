@@ -58,10 +58,10 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-white/10 backdrop-blur mb-4">
-            <BoltIcon className="h-9 w-9 text-white" />
+          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-oncolor/10 backdrop-blur mb-4">
+            <BoltIcon className="h-9 w-9 text-oncolor" />
           </div>
-          <h1 className="text-3xl font-bold text-white">PulseService</h1>
+          <h1 className="text-3xl font-bold text-oncolor">PulseService</h1>
           <p className="text-primary-300 mt-1 text-sm">
             Field Service Management Platform
           </p>

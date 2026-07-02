@@ -4,11 +4,14 @@ import {
   BellIcon,
   ChevronDownIcon,
   MagnifyingGlassIcon,
+  SunIcon,
+  MoonIcon,
 } from "@heroicons/react/24/outline";
 import { Menu, Transition } from "@headlessui/react";
 import clsx from "clsx";
 import { useAuthStore } from "../../store/authStore";
 import { useNotifications } from "../../hooks/useNotifications";
+import { useTheme } from "../../hooks/useTheme";
 import { MOD_KEY } from "../../lib/keys";
 
 const routeTitles: Record<string, string> = {
@@ -45,6 +48,7 @@ export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+  const { isDark, toggle: toggleTheme } = useTheme();
   const { data: notifData } = useNotifications();
   const notifCount = notifData?.unreadCount ?? 0;
 
@@ -82,6 +86,20 @@ export default function Header() {
           </kbd>
         </button>
 
+        {/* Theme toggle */}
+        <button
+          onClick={toggleTheme}
+          title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          aria-label="Toggle dark mode"
+          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          {isDark ? (
+            <SunIcon className="h-5 w-5" />
+          ) : (
+            <MoonIcon className="h-5 w-5" />
+          )}
+        </button>
+
         {/* Notifications */}
         <button
           onClick={() => {
@@ -92,7 +110,7 @@ export default function Header() {
         >
           <BellIcon className="h-5 w-5" />
           {notifCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+            <span className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-red-500 text-oncolor text-[10px] font-bold flex items-center justify-center">
               {notifCount}
             </span>
           )}

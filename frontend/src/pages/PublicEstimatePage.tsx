@@ -137,7 +137,7 @@ export default function PublicEstimatePage() {
         {/* Brand */}
         <div className="flex items-center gap-2 justify-center">
           <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center">
-            <BoltIcon className="h-5 w-5 text-white" />
+            <BoltIcon className="h-5 w-5 text-oncolor" />
           </div>
           <span className="font-bold text-gray-900">
             {estimate.company?.name ?? "PulseService"}

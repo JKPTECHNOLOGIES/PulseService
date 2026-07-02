@@ -1,6 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  // Manual (class-based) dark mode: a `dark` class on <html> flips the neutral
+  // palette below. Themes are driven entirely by CSS variables, so existing
+  // bg-white / bg-gray-* / text-gray-* / border-gray-* classes adapt with no
+  // per-component changes.
+  darkMode: "class",
   // Dispatch cards derive a solid color from the DB status badge color
   // (bg-<hue>-500). Those classes are built dynamically, so safelist them.
   safelist: [
@@ -32,6 +37,24 @@ export default {
         "safe-right": "env(safe-area-inset-right)",
       },
       colors: {
+        // Neutral surfaces/text resolve to CSS variables (defined in index.css)
+        // that invert under `.dark`. `oncolor` is a fixed white for text/icons
+        // that sit on a colored or dark surface and must NOT flip.
+        white: "rgb(var(--c-white) / <alpha-value>)",
+        oncolor: "#ffffff",
+        gray: {
+          50: "rgb(var(--c-gray-50) / <alpha-value>)",
+          100: "rgb(var(--c-gray-100) / <alpha-value>)",
+          200: "rgb(var(--c-gray-200) / <alpha-value>)",
+          300: "rgb(var(--c-gray-300) / <alpha-value>)",
+          400: "rgb(var(--c-gray-400) / <alpha-value>)",
+          500: "rgb(var(--c-gray-500) / <alpha-value>)",
+          600: "rgb(var(--c-gray-600) / <alpha-value>)",
+          700: "rgb(var(--c-gray-700) / <alpha-value>)",
+          800: "rgb(var(--c-gray-800) / <alpha-value>)",
+          900: "rgb(var(--c-gray-900) / <alpha-value>)",
+          950: "rgb(var(--c-gray-950) / <alpha-value>)",
+        },
         primary: {
           50: "#eff6ff",
           100: "#dbeafe",

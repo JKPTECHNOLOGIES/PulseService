@@ -19,6 +19,21 @@
         />
         <meta name="apple-mobile-web-app-title" content="PulseService" />
         <title>PulseService - Field Service Management</title>
+        <!-- Apply the saved (or system) theme before first paint to avoid a
+             flash of the wrong color scheme. -->
+        <script>
+            (function () {
+                try {
+                    var p = localStorage.getItem("theme") || "system";
+                    var dark =
+                        p === "dark" ||
+                        (p === "system" &&
+                            window.matchMedia("(prefers-color-scheme: dark)")
+                                .matches);
+                    document.documentElement.classList.toggle("dark", dark);
+                } catch (e) {}
+            })();
+        </script>
     </head>
     <body>
         <div id="root"></div>

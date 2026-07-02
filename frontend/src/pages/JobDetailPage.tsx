@@ -67,7 +67,7 @@ function TimelineStep({
               : "bg-white border-gray-200",
         )}
       >
-        {done && <CheckCircleIcon className="h-4 w-4 text-white" />}
+        {done && <CheckCircleIcon className="h-4 w-4 text-oncolor" />}
         {active && <div className="h-2.5 w-2.5 rounded-full bg-primary-600" />}
       </div>
       <span

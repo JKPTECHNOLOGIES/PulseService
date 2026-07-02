@@ -144,7 +144,7 @@ export default function MyDayPage() {
             onClick={() => {
               void refetch();
             }}
-            className="mt-4 inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-700"
+            className="mt-4 inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-lg text-sm font-medium bg-primary-600 text-oncolor hover:bg-primary-700"
           >
             <ArrowPathIcon className="h-4 w-4" />
             Retry

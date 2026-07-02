@@ -127,7 +127,7 @@ export default function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
           {showLabels ? (
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center">
-                <BoltIcon className="h-5 w-5 text-white" />
+                <BoltIcon className="h-5 w-5 text-oncolor" />
               </div>
               <span className="font-bold text-gray-900 text-sm">
                 PulseService
@@ -135,7 +135,7 @@ export default function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
             </div>
           ) : (
             <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center mx-auto">
-              <BoltIcon className="h-5 w-5 text-white" />
+              <BoltIcon className="h-5 w-5 text-oncolor" />
             </div>
           )}
 
@@ -179,7 +179,7 @@ export default function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                 clsx(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors group",
                   isActive
-                    ? "bg-primary-600 text-white"
+                    ? "bg-primary-600 text-oncolor"
                     : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
                   !showLabels && "md:justify-center md:px-2",
                 )

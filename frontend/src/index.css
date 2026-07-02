@@ -2,6 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Neutral palette as RGB triplets, consumed by the Tailwind color config.
+   Light mode uses Tailwind's default gray/white; `.dark` inverts the ramp so
+   low shades become dark surfaces and high shades become light text. This is
+   what makes every existing bg-white / *-gray-* class theme-aware. */
+:root {
+    --c-white: 255 255 255;
+    --c-gray-50: 249 250 251;
+    --c-gray-100: 243 244 246;
+    --c-gray-200: 229 231 235;
+    --c-gray-300: 209 213 219;
+    --c-gray-400: 156 163 175;
+    --c-gray-500: 107 114 128;
+    --c-gray-600: 75 85 99;
+    --c-gray-700: 55 65 81;
+    --c-gray-800: 31 41 55;
+    --c-gray-900: 17 24 39;
+    --c-gray-950: 3 7 18;
+}
+
+.dark {
+    --c-white: 26 35 50; /* card / panel surface */
+    --c-gray-50: 15 22 35; /* page background (darker than cards) */
+    --c-gray-100: 35 45 62; /* hover / subtle raised */
+    --c-gray-200: 47 58 77; /* borders, dividers */
+    --c-gray-300: 61 74 96;
+    --c-gray-400: 107 118 136; /* dim icons / placeholders */
+    --c-gray-500: 139 151 168; /* muted text */
+    --c-gray-600: 170 180 196;
+    --c-gray-700: 198 206 219; /* body text */
+    --c-gray-800: 221 227 236;
+    --c-gray-900: 241 244 249; /* headings */
+    --c-gray-950: 248 250 252;
+}
+
 @layer base {
     html {
         /* Prevent iOS from auto-inflating text in landscape. */

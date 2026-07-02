@@ -217,7 +217,7 @@ function JobCard({
         {...attributes}
         onClick={onClick}
         className={clsx(
-          "h-full flex flex-col overflow-hidden rounded-md text-white px-2 py-1.5 cursor-pointer select-none",
+          "h-full flex flex-col overflow-hidden rounded-md text-oncolor px-2 py-1.5 cursor-pointer select-none",
           color,
           isDragging ? "opacity-50" : "hover:opacity-90",
           "shadow-sm",
@@ -554,7 +554,7 @@ function JobChip({ job, onClick }: { job: Job; onClick: () => void }) {
       {...attributes}
       onClick={onClick}
       className={clsx(
-        "rounded-md text-white px-2 py-1.5 cursor-pointer select-none shadow-sm space-y-0.5",
+        "rounded-md text-oncolor px-2 py-1.5 cursor-pointer select-none shadow-sm space-y-0.5",
         color,
         isDragging ? "opacity-50" : "hover:opacity-90",
       )}
@@ -739,7 +739,7 @@ function MonthDayCell({ day, jobs, inMonth, onJobClick }: MonthDayCellProps) {
     >
       <span className="text-xs font-medium">
         {isSameDay(day, new Date()) ? (
-          <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary-600 px-1 text-white">
+          <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary-600 px-1 text-oncolor">
             {format(day, "d")}
           </span>
         ) : (
@@ -1184,7 +1184,7 @@ export default function DispatchPage() {
                       ))}
                       {showNowLine && (
                         <span
-                          className="absolute top-1.5 z-20 -translate-x-1/2 rounded bg-red-500 px-1 py-0.5 text-[10px] font-bold leading-none text-white pointer-events-none"
+                          className="absolute top-1.5 z-20 -translate-x-1/2 rounded bg-red-500 px-1 py-0.5 text-[10px] font-bold leading-none text-oncolor pointer-events-none"
                           style={{ left: nowLeft }}
                         >
                           {format(now, "h:mm")}
