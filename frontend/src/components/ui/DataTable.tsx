@@ -56,6 +56,9 @@ interface DataTableProps<T> {
    * the sm breakpoint and up.
    */
   renderMobileCard?: (row: T) => ReactNode;
+
+  /** Optional per-row class (e.g. to highlight low-stock rows). */
+  rowClassName?: (row: T) => string | false | undefined;
 }
 
 export default function DataTable<T>({
@@ -72,6 +75,7 @@ export default function DataTable<T>({
   csvFilename,
   rowActions,
   renderMobileCard,
+  rowClassName,
 }: DataTableProps<T>) {
   const sortedRows = useMemo(() => {
     if (!sort) return rows;
@@ -200,6 +204,7 @@ export default function DataTable<T>({
                 className={clsx(
                   "flex items-start gap-3 p-4",
                   selectedSet.has(id) && "bg-primary-50/40",
+                  rowClassName?.(row),
                 )}
               >
                 {selectable && (
@@ -303,6 +308,7 @@ export default function DataTable<T>({
                     "transition-colors",
                     onRowClick && "hover:bg-gray-50 cursor-pointer",
                     selectedSet.has(id) && "bg-primary-50/40",
+                    rowClassName?.(row),
                   )}
                 >
                   {selectable && (

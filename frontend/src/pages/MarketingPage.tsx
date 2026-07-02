@@ -25,7 +25,8 @@ import Input from "../components/ui/Input";
 import { LookupSelect } from "../components/ui/LookupSelect";
 import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
-import { PageSpinner } from "../components/ui/Spinner";
+import DataTable, { Column, SortState } from "../components/ui/DataTable";
+import { TableSkeleton } from "../components/ui/Skeleton";
 import {
   formatCurrency,
   formatDate,
@@ -201,6 +202,7 @@ function CampaignModal({
 function CampaignsTab() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<Campaign | null>(null);
+  const [sort, setSort] = useState<SortState | null>(null);
   const { data, isLoading } = useCampaigns();
   const { getLabel: getCampaignTypeLabel } = useLookup("campaignType");
   const campaigns = data ?? [];
@@ -214,7 +216,80 @@ function CampaignsTab() {
     setIsModalOpen(true);
   };
 
-  if (isLoading) return <PageSpinner />;
+  const columns: Column<Campaign>[] = [
+    {
+      key: "name",
+      header: "Name",
+      sortValue: (c) => c.name.toLowerCase(),
+      exportValue: (c) => c.name,
+      render: (c) => (
+        <div>
+          <p className="font-medium text-gray-900">{c.name}</p>
+          {c.notes ? (
+            <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[260px]">
+              {c.notes}
+            </p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      key: "type",
+      header: "Type",
+      sortValue: (c) => c.type,
+      exportValue: (c) => getCampaignTypeLabel(c.type),
+      render: (c) => (
+        <span className="text-gray-600 text-xs">
+          {getCampaignTypeLabel(c.type)}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      sortValue: (c) => c.status,
+      exportValue: (c) => c.status,
+      render: (c) => (
+        <StatusBadge status={c.status} category="campaignStatus" />
+      ),
+    },
+    {
+      key: "budget",
+      header: "Budget",
+      align: "right",
+      sortValue: (c) => c.budget ?? 0,
+      exportValue: (c) => c.budget ?? "",
+      render: (c) => (
+        <span className="text-gray-900">
+          {c.budget ? formatCurrency(c.budget) : "-"}
+        </span>
+      ),
+    },
+    {
+      key: "period",
+      header: "Period",
+      sortValue: (c) => (c.startDate ? new Date(c.startDate).getTime() : 0),
+      exportValue: (c) =>
+        `${formatDate(c.startDate)} - ${formatDate(c.endDate)}`,
+      render: (c) => (
+        <span className="text-gray-500 text-xs">
+          {formatDate(c.startDate)} – {formatDate(c.endDate)}
+        </span>
+      ),
+    },
+    {
+      key: "tracking",
+      header: "Tracking #",
+      exportValue: (c) => c.trackingNumber ?? "",
+      render: (c) => (
+        <span className="font-mono text-xs text-gray-600">
+          {c.trackingNumber ?? "-"}
+        </span>
+      ),
+    },
+  ];
+
+  if (isLoading) return <TableSkeleton rows={6} />;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -238,67 +313,37 @@ function CampaignsTab() {
           }}
         />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                  Name
-                </th>
-                <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                  Type
-                </th>
-                <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                  Status
-                </th>
-                <th className="text-right py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                  Budget
-                </th>
-                <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                  Period
-                </th>
-                <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                  Tracking #
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {campaigns.map((c) => (
-                <tr
-                  key={c.id}
-                  onClick={() => {
-                    openEdit(c);
-                  }}
-                  className="hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  <td className="py-3.5 px-5">
-                    <p className="font-medium text-gray-900">{c.name}</p>
-                    {c.notes ? (
-                      <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[260px]">
-                        {c.notes}
-                      </p>
-                    ) : null}
-                  </td>
-                  <td className="py-3.5 px-3 text-gray-600 text-xs">
-                    {getCampaignTypeLabel(c.type)}
-                  </td>
-                  <td className="py-3.5 px-3">
-                    <StatusBadge status={c.status} category="campaignStatus" />
-                  </td>
-                  <td className="py-3.5 px-3 text-right text-gray-900">
-                    {c.budget ? formatCurrency(c.budget) : "-"}
-                  </td>
-                  <td className="py-3.5 px-3 text-gray-500 text-xs">
-                    {formatDate(c.startDate)} – {formatDate(c.endDate)}
-                  </td>
-                  <td className="py-3.5 px-5 font-mono text-xs text-gray-600">
-                    {c.trackingNumber ?? "-"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable<Campaign>
+          columns={columns}
+          rows={campaigns}
+          getRowId={(c) => c.id}
+          onRowClick={(c) => {
+            openEdit(c);
+          }}
+          sort={sort}
+          onSortChange={setSort}
+          csvFilename="campaigns"
+          renderMobileCard={(c) => (
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-medium text-gray-900 truncate">{c.name}</p>
+                <StatusBadge status={c.status} category="campaignStatus" />
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {getCampaignTypeLabel(c.type)}
+                {c.budget ? ` · ${formatCurrency(c.budget)}` : ""}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {formatDate(c.startDate)} – {formatDate(c.endDate)}
+              </p>
+              {c.trackingNumber && (
+                <p className="font-mono text-xs text-gray-500 mt-0.5">
+                  {c.trackingNumber}
+                </p>
+              )}
+            </div>
+          )}
+        />
       )}
 
       <CampaignModal
@@ -487,8 +532,95 @@ function LogCallModal({
 
 function CallsTab() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [sort, setSort] = useState<SortState | null>(null);
   const { data, isLoading } = useCalls({ limit: 50 });
   const calls = data?.data ?? [];
+
+  const callNumber = (call: Call) =>
+    (call.direction === "inbound" ? call.fromNumber : call.toNumber) || "-";
+  const callCustomer = (call: Call) =>
+    call.customer
+      ? `${call.customer.firstName} ${call.customer.lastName}`
+      : "Unknown";
+
+  const columns: Column<Call>[] = [
+    {
+      key: "date",
+      header: "Date",
+      sortValue: (call) => new Date(call.createdAt).getTime(),
+      exportValue: (call) => formatDateTime(call.createdAt),
+      render: (call) => (
+        <span className="text-gray-700">{formatDateTime(call.createdAt)}</span>
+      ),
+    },
+    {
+      key: "direction",
+      header: "Direction",
+      sortValue: (call) => call.direction,
+      exportValue: (call) => call.direction,
+      render: (call) => (
+        <span className="inline-flex items-center gap-1 text-xs">
+          {call.direction === "inbound" ? (
+            <>
+              <PhoneArrowDownLeftIcon className="h-3.5 w-3.5 text-green-600" />{" "}
+              In
+            </>
+          ) : (
+            <>
+              <PhoneArrowUpRightIcon className="h-3.5 w-3.5 text-blue-600" />{" "}
+              Out
+            </>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: "customer",
+      header: "Customer",
+      sortValue: (call) => callCustomer(call).toLowerCase(),
+      exportValue: (call) => callCustomer(call),
+      render: (call) => (
+        <span className="text-gray-900">{callCustomer(call)}</span>
+      ),
+    },
+    {
+      key: "number",
+      header: "Number",
+      exportValue: (call) => callNumber(call),
+      render: (call) => (
+        <span className="text-gray-600">{callNumber(call)}</span>
+      ),
+    },
+    {
+      key: "reason",
+      header: "Reason",
+      exportValue: (call) => call.reason ?? "",
+      render: (call) => (
+        <span className="text-gray-600 text-xs truncate max-w-[160px] inline-block align-middle">
+          {call.reason ?? "-"}
+        </span>
+      ),
+    },
+    {
+      key: "duration",
+      header: "Duration",
+      align: "right",
+      sortValue: (call) => call.duration ?? 0,
+      exportValue: (call) => formatDuration(call.duration),
+      render: (call) => (
+        <span className="text-gray-600">{formatDuration(call.duration)}</span>
+      ),
+    },
+    {
+      key: "outcome",
+      header: "Outcome",
+      sortValue: (call) => call.status,
+      exportValue: (call) => call.status,
+      render: (call) => (
+        <StatusBadge status={call.status} category="callStatus" />
+      ),
+    },
+  ];
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -505,7 +637,7 @@ function CallsTab() {
         </Button>
       </div>
       {isLoading ? (
-        <PageSpinner />
+        <TableSkeleton rows={8} />
       ) : calls.length === 0 ? (
         <EmptyState
           title="No calls logged"
@@ -518,78 +650,38 @@ function CallsTab() {
           }}
         />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                  Date
-                </th>
-                <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                  Direction
-                </th>
-                <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                  Customer
-                </th>
-                <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                  Number
-                </th>
-                <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                  Reason
-                </th>
-                <th className="text-right py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                  Duration
-                </th>
-                <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                  Outcome
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {calls.map((call) => (
-                <tr key={call.id} className="hover:bg-gray-50">
-                  <td className="py-3.5 px-5 text-gray-700">
-                    {formatDateTime(call.createdAt)}
-                  </td>
-                  <td className="py-3.5 px-3">
-                    <span className="inline-flex items-center gap-1 text-xs">
-                      {call.direction === "inbound" ? (
-                        <>
-                          <PhoneArrowDownLeftIcon className="h-3.5 w-3.5 text-green-600" />{" "}
-                          In
-                        </>
-                      ) : (
-                        <>
-                          <PhoneArrowUpRightIcon className="h-3.5 w-3.5 text-blue-600" />{" "}
-                          Out
-                        </>
-                      )}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-3 text-gray-900">
-                    {call.customer
-                      ? `${call.customer.firstName} ${call.customer.lastName}`
-                      : "Unknown"}
-                  </td>
-                  <td className="py-3.5 px-3 text-gray-600">
-                    {(call.direction === "inbound"
-                      ? call.fromNumber
-                      : call.toNumber) || "-"}
-                  </td>
-                  <td className="py-3.5 px-3 text-gray-600 text-xs truncate max-w-[160px]">
-                    {call.reason ?? "-"}
-                  </td>
-                  <td className="py-3.5 px-3 text-right text-gray-600">
-                    {formatDuration(call.duration)}
-                  </td>
-                  <td className="py-3.5 px-5">
-                    <StatusBadge status={call.status} category="callStatus" />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable<Call>
+          columns={columns}
+          rows={calls}
+          getRowId={(call) => call.id}
+          sort={sort}
+          onSortChange={setSort}
+          csvFilename="calls"
+          renderMobileCard={(call) => (
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1 text-sm text-gray-700">
+                  {call.direction === "inbound" ? (
+                    <PhoneArrowDownLeftIcon className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <PhoneArrowUpRightIcon className="h-4 w-4 text-blue-600" />
+                  )}
+                  {callCustomer(call)}
+                </span>
+                <StatusBadge status={call.status} category="callStatus" />
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {callNumber(call)} · {formatDuration(call.duration)}
+              </p>
+              {call.reason && (
+                <p className="text-xs text-gray-500 mt-0.5">{call.reason}</p>
+              )}
+              <p className="text-xs text-gray-400 mt-0.5">
+                {formatDateTime(call.createdAt)}
+              </p>
+            </div>
+          )}
+        />
       )}
 
       <LogCallModal

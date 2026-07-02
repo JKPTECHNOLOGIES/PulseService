@@ -15,10 +15,12 @@ import {
   useInventoryTransactions,
 } from "../hooks/useInventory";
 import Button from "../components/ui/Button";
+import IconButton from "../components/ui/IconButton";
 import Modal from "../components/ui/Modal";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
 import EmptyState from "../components/ui/EmptyState";
-import { PageSpinner } from "../components/ui/Spinner";
+import DataTable, { Column, SortState } from "../components/ui/DataTable";
+import { TableSkeleton } from "../components/ui/Skeleton";
 import { formatCurrency, formatDateTime } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import { InventoryItem } from "../types";
@@ -41,6 +43,7 @@ export default function InventoryPage() {
   const [txItem, setTxItem] = useState<InventoryItem | null>(null);
   const [photoItem, setPhotoItem] = useState<InventoryItem | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [sort, setSort] = useState<SortState | null>(null);
 
   // Scanned barcode -> match an item by SKU and open its adjust dialog.
   const handleScan = (code: string) => {
@@ -77,7 +80,106 @@ export default function InventoryPage() {
     reset({ type: "add", quantity: 0 });
   };
 
-  if (isLoading) return <PageSpinner />;
+  const columns: Column<InventoryItem>[] = [
+    {
+      key: "sku",
+      header: "SKU",
+      sortValue: (item) => item.sku,
+      exportValue: (item) => item.sku,
+      render: (item) => (
+        <span className="font-mono text-xs text-gray-600">{item.sku}</span>
+      ),
+    },
+    {
+      key: "name",
+      header: "Name",
+      sortValue: (item) => item.name.toLowerCase(),
+      exportValue: (item) => item.name,
+      render: (item) => (
+        <span className="font-medium text-gray-900">{item.name}</span>
+      ),
+    },
+    {
+      key: "quantity",
+      header: "Quantity",
+      align: "right",
+      sortValue: (item) => item.quantity,
+      exportValue: (item) => item.quantity,
+      render: (item) => (
+        <span
+          className={clsx(
+            "font-semibold",
+            item.quantity <= item.reorderPoint
+              ? "text-yellow-700"
+              : "text-gray-900",
+          )}
+        >
+          {item.quantity}
+        </span>
+      ),
+    },
+    {
+      key: "reorderPoint",
+      header: "Reorder Pt",
+      align: "right",
+      sortValue: (item) => item.reorderPoint,
+      exportValue: (item) => item.reorderPoint,
+      render: (item) => (
+        <span className="text-gray-500">{item.reorderPoint}</span>
+      ),
+    },
+    {
+      key: "unitCost",
+      header: "Unit Cost",
+      align: "right",
+      sortValue: (item) => item.unitCost,
+      exportValue: (item) => item.unitCost,
+      render: (item) => (
+        <span className="text-gray-600">{formatCurrency(item.unitCost)}</span>
+      ),
+    },
+    {
+      key: "location",
+      header: "Location",
+      sortValue: (item) => item.location ?? "",
+      exportValue: (item) => item.location ?? "",
+      render: (item) => (
+        <span className="text-gray-500 text-xs">{item.location ?? "-"}</span>
+      ),
+    },
+  ];
+
+  const itemActions = (item: InventoryItem) => (
+    <>
+      <IconButton
+        label="Adjust stock"
+        onClick={() => {
+          reset({ type: "add", quantity: 0 });
+          setAdjustItem(item);
+        }}
+      >
+        <AdjustmentsHorizontalIcon className="h-4 w-4" />
+      </IconButton>
+      <IconButton
+        label="Photos"
+        onClick={() => {
+          setPhotoItem(item);
+        }}
+      >
+        <PhotoIcon className="h-4 w-4" />
+      </IconButton>
+      <IconButton
+        label="Transactions"
+        onClick={() => {
+          setTxItem(item);
+        }}
+      >
+        <ClockIcon className="h-4 w-4" />
+      </IconButton>
+    </>
+  );
+
+  if (isLoading) return <TableSkeleton rows={8} />;
 
   return (
     <div className="space-y-5">
@@ -115,109 +217,46 @@ export default function InventoryPage() {
             description="Inventory items will appear here."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                    SKU
-                  </th>
-                  <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                    Name
-                  </th>
-                  <th className="text-right py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                    Quantity
-                  </th>
-                  <th className="text-right py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                    Reorder Pt
-                  </th>
-                  <th className="text-right py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                    Unit Cost
-                  </th>
-                  <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                    Location
-                  </th>
-                  <th className="text-right py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {items.map((item) => {
-                  const lowStock = item.quantity <= item.reorderPoint;
-                  return (
-                    <tr
-                      key={item.id}
-                      className={clsx(
-                        "transition-colors",
-                        lowStock
-                          ? "bg-yellow-50 hover:bg-yellow-100"
-                          : "hover:bg-gray-50",
-                      )}
-                    >
-                      <td className="py-3.5 px-5 font-mono text-xs text-gray-600">
-                        {item.sku}
-                      </td>
-                      <td className="py-3.5 px-3 font-medium text-gray-900">
-                        {item.name}
-                      </td>
-                      <td className="py-3.5 px-3 text-right">
-                        <span
-                          className={clsx(
-                            "font-semibold",
-                            lowStock ? "text-yellow-700" : "text-gray-900",
-                          )}
-                        >
-                          {item.quantity}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-3 text-right text-gray-500">
-                        {item.reorderPoint}
-                      </td>
-                      <td className="py-3.5 px-3 text-right text-gray-600">
-                        {formatCurrency(item.unitCost)}
-                      </td>
-                      <td className="py-3.5 px-3 text-gray-500 text-xs">
-                        {item.location ?? "-"}
-                      </td>
-                      <td className="py-3.5 px-5">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => {
-                              reset({ type: "add", quantity: 0 });
-                              setAdjustItem(item);
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
-                            title="Adjust"
-                          >
-                            <AdjustmentsHorizontalIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setPhotoItem(item);
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
-                            title="Photos"
-                          >
-                            <PhotoIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setTxItem(item);
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-                            title="Transactions"
-                          >
-                            <ClockIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <DataTable<InventoryItem>
+            columns={columns}
+            rows={items}
+            getRowId={(item) => item.id}
+            sort={sort}
+            onSortChange={setSort}
+            csvFilename="inventory"
+            rowActions={itemActions}
+            rowClassName={(item) =>
+              item.quantity <= item.reorderPoint &&
+              "bg-yellow-50 hover:bg-yellow-100"
+            }
+            renderMobileCard={(item) => (
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium text-gray-900 truncate">
+                    {item.name}
+                  </p>
+                  <span
+                    className={clsx(
+                      "font-semibold text-sm shrink-0",
+                      item.quantity <= item.reorderPoint
+                        ? "text-yellow-700"
+                        : "text-gray-900",
+                    )}
+                  >
+                    {item.quantity} on hand
+                  </span>
+                </div>
+                <p className="font-mono text-xs text-gray-500 mt-0.5">
+                  {item.sku}
+                </p>
+                <div className="mt-0.5 text-xs text-gray-500">
+                  Reorder at {item.reorderPoint} ·{" "}
+                  {formatCurrency(item.unitCost)}
+                  {item.location ? ` · ${item.location}` : ""}
+                </div>
+              </div>
+            )}
+          />
         )}
       </div>
 
