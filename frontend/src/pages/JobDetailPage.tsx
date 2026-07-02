@@ -162,10 +162,11 @@ export default function JobDetailPage() {
             </div>
             <p className="text-gray-600 mt-1">{job.summary}</p>
           </div>
-          <div className="flex gap-2 shrink-0 flex-wrap">
+          <div className="grid grid-cols-2 gap-2 shrink-0 sm:flex sm:flex-wrap">
             <Button
               variant="outline"
               size="sm"
+              className="w-full sm:w-auto"
               onClick={() => {
                 setNewStatus(job.status);
                 setStatusModal(true);
@@ -176,6 +177,7 @@ export default function JobDetailPage() {
             <Button
               variant="secondary"
               size="sm"
+              className="w-full sm:w-auto"
               icon={<PencilIcon className="h-4 w-4" />}
               onClick={() => {
                 navigate(`/jobs/${id ?? ""}/edit`);
@@ -208,7 +210,7 @@ export default function JobDetailPage() {
           {/* Job Details */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h3 className="font-semibold text-gray-900 mb-4">Job Details</h3>
-            <dl className="grid grid-cols-2 gap-4">
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <dt className="text-xs text-gray-500">Customer</dt>
                 <dd className="text-sm font-medium mt-0.5">
