@@ -563,7 +563,7 @@ function JobChip({ job, onClick }: { job: Job; onClick: () => void }) {
       <div className="flex items-center justify-between gap-1">
         <span className="font-bold truncate">#{job.jobNumber}</span>
         {timeRange && (
-          <span className="shrink-0 opacity-90 text-[9px] font-medium">
+          <span className="shrink-0 opacity-90 text-[10px] font-medium">
             {timeRange}
           </span>
         )}
@@ -579,7 +579,7 @@ function JobChip({ job, onClick }: { job: Job; onClick: () => void }) {
       <div className="flex items-center justify-between gap-1">
         <span className="font-semibold">{formatCurrency(job.totalAmount)}</span>
         {leadTechName && (
-          <span className="flex items-center gap-0.5 truncate opacity-80 text-[9px] min-w-0">
+          <span className="flex items-center gap-0.5 truncate opacity-80 text-[10px] min-w-0">
             <UserIcon className="h-2.5 w-2.5 shrink-0" />
             <span className="truncate">{leadTechName}</span>
           </span>
@@ -1184,7 +1184,7 @@ export default function DispatchPage() {
                       ))}
                       {showNowLine && (
                         <span
-                          className="absolute top-1.5 z-20 -translate-x-1/2 rounded bg-red-500 px-1 py-0.5 text-[9px] font-bold leading-none text-white pointer-events-none"
+                          className="absolute top-1.5 z-20 -translate-x-1/2 rounded bg-red-500 px-1 py-0.5 text-[10px] font-bold leading-none text-white pointer-events-none"
                           style={{ left: nowLeft }}
                         >
                           {format(now, "h:mm")}
