@@ -1,10 +1,15 @@
 import { Fragment } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { BellIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import {
+  BellIcon,
+  ChevronDownIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
 import { Menu, Transition } from "@headlessui/react";
 import clsx from "clsx";
 import { useAuthStore } from "../../store/authStore";
 import { useNotifications } from "../../hooks/useNotifications";
+import { MOD_KEY } from "../../lib/keys";
 
 const routeTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -62,6 +67,21 @@ export default function Header() {
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Search affordance — opens the command palette (also ⌘/Ctrl K or /) */}
+        <button
+          onClick={() => {
+            window.dispatchEvent(new Event("pulse:open-palette"));
+          }}
+          title={`Search — ${MOD_KEY} K or /`}
+          className="hidden sm:flex items-center gap-2 pl-3 pr-2 py-1.5 text-sm text-gray-400 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:text-gray-600 transition-colors"
+        >
+          <MagnifyingGlassIcon className="h-4 w-4" />
+          <span className="hidden lg:inline">Search…</span>
+          <kbd className="hidden lg:inline text-[11px] font-medium px-1.5 py-0.5 bg-white border border-gray-200 rounded text-gray-400">
+            {MOD_KEY} K
+          </kbd>
+        </button>
+
         {/* Notifications */}
         <button
           onClick={() => {

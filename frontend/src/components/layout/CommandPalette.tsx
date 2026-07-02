@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../lib/api";
+import { MOD_KEY, isTypingTarget } from "../../lib/keys";
 import type { ApiResponse } from "../../types";
 
 interface SearchResult {
@@ -13,8 +14,8 @@ interface SearchResult {
 }
 
 /**
- * Hidden "jump to anything" palette. There is intentionally NO on-screen
- * affordance for it — it only opens via Ctrl/Cmd + K for those who know.
+ * "Jump to anything" palette. Opens via Ctrl/Cmd + K, the "/" key, the header
+ * search affordance (a `pulse:open-palette` event), or the mobile tab bar.
  */
 export default function CommandPalette() {
   const navigate = useNavigate();
@@ -28,13 +29,21 @@ export default function CommandPalette() {
       if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
         setOpen((o) => !o);
+      } else if (e.key === "/" && !isTypingTarget(e.target)) {
+        e.preventDefault();
+        setOpen(true);
       } else if (e.key === "Escape") {
         setOpen(false);
       }
     };
+    const onOpenEvent = () => {
+      setOpen(true);
+    };
     window.addEventListener("keydown", onKey);
+    window.addEventListener("pulse:open-palette", onOpenEvent);
     return () => {
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pulse:open-palette", onOpenEvent);
     };
   }, []);
 
@@ -153,6 +162,27 @@ export default function CommandPalette() {
               </button>
             ))
           )}
+        </div>
+        <div className="flex items-center gap-3 px-4 py-2 border-t border-gray-100 text-[11px] text-gray-400">
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded">
+              ↑↓
+            </kbd>
+            navigate
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded">
+              ↵
+            </kbd>
+            open
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded">
+              esc
+            </kbd>
+            close
+          </span>
+          <span className="ml-auto">{MOD_KEY} K or /</span>
         </div>
       </div>
     </div>
