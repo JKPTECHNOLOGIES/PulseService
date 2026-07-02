@@ -46,14 +46,13 @@ function render(kind, doc, settings) {
 
       // ── Header: company (left) + document title/meta (right) ──────────────
       const headY = 50;
-      pdf
-        .fontSize(20)
-        .fillColor(INK)
-        .font("Helvetica-Bold")
-        .text(company.name || "PulseService", LEFT, headY, { width: 250 });
+      const companyName = company.name || "PulseService";
+      pdf.fontSize(20).fillColor(INK).font("Helvetica-Bold");
+      const nameHeight = pdf.heightOfString(companyName, { width: 250 });
+      pdf.text(companyName, LEFT, headY, { width: 250 });
 
       pdf.font("Helvetica").fontSize(9).fillColor(MUTED);
-      let cy = headY + 28;
+      let cy = headY + nameHeight + 6;
       [
         company.address,
         [company.city, company.state, company.zip].filter(Boolean).join(", "),
@@ -70,7 +69,10 @@ function render(kind, doc, settings) {
         .fontSize(26)
         .fillColor(INK)
         .font("Helvetica-Bold")
-        .text(title, rightBlockX, headY, { width: rightBlockW, align: "right" });
+        .text(title, rightBlockX, headY, {
+          width: rightBlockW,
+          align: "right",
+        });
       pdf
         .font("Helvetica")
         .fontSize(10)
@@ -92,8 +94,13 @@ function render(kind, doc, settings) {
       });
 
       // ── Bill to ────────────────────────────────────────────────────────────
-      const billY = 150;
-      pdf.fontSize(8).fillColor(FAINT).font("Helvetica-Bold").text("BILL TO", LEFT, billY);
+      // Sit below whichever header column (left address / right meta) is taller.
+      const billY = Math.max(cy, my) + 12;
+      pdf
+        .fontSize(8)
+        .fillColor(FAINT)
+        .font("Helvetica-Bold")
+        .text("BILL TO", LEFT, billY);
       pdf
         .fontSize(11)
         .fillColor(INK)
@@ -149,9 +156,12 @@ function render(kind, doc, settings) {
           ty = drawHeader(50);
         }
         const rowY = ty;
-        pdf.fillColor(INK).fontSize(10).text(li.name || "", COL.name, rowY, {
-          width: 260,
-        });
+        pdf
+          .fillColor(INK)
+          .fontSize(10)
+          .text(li.name || "", COL.name, rowY, {
+            width: 260,
+          });
         let h = pdf.heightOfString(li.name || "", { width: 260 });
         if (li.description) {
           pdf
@@ -207,9 +217,7 @@ function render(kind, doc, settings) {
           .font(strong ? "Helvetica-Bold" : "Helvetica")
           .fillColor(strong ? INK : MUTED)
           .text(label, labelX, ty, { width: labelW, align: "right" });
-        pdf
-          .fillColor(INK)
-          .text(val, valX, ty, { width: valW, align: "right" });
+        pdf.fillColor(INK).text(val, valX, ty, { width: valW, align: "right" });
         ty += strong ? 18 : 15;
       });
       pdf.font("Helvetica");
@@ -222,7 +230,11 @@ function render(kind, doc, settings) {
           pdf.addPage();
           ty = 50;
         }
-        pdf.fontSize(8).fillColor(FAINT).font("Helvetica-Bold").text(heading, LEFT, ty);
+        pdf
+          .fontSize(8)
+          .fillColor(FAINT)
+          .font("Helvetica-Bold")
+          .text(heading, LEFT, ty);
         pdf.font("Helvetica").fontSize(9).fillColor("#374151");
         pdf.text(body, LEFT, ty + 12, { width: 500 });
         ty += 12 + pdf.heightOfString(body, { width: 500 }) + 12;
@@ -238,7 +250,8 @@ function render(kind, doc, settings) {
 }
 
 module.exports = {
-  generateInvoicePdf: (invoice, settings) => render("invoice", invoice, settings),
+  generateInvoicePdf: (invoice, settings) =>
+    render("invoice", invoice, settings),
   generateEstimatePdf: (estimate, settings) =>
     render("estimate", estimate, settings),
 };
