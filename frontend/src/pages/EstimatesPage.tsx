@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   PlusIcon,
   PaperAirplaneIcon,
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
+import { useNavigate } from "react-router-dom";
 import clsx from "clsx";
 import {
   useEstimates,
@@ -13,18 +13,35 @@ import {
 } from "../hooks/useEstimates";
 import { useLookup } from "../hooks/useMetadata";
 import Button from "../components/ui/Button";
+import IconButton from "../components/ui/IconButton";
 import SearchInput from "../components/ui/SearchInput";
 import Pagination from "../components/ui/Pagination";
 import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
-import { PageSpinner } from "../components/ui/Spinner";
+import DataTable, { Column, SortState } from "../components/ui/DataTable";
+import SavedViewsMenu from "../components/ui/SavedViewsMenu";
+import { TableSkeleton } from "../components/ui/Skeleton";
 import { formatCurrency, formatDate } from "../utils/formatters";
+import type { Estimate } from "../types";
+
+interface EstimatesView {
+  search: string;
+  status: string;
+  sort: SortState | null;
+}
+
+function customerName(est: Estimate): string {
+  return est.customer
+    ? `${est.customer.firstName} ${est.customer.lastName}`
+    : "";
+}
 
 export default function EstimatesPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [sort, setSort] = useState<SortState | null>(null);
 
   const { options: statusOptions, getLabel: getStatusLabel } =
     useLookup("estimateStatus");
@@ -42,6 +59,77 @@ export default function EstimatesPage() {
 
   const estimates = data?.data ?? [];
   const pagination = data?.pagination;
+
+  const applyView = (view: EstimatesView) => {
+    setSearch(view.search);
+    setStatus(view.status);
+    setSort(view.sort);
+    setPage(1);
+  };
+
+  const columns: Column<Estimate>[] = [
+    {
+      key: "estimate",
+      header: "Estimate",
+      sortValue: (est) => est.estimateNumber,
+      exportValue: (est) => est.estimateNumber,
+      render: (est) => (
+        <span className="font-medium text-primary-600">
+          #{est.estimateNumber}
+        </span>
+      ),
+    },
+    {
+      key: "customer",
+      header: "Customer",
+      sortValue: (est) => customerName(est).toLowerCase(),
+      exportValue: (est) => customerName(est),
+      render: (est) => (
+        <span className="text-gray-900">{customerName(est) || "-"}</span>
+      ),
+    },
+    {
+      key: "title",
+      header: "Title",
+      sortValue: (est) => est.title.toLowerCase(),
+      exportValue: (est) => est.title,
+      render: (est) => (
+        <span className="text-gray-700 truncate max-w-[180px] inline-block align-middle">
+          {est.title}
+        </span>
+      ),
+    },
+    {
+      key: "date",
+      header: "Date",
+      sortValue: (est) => new Date(est.createdAt).getTime(),
+      exportValue: (est) => formatDate(est.createdAt),
+      render: (est) => (
+        <span className="text-gray-500 text-xs">
+          {formatDate(est.createdAt)}
+        </span>
+      ),
+    },
+    {
+      key: "total",
+      header: "Total",
+      align: "right",
+      sortValue: (est) => est.total,
+      exportValue: (est) => est.total,
+      render: (est) => (
+        <span className="font-medium text-gray-900">
+          {formatCurrency(est.total)}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      sortValue: (est) => est.status,
+      exportValue: (est) => getStatusLabel(est.status),
+      render: (est) => <StatusBadge status={est.status} type="estimate" />,
+    },
+  ];
 
   return (
     <div className="space-y-5">
@@ -88,11 +176,18 @@ export default function EstimatesPage() {
             </button>
           ))}
         </div>
+        <div className="sm:ml-auto">
+          <SavedViewsMenu<EstimatesView>
+            tableId="estimates"
+            currentState={{ search, status, sort }}
+            onApply={applyView}
+          />
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {isLoading ? (
-          <PageSpinner />
+          <TableSkeleton rows={8} />
         ) : estimates.length === 0 ? (
           <EmptyState
             title="No estimates found"
@@ -105,95 +200,65 @@ export default function EstimatesPage() {
           />
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                      Estimate
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Customer
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Title
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Date
-                    </th>
-                    <th className="text-right py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Total
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Status
-                    </th>
-                    <th className="text-right py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {estimates.map((est) => (
-                    <tr
-                      key={est.id}
+            <DataTable<Estimate>
+              columns={columns}
+              rows={estimates}
+              getRowId={(est) => est.id}
+              onRowClick={(est) => {
+                navigate(`/estimates/${est.id}`);
+              }}
+              sort={sort}
+              onSortChange={setSort}
+              csvFilename="estimates"
+              renderMobileCard={(est) => (
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-primary-600">
+                      #{est.estimateNumber}
+                    </span>
+                    <StatusBadge status={est.status} type="estimate" />
+                  </div>
+                  {est.title && (
+                    <p className="text-sm text-gray-700 mt-0.5">{est.title}</p>
+                  )}
+                  <div className="mt-0.5 flex items-center justify-between text-sm">
+                    <span className="text-gray-500">
+                      {customerName(est) || "-"}
+                    </span>
+                    <span className="font-medium text-gray-900">
+                      {formatCurrency(est.total)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {formatDate(est.createdAt)}
+                  </p>
+                </div>
+              )}
+              rowActions={(est) => (
+                <>
+                  {est.status === "draft" && (
+                    <IconButton
+                      label="Send estimate"
                       onClick={() => {
-                        navigate(`/estimates/${est.id}`);
+                        sendEstimate.mutate(est.id);
                       }}
-                      className="hover:bg-gray-50 transition-colors cursor-pointer"
                     >
-                      <td className="py-3.5 px-5 font-medium text-primary-600">
-                        #{est.estimateNumber}
-                      </td>
-                      <td className="py-3.5 px-3 text-gray-900">
-                        {est.customer
-                          ? `${est.customer.firstName} ${est.customer.lastName}`
-                          : "-"}
-                      </td>
-                      <td className="py-3.5 px-3 text-gray-700 truncate max-w-[180px]">
-                        {est.title}
-                      </td>
-                      <td className="py-3.5 px-3 text-gray-500 text-xs">
-                        {formatDate(est.createdAt)}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-medium text-gray-900">
-                        {formatCurrency(est.total)}
-                      </td>
-                      <td className="py-3.5 px-3">
-                        <StatusBadge status={est.status} type="estimate" />
-                      </td>
-                      <td className="py-3.5 px-5">
-                        <div className="flex items-center justify-end gap-1">
-                          {est.status === "draft" && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                sendEstimate.mutate(est.id);
-                              }}
-                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                              title="Send"
-                            >
-                              <PaperAirplaneIcon className="h-4 w-4" />
-                            </button>
-                          )}
-                          {est.status === "approved" && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                convertToInvoice.mutate(est.id);
-                              }}
-                              className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg"
-                              title="Convert to Invoice"
-                            >
-                              <ArrowPathIcon className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      <PaperAirplaneIcon className="h-4 w-4" />
+                    </IconButton>
+                  )}
+                  {est.status === "approved" && (
+                    <IconButton
+                      label="Convert to invoice"
+                      onClick={() => {
+                        convertToInvoice.mutate(est.id);
+                      }}
+                    >
+                      <ArrowPathIcon className="h-4 w-4" />
+                    </IconButton>
+                  )}
+                </>
+              )}
+            />
             {pagination && (
               <div className="px-5 py-4 border-t border-gray-100">
                 <Pagination

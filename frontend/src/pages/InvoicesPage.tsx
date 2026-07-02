@@ -4,19 +4,36 @@ import { PlusIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { useInvoices, useSendInvoice } from "../hooks/useInvoices";
 import Button from "../components/ui/Button";
+import IconButton from "../components/ui/IconButton";
 import SearchInput from "../components/ui/SearchInput";
 import Pagination from "../components/ui/Pagination";
 import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
-import { PageSpinner } from "../components/ui/Spinner";
+import DataTable, { Column, SortState } from "../components/ui/DataTable";
+import SavedViewsMenu from "../components/ui/SavedViewsMenu";
+import { TableSkeleton } from "../components/ui/Skeleton";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
+import type { Invoice } from "../types";
+
+interface InvoicesView {
+  search: string;
+  status: string;
+  sort: SortState | null;
+}
+
+function customerName(inv: Invoice): string {
+  return inv.customer
+    ? `${inv.customer.firstName} ${inv.customer.lastName}`
+    : "";
+}
 
 export default function InvoicesPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [sort, setSort] = useState<SortState | null>(null);
   const { options: statusOptions } = useLookup("invoiceStatus");
   const statusFilters = [{ value: "all", label: "All" }, ...statusOptions];
 
@@ -30,6 +47,81 @@ export default function InvoicesPage() {
 
   const invoices = data?.data ?? [];
   const pagination = data?.pagination;
+
+  const applyView = (view: InvoicesView) => {
+    setSearch(view.search);
+    setStatus(view.status);
+    setSort(view.sort);
+    setPage(1);
+  };
+
+  const columns: Column<Invoice>[] = [
+    {
+      key: "invoice",
+      header: "Invoice",
+      sortValue: (inv) => inv.invoiceNumber,
+      exportValue: (inv) => inv.invoiceNumber,
+      render: (inv) => (
+        <span className="font-medium text-primary-600">
+          #{inv.invoiceNumber}
+        </span>
+      ),
+    },
+    {
+      key: "customer",
+      header: "Customer",
+      sortValue: (inv) => customerName(inv).toLowerCase(),
+      exportValue: (inv) => customerName(inv),
+      render: (inv) => (
+        <span className="text-gray-900">{customerName(inv) || "-"}</span>
+      ),
+    },
+    {
+      key: "dueDate",
+      header: "Due Date",
+      sortValue: (inv) => (inv.dueDate ? new Date(inv.dueDate).getTime() : 0),
+      exportValue: (inv) => (inv.dueDate ? formatDate(inv.dueDate) : ""),
+      render: (inv) => (
+        <span className="text-gray-500 text-xs">{formatDate(inv.dueDate)}</span>
+      ),
+    },
+    {
+      key: "total",
+      header: "Total",
+      align: "right",
+      sortValue: (inv) => inv.total,
+      exportValue: (inv) => inv.total,
+      render: (inv) => (
+        <span className="font-medium text-gray-900">
+          {formatCurrency(inv.total)}
+        </span>
+      ),
+    },
+    {
+      key: "balance",
+      header: "Balance",
+      align: "right",
+      sortValue: (inv) => inv.balance,
+      exportValue: (inv) => inv.balance,
+      render: (inv) => (
+        <span
+          className={clsx(
+            "font-medium",
+            inv.balance > 0 ? "text-red-600" : "text-green-600",
+          )}
+        >
+          {formatCurrency(inv.balance)}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      sortValue: (inv) => inv.status,
+      exportValue: (inv) => inv.status,
+      render: (inv) => <StatusBadge status={inv.status} type="invoice" />,
+    },
+  ];
 
   return (
     <div className="space-y-5">
@@ -76,11 +168,18 @@ export default function InvoicesPage() {
             </button>
           ))}
         </div>
+        <div className="sm:ml-auto">
+          <SavedViewsMenu<InvoicesView>
+            tableId="invoices"
+            currentState={{ search, status, sort }}
+            onApply={applyView}
+          />
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {isLoading ? (
-          <PageSpinner />
+          <TableSkeleton rows={8} />
         ) : invoices.length === 0 ? (
           <EmptyState
             title="No invoices found"
@@ -93,89 +192,60 @@ export default function InvoicesPage() {
           />
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                      Invoice
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Customer
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Due Date
-                    </th>
-                    <th className="text-right py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Total
-                    </th>
-                    <th className="text-right py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Balance
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Status
-                    </th>
-                    <th className="text-right py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {invoices.map((inv) => (
-                    <tr
-                      key={inv.id}
-                      onClick={() => {
-                        navigate(`/invoices/${inv.id}`);
-                      }}
-                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+            <DataTable<Invoice>
+              columns={columns}
+              rows={invoices}
+              getRowId={(inv) => inv.id}
+              onRowClick={(inv) => {
+                navigate(`/invoices/${inv.id}`);
+              }}
+              sort={sort}
+              onSortChange={setSort}
+              csvFilename="invoices"
+              renderMobileCard={(inv) => (
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-primary-600">
+                      #{inv.invoiceNumber}
+                    </span>
+                    <StatusBadge status={inv.status} type="invoice" />
+                  </div>
+                  {customerName(inv) && (
+                    <p className="text-sm text-gray-700 mt-0.5">
+                      {customerName(inv)}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Due {formatDate(inv.dueDate)}
+                  </p>
+                  <div className="mt-1.5 flex items-center justify-between text-sm">
+                    <span className="text-gray-500">
+                      {formatCurrency(inv.total)}
+                    </span>
+                    <span
+                      className={clsx(
+                        "font-medium",
+                        inv.balance > 0 ? "text-red-600" : "text-green-600",
+                      )}
                     >
-                      <td className="py-3.5 px-5 font-medium text-primary-600">
-                        #{inv.invoiceNumber}
-                      </td>
-                      <td className="py-3.5 px-3 text-gray-900">
-                        {inv.customer
-                          ? `${inv.customer.firstName} ${inv.customer.lastName}`
-                          : "-"}
-                      </td>
-                      <td className="py-3.5 px-3 text-gray-500 text-xs">
-                        {formatDate(inv.dueDate)}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-medium text-gray-900">
-                        {formatCurrency(inv.total)}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-medium">
-                        <span
-                          className={
-                            inv.balance > 0 ? "text-red-600" : "text-green-600"
-                          }
-                        >
-                          {formatCurrency(inv.balance)}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-3">
-                        <StatusBadge status={inv.status} type="invoice" />
-                      </td>
-                      <td className="py-3.5 px-5">
-                        <div className="flex items-center justify-end gap-1">
-                          {inv.status === "draft" && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                sendInvoice.mutate(inv.id);
-                              }}
-                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                              title="Send"
-                            >
-                              <PaperAirplaneIcon className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      Bal {formatCurrency(inv.balance)}
+                    </span>
+                  </div>
+                </div>
+              )}
+              rowActions={(inv) =>
+                inv.status === "draft" ? (
+                  <IconButton
+                    label="Send invoice"
+                    onClick={() => {
+                      sendInvoice.mutate(inv.id);
+                    }}
+                  >
+                    <PaperAirplaneIcon className="h-4 w-4" />
+                  </IconButton>
+                ) : null
+              }
+            />
             {pagination && (
               <div className="px-5 py-4 border-t border-gray-100">
                 <Pagination

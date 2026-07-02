@@ -7,7 +7,8 @@ import StatCard from "../components/ui/StatCard";
 import Pagination from "../components/ui/Pagination";
 import Badge, { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
-import { PageSpinner } from "../components/ui/Spinner";
+import DataTable, { Column, SortState } from "../components/ui/DataTable";
+import { TableSkeleton } from "../components/ui/Skeleton";
 import { formatCurrency, formatDateTime } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 
@@ -26,8 +27,13 @@ function usePayments(page: number) {
   });
 }
 
+function customerName(p: PaymentWithRelations): string {
+  return p.customer ? `${p.customer.firstName} ${p.customer.lastName}` : "";
+}
+
 export default function PaymentsPage() {
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<SortState | null>(null);
   const { data, isLoading } = usePayments(page);
   const { getLabel: getMethodLabel, getColor: getMethodColor } =
     useLookup("paymentMethod");
@@ -35,6 +41,75 @@ export default function PaymentsPage() {
   const payments = data?.data ?? [];
   const pagination = data?.pagination;
   const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+
+  const columns: Column<PaymentWithRelations>[] = [
+    {
+      key: "date",
+      header: "Date",
+      sortValue: (p) => (p.paidAt ? new Date(p.paidAt).getTime() : 0),
+      exportValue: (p) => (p.paidAt ? formatDateTime(p.paidAt) : ""),
+      render: (p) => (
+        <span className="text-gray-700">{formatDateTime(p.paidAt)}</span>
+      ),
+    },
+    {
+      key: "customer",
+      header: "Customer",
+      sortValue: (p) => customerName(p).toLowerCase(),
+      exportValue: (p) => customerName(p),
+      render: (p) => (
+        <span className="text-gray-900">{customerName(p) || "-"}</span>
+      ),
+    },
+    {
+      key: "invoice",
+      header: "Invoice",
+      exportValue: (p) => (p.invoice ? `#${p.invoice.invoiceNumber}` : ""),
+      render: (p) => (
+        <span className="text-primary-600 font-medium">
+          {p.invoice ? `#${p.invoice.invoiceNumber}` : "-"}
+        </span>
+      ),
+    },
+    {
+      key: "method",
+      header: "Method",
+      sortValue: (p) => p.method,
+      exportValue: (p) => getMethodLabel(p.method),
+      render: (p) => (
+        <Badge className={getMethodColor(p.method)}>
+          {getMethodLabel(p.method)}
+        </Badge>
+      ),
+    },
+    {
+      key: "reference",
+      header: "Reference",
+      exportValue: (p) => p.referenceNumber ?? "",
+      render: (p) => (
+        <span className="text-gray-500">{p.referenceNumber ?? "-"}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      sortValue: (p) => p.status,
+      exportValue: (p) => p.status,
+      render: (p) => <StatusBadge status={p.status} category="paymentStatus" />,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      align: "right",
+      sortValue: (p) => p.amount,
+      exportValue: (p) => p.amount,
+      render: (p) => (
+        <span className="font-semibold text-green-600">
+          {formatCurrency(p.amount)}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-5">
@@ -65,7 +140,7 @@ export default function PaymentsPage() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {isLoading ? (
-          <PageSpinner />
+          <TableSkeleton rows={8} />
         ) : payments.length === 0 ? (
           <EmptyState
             title="No payments recorded"
@@ -73,72 +148,41 @@ export default function PaymentsPage() {
           />
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                      Date
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Customer
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Invoice
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Method
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Reference
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Status
-                    </th>
-                    <th className="text-right py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                      Amount
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {payments.map((p) => (
-                    <tr
-                      key={p.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="py-3.5 px-5 text-gray-700">
-                        {formatDateTime(p.paidAt)}
-                      </td>
-                      <td className="py-3.5 px-3 text-gray-900">
-                        {p.customer
-                          ? `${p.customer.firstName} ${p.customer.lastName}`
-                          : "-"}
-                      </td>
-                      <td className="py-3.5 px-3 text-primary-600 font-medium">
-                        {p.invoice ? `#${p.invoice.invoiceNumber}` : "-"}
-                      </td>
-                      <td className="py-3.5 px-3">
-                        <Badge className={getMethodColor(p.method)}>
-                          {getMethodLabel(p.method)}
-                        </Badge>
-                      </td>
-                      <td className="py-3.5 px-3 text-gray-500">
-                        {p.referenceNumber ?? "-"}
-                      </td>
-                      <td className="py-3.5 px-3">
-                        <StatusBadge
-                          status={p.status}
-                          category="paymentStatus"
-                        />
-                      </td>
-                      <td className="py-3.5 px-5 text-right font-semibold text-green-600">
-                        {formatCurrency(p.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable<PaymentWithRelations>
+              columns={columns}
+              rows={payments}
+              getRowId={(p) => p.id}
+              sort={sort}
+              onSortChange={setSort}
+              csvFilename="payments"
+              renderMobileCard={(p) => (
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-gray-700">
+                      {formatDateTime(p.paidAt)}
+                    </span>
+                    <span className="font-semibold text-green-600">
+                      {formatCurrency(p.amount)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-900 mt-0.5">
+                    {customerName(p) || "-"}
+                    {p.invoice && (
+                      <span className="text-primary-600 font-medium">
+                        {" "}
+                        · #{p.invoice.invoiceNumber}
+                      </span>
+                    )}
+                  </p>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <Badge className={getMethodColor(p.method)}>
+                      {getMethodLabel(p.method)}
+                    </Badge>
+                    <StatusBadge status={p.status} category="paymentStatus" />
+                  </div>
+                </div>
+              )}
+            />
             {pagination && (
               <div className="px-5 py-4 border-t border-gray-100">
                 <Pagination
