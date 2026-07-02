@@ -5,6 +5,7 @@ import Sidebar from "./Sidebar";
 import Header from "./Header";
 import BottomTabBar from "./BottomTabBar";
 import CommandPalette from "./CommandPalette";
+import OfflineIndicator from "../ui/OfflineIndicator";
 import ErrorBoundary from "../ErrorBoundary";
 
 export default function AppLayout() {
@@ -48,6 +49,7 @@ export default function AppLayout() {
         }}
       />
       <CommandPalette />
+      <OfflineIndicator />
     </div>
   );
 }

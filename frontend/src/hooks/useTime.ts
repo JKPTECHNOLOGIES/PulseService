@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
+import { OFFLINE_MK, type ClockInVars } from "../lib/offlineMutations";
 import type { ApiResponse } from "../types";
 import toast from "react-hot-toast";
 
@@ -39,10 +40,15 @@ export function useJobTimeEntries(jobId: string) {
   });
 }
 
+// Clock in/out carry a `mutationKey` matching the offline defaults registered in
+// lib/offlineMutations. Live calls use the inline fn below; if a call is made
+// offline and the app is reloaded before reconnecting, the persisted queue
+// replays it via the keyed default. Either way it syncs when back online.
 export function useClockIn() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { jobId?: string }) =>
+    mutationKey: OFFLINE_MK.clockIn,
+    mutationFn: (vars: ClockInVars) =>
       api.post<ApiResponse<TimeEntry>>("/time/clock-in", vars),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["time"] });
@@ -57,6 +63,7 @@ export function useClockIn() {
 export function useClockOut() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: OFFLINE_MK.clockOut,
     mutationFn: () => api.post<ApiResponse<TimeEntry>>("/time/clock-out"),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["time"] });

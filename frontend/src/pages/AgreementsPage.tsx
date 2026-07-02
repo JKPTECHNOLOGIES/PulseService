@@ -9,9 +9,15 @@ import Modal from "../components/ui/Modal";
 import Pagination from "../components/ui/Pagination";
 import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
-import { PageSpinner } from "../components/ui/Spinner";
+import DataTable, { Column, SortState } from "../components/ui/DataTable";
+import { TableSkeleton } from "../components/ui/Skeleton";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
+import type { ServiceAgreement } from "../types";
+
+function agCustomerName(ag: ServiceAgreement): string {
+  return ag.customer ? `${ag.customer.firstName} ${ag.customer.lastName}` : "";
+}
 
 const inputClass =
   "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white";
@@ -20,6 +26,7 @@ export default function AgreementsPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("all");
+  const [sort, setSort] = useState<SortState | null>(null);
   const { data, isLoading } = useAgreements({
     page,
     status: status !== "all" ? status : undefined,
@@ -76,6 +83,85 @@ export default function AgreementsPage() {
   const agreements = data?.data ?? [];
   const pagination = data?.pagination;
 
+  const columns: Column<ServiceAgreement>[] = [
+    {
+      key: "agreement",
+      header: "Agreement",
+      sortValue: (ag) => ag.agreementNumber,
+      exportValue: (ag) => ag.agreementNumber,
+      render: (ag) => (
+        <span className="font-medium text-primary-600">
+          #{ag.agreementNumber}
+        </span>
+      ),
+    },
+    {
+      key: "customer",
+      header: "Customer",
+      sortValue: (ag) => agCustomerName(ag).toLowerCase(),
+      exportValue: (ag) => agCustomerName(ag),
+      render: (ag) => (
+        <span className="text-gray-900">{agCustomerName(ag) || "-"}</span>
+      ),
+    },
+    {
+      key: "name",
+      header: "Name",
+      sortValue: (ag) => ag.name.toLowerCase(),
+      exportValue: (ag) => ag.name,
+      render: (ag) => <span className="text-gray-700">{ag.name}</span>,
+    },
+    {
+      key: "term",
+      header: "Term",
+      sortValue: (ag) => new Date(ag.startDate).getTime(),
+      exportValue: (ag) =>
+        `${formatDate(ag.startDate)} - ${formatDate(ag.endDate)}`,
+      render: (ag) => (
+        <span className="text-gray-500 text-xs">
+          {formatDate(ag.startDate)} – {formatDate(ag.endDate)}
+        </span>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      align: "right",
+      sortValue: (ag) => ag.amount,
+      exportValue: (ag) => ag.amount,
+      render: (ag) => (
+        <span className="font-medium text-gray-900">
+          {formatCurrency(ag.amount)}
+          <span className="text-xs text-gray-400 block">
+            /{getBillingLabel(ag.billingFrequency)}
+          </span>
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      sortValue: (ag) => ag.status,
+      exportValue: (ag) => ag.status,
+      render: (ag) => (
+        <StatusBadge status={ag.status} category="agreementStatus" />
+      ),
+    },
+    {
+      key: "nextBilling",
+      header: "Next Billing",
+      sortValue: (ag) =>
+        ag.nextBillingDate ? new Date(ag.nextBillingDate).getTime() : 0,
+      exportValue: (ag) =>
+        ag.nextBillingDate ? formatDate(ag.nextBillingDate) : "",
+      render: (ag) => (
+        <span className="text-gray-500 text-xs">
+          {formatDate(ag.nextBillingDate)}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -114,7 +200,7 @@ export default function AgreementsPage() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {isLoading ? (
-          <PageSpinner />
+          <TableSkeleton rows={8} />
         ) : agreements.length === 0 ? (
           <EmptyState
             title="No service agreements"
@@ -122,74 +208,43 @@ export default function AgreementsPage() {
           />
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                      Agreement
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Customer
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Name
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Term
-                    </th>
-                    <th className="text-right py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Amount
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Status
-                    </th>
-                    <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                      Next Billing
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {agreements.map((ag) => (
-                    <tr
-                      key={ag.id}
-                      onClick={() => {
-                        navigate(`/agreements/${ag.id}`);
-                      }}
-                      className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    >
-                      <td className="py-3.5 px-5 font-medium text-primary-600">
-                        #{ag.agreementNumber}
-                      </td>
-                      <td className="py-3.5 px-3 text-gray-900">
-                        {ag.customer
-                          ? `${ag.customer.firstName} ${ag.customer.lastName}`
-                          : "-"}
-                      </td>
-                      <td className="py-3.5 px-3 text-gray-700">{ag.name}</td>
-                      <td className="py-3.5 px-3 text-gray-500 text-xs">
-                        {formatDate(ag.startDate)} – {formatDate(ag.endDate)}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-medium text-gray-900">
-                        {formatCurrency(ag.amount)}
-                        <span className="text-xs text-gray-400 block">
-                          /{getBillingLabel(ag.billingFrequency)}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-3">
-                        <StatusBadge
-                          status={ag.status}
-                          category="agreementStatus"
-                        />
-                      </td>
-                      <td className="py-3.5 px-5 text-gray-500 text-xs">
-                        {formatDate(ag.nextBillingDate)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable<ServiceAgreement>
+              columns={columns}
+              rows={agreements}
+              getRowId={(ag) => ag.id}
+              onRowClick={(ag) => {
+                navigate(`/agreements/${ag.id}`);
+              }}
+              sort={sort}
+              onSortChange={setSort}
+              csvFilename="agreements"
+              renderMobileCard={(ag) => (
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-primary-600">
+                      #{ag.agreementNumber}
+                    </span>
+                    <StatusBadge
+                      status={ag.status}
+                      category="agreementStatus"
+                    />
+                  </div>
+                  <p className="text-sm text-gray-700 mt-0.5">{ag.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {agCustomerName(ag) || "-"}
+                  </p>
+                  <div className="mt-1.5 flex items-center justify-between text-sm">
+                    <span className="text-gray-500 text-xs">
+                      {formatDate(ag.startDate)} – {formatDate(ag.endDate)}
+                    </span>
+                    <span className="font-medium text-gray-900">
+                      {formatCurrency(ag.amount)}/
+                      {getBillingLabel(ag.billingFrequency)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            />
             {pagination && (
               <div className="px-5 py-4 border-t border-gray-100">
                 <Pagination

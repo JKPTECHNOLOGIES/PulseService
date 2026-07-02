@@ -22,7 +22,8 @@ import Badge, { StatusBadge } from "../components/ui/Badge";
 import SearchInput from "../components/ui/SearchInput";
 import Pagination from "../components/ui/Pagination";
 import EmptyState from "../components/ui/EmptyState";
-import { PageSpinner } from "../components/ui/Spinner";
+import DataTable, { Column, SortState } from "../components/ui/DataTable";
+import { TableSkeleton } from "../components/ui/Skeleton";
 import { formatDate } from "../utils/formatters";
 import type { Equipment } from "../types";
 
@@ -397,6 +398,7 @@ export default function EquipmentPage() {
   const [warranty, setWarranty] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Equipment | null>(null);
+  const [sort, setSort] = useState<SortState | null>(null);
 
   const { getLabel: getTypeLabel } = useLookup("equipmentType");
   const { getLabel: getConditionLabel, getColor: getConditionColor } =
@@ -411,6 +413,87 @@ export default function EquipmentPage() {
 
   const equipment = data?.data ?? [];
   const pagination = data?.pagination;
+
+  const columns: Column<Equipment>[] = [
+    {
+      key: "equipment",
+      header: "Equipment",
+      sortValue: (eq) => eq.name.toLowerCase(),
+      exportValue: (eq) => eq.name,
+      render: (eq) => (
+        <div>
+          <p className="font-medium text-gray-900">{eq.name}</p>
+          <p className="text-xs text-gray-500">
+            {[eq.type ? getTypeLabel(eq.type) : null, eq.manufacturer, eq.model]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: "customer",
+      header: "Customer",
+      sortValue: (eq) => customerName(eq).toLowerCase(),
+      exportValue: (eq) => customerName(eq),
+      render: (eq) => <span className="text-gray-700">{customerName(eq)}</span>,
+    },
+    {
+      key: "serial",
+      header: "Serial #",
+      exportValue: (eq) => eq.serialNumber ?? "",
+      render: (eq) => (
+        <span className="font-mono text-xs text-gray-600">
+          {eq.serialNumber ?? "—"}
+        </span>
+      ),
+    },
+    {
+      key: "installed",
+      header: "Installed",
+      sortValue: (eq) =>
+        eq.installDate ? new Date(eq.installDate).getTime() : 0,
+      exportValue: (eq) => (eq.installDate ? formatDate(eq.installDate) : ""),
+      render: (eq) => (
+        <span className="text-gray-500 text-xs">
+          {formatDate(eq.installDate)}
+        </span>
+      ),
+    },
+    {
+      key: "warranty",
+      header: "Warranty",
+      sortValue: (eq) =>
+        eq.warrantyExpiry ? new Date(eq.warrantyExpiry).getTime() : 0,
+      exportValue: (eq) => warrantyInfo(eq.warrantyExpiry).label,
+      render: (eq) => {
+        const w = warrantyInfo(eq.warrantyExpiry);
+        return (
+          <div>
+            <Badge className={w.color}>{w.label}</Badge>
+            <span className="block text-xs text-gray-400 mt-0.5">
+              {formatDate(eq.warrantyExpiry)}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      key: "condition",
+      header: "Condition",
+      sortValue: (eq) => eq.condition ?? "",
+      exportValue: (eq) =>
+        eq.condition ? getConditionLabel(eq.condition) : "",
+      render: (eq) =>
+        eq.condition ? (
+          <Badge className={getConditionColor(eq.condition)}>
+            {getConditionLabel(eq.condition)}
+          </Badge>
+        ) : (
+          <span className="text-gray-400 text-xs">—</span>
+        ),
+    },
+  ];
 
   const openNew = () => {
     setEditing(null);
@@ -465,7 +548,7 @@ export default function EquipmentPage() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {isLoading ? (
-          <PageSpinner />
+          <TableSkeleton rows={8} />
         ) : equipment.length === 0 ? (
           <EmptyState
             title="No equipment found"
@@ -474,83 +557,52 @@ export default function EquipmentPage() {
           />
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                      Equipment
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Customer
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Serial #
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Installed
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Warranty
-                    </th>
-                    <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                      Condition
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {equipment.map((eq) => {
-                    const w = warrantyInfo(eq.warrantyExpiry);
-                    return (
-                      <tr
-                        key={eq.id}
-                        onClick={() => {
-                          openEdit(eq);
-                        }}
-                        className="hover:bg-gray-50 transition-colors cursor-pointer"
-                      >
-                        <td className="py-3.5 px-5">
-                          <p className="font-medium text-gray-900">{eq.name}</p>
-                          <p className="text-xs text-gray-500">
-                            {[
-                              eq.type ? getTypeLabel(eq.type) : null,
-                              eq.manufacturer,
-                              eq.model,
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </p>
-                        </td>
-                        <td className="py-3.5 px-3 text-gray-700">
-                          {customerName(eq)}
-                        </td>
-                        <td className="py-3.5 px-3 font-mono text-xs text-gray-600">
-                          {eq.serialNumber ?? "—"}
-                        </td>
-                        <td className="py-3.5 px-3 text-gray-500 text-xs">
-                          {formatDate(eq.installDate)}
-                        </td>
-                        <td className="py-3.5 px-3">
-                          <Badge className={w.color}>{w.label}</Badge>
-                          <span className="block text-xs text-gray-400 mt-0.5">
-                            {formatDate(eq.warrantyExpiry)}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-5">
-                          {eq.condition ? (
-                            <Badge className={getConditionColor(eq.condition)}>
-                              {getConditionLabel(eq.condition)}
-                            </Badge>
-                          ) : (
-                            <span className="text-gray-400 text-xs">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <DataTable<Equipment>
+              columns={columns}
+              rows={equipment}
+              getRowId={(eq) => eq.id}
+              onRowClick={(eq) => {
+                openEdit(eq);
+              }}
+              sort={sort}
+              onSortChange={setSort}
+              csvFilename="equipment"
+              renderMobileCard={(eq) => {
+                const w = warrantyInfo(eq.warrantyExpiry);
+                return (
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium text-gray-900 truncate">
+                        {eq.name}
+                      </p>
+                      <Badge className={w.color}>{w.label}</Badge>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {[
+                        eq.type ? getTypeLabel(eq.type) : null,
+                        eq.manufacturer,
+                        eq.model,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-0.5">
+                      {customerName(eq)}
+                    </p>
+                    <div className="mt-1 flex items-center gap-2 flex-wrap text-xs text-gray-500">
+                      {eq.serialNumber && (
+                        <span className="font-mono">{eq.serialNumber}</span>
+                      )}
+                      {eq.condition && (
+                        <Badge className={getConditionColor(eq.condition)}>
+                          {getConditionLabel(eq.condition)}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                );
+              }}
+            />
             {pagination && (
               <div className="px-5 py-4 border-t border-gray-100">
                 <Pagination

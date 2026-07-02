@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { User } from "../types";
+import { clearOfflineData } from "../lib/queryClient";
 
 interface AuthState {
   user: User | null;
@@ -23,6 +24,9 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         localStorage.removeItem("token");
         set({ user: null, token: null, isAuthenticated: false });
+        // Drop cached data + any queued offline mutations so the next account
+        // that logs in on this device starts clean.
+        void clearOfflineData();
       },
     }),
     {
