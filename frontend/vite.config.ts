@@ -21,6 +21,8 @@ export default defineConfig({
         scope: "/",
       },
       workbox: {
+        // Pull in our custom push / notificationclick handlers.
+        importScripts: ["push-sw.js"],
         // Precache the built app shell so the app opens with no connection.
         globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
         navigateFallback: "/index.html",

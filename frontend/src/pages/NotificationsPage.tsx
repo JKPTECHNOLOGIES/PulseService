@@ -1,9 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import clsx from "clsx";
+import { BellAlertIcon, BellSlashIcon } from "@heroicons/react/24/outline";
 import {
   useNotifications,
   useMarkNotificationsRead,
 } from "../hooks/useNotifications";
+import { usePushNotifications } from "../hooks/usePush";
 import { useLookup } from "../hooks/useMetadata";
 import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
@@ -25,9 +27,37 @@ export default function NotificationsPage() {
 
   const notifications = data?.data ?? [];
   const unreadCount = data?.unreadCount ?? 0;
+  const push = usePushNotifications();
 
   return (
     <div className="max-w-3xl mx-auto space-y-5">
+      {push.supported && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white px-5 py-3 shadow-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            {push.enabled ? (
+              <BellAlertIcon className="h-5 w-5 text-primary-600 shrink-0" />
+            ) : (
+              <BellSlashIcon className="h-5 w-5 text-gray-400 shrink-0" />
+            )}
+            <p className="text-sm text-gray-600">
+              {push.enabled
+                ? "Push notifications are on for this device."
+                : "Get notified about new jobs and updates on this device."}
+            </p>
+          </div>
+          <Button
+            variant={push.enabled ? "outline" : "primary"}
+            size="sm"
+            loading={push.busy}
+            onClick={() => {
+              if (push.enabled) void push.disable();
+              else void push.enable();
+            }}
+          >
+            {push.enabled ? "Turn off" : "Enable"}
+          </Button>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">
           {unreadCount > 0
@@ -75,7 +105,9 @@ export default function NotificationsPage() {
                   <span
                     className={clsx(
                       "mt-1.5 h-2.5 w-2.5 rounded-full shrink-0",
-                      n.isRead ? "bg-gray-200" : (TYPE_DOT[n.type] ?? "bg-primary-500"),
+                      n.isRead
+                        ? "bg-gray-200"
+                        : (TYPE_DOT[n.type] ?? "bg-primary-500"),
                     )}
                   />
                   <div className="min-w-0 flex-1">

@@ -246,6 +246,7 @@ const searchRoutes = require("./routes/search.routes");
 const attachmentRoutes = require("./routes/attachments.routes");
 const publicRoutes = require("./routes/public.routes");
 const timeRoutes = require("./routes/time.routes");
+const pushRoutes = require("./routes/push.routes");
 
 // Record mutating actions across every resource (must run before the routers so
 // it can hook the response; req.user is populated by each router's auth guard).
@@ -276,6 +277,7 @@ app.use("/api/v1/search", searchRoutes);
 app.use("/api/v1/attachments", attachmentRoutes);
 app.use("/api/v1/public", publicRoutes);
 app.use("/api/v1/time", timeRoutes);
+app.use("/api/v1/push", pushRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get("/api/health", (req, res) =>

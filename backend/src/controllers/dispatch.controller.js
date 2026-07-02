@@ -1,5 +1,6 @@
 const prisma = require("../config/database");
 const { csvToArray } = require("../utils/helpers");
+const push = require("../services/push.service");
 
 const getBoard = async (req, res) => {
   try {
@@ -190,6 +191,23 @@ const reassign = async (req, res) => {
     if (io && job?.scheduledStart) {
       const date = new Date(job.scheduledStart).toISOString().split("T")[0];
       io.to(`dispatch:${date}`).emit("dispatch:reassigned", { job });
+    }
+
+    // Notify the newly-assigned technician's user account via web push.
+    if (toTechnicianId) {
+      const tech = await prisma.technician.findUnique({
+        where: { id: toTechnicianId },
+        select: { userId: true },
+      });
+      if (tech?.userId) {
+        void push.sendToUser(tech.userId, {
+          title: "New job assigned",
+          body: job?.summary
+            ? `#${job.jobNumber}: ${job.summary}`
+            : `Job #${job?.jobNumber ?? ""} was assigned to you`,
+          url: job ? `/jobs/${job.id}` : "/dispatch",
+        });
+      }
     }
 
     return res.json({ success: true, data: job });

@@ -585,6 +585,19 @@ model Attachment {
   @@index([entityType, entityId])
 }
 
+// Web Push (VAPID) browser subscriptions, one row per device/browser a user has
+// granted notification permission on. Pushes are sent to every row for a user.
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
 // DB-driven single source of truth for enumerated values (statuses, types,
 // roles, priorities, etc.). Seeded from src/constants/lookups.js and served to
 // the frontend via GET /api/v1/metadata.
