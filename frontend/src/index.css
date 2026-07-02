@@ -7,6 +7,8 @@
    low shades become dark surfaces and high shades become light text. This is
    what makes every existing bg-white / *-gray-* class theme-aware. */
 :root {
+    /* Render native controls (date/time pickers, selects, scrollbars) light. */
+    color-scheme: light;
     --c-white: 255 255 255;
     --c-gray-50: 249 250 251;
     --c-gray-100: 243 244 246;
@@ -22,6 +24,8 @@
 }
 
 .dark {
+    /* Flip native controls (fixes white-on-white datetime-local text, etc.). */
+    color-scheme: dark;
     --c-white: 26 35 50; /* card / panel surface */
     --c-gray-50: 15 22 35; /* page background (darker than cards) */
     --c-gray-100: 35 45 62; /* hover / subtle raised */
