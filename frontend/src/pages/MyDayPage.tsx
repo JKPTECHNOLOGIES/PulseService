@@ -6,6 +6,8 @@ import {
   MapPinIcon,
   PhoneIcon,
   ClockIcon,
+  ExclamationTriangleIcon,
+  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import { useMyDay } from "../hooks/useMyDay";
 import { StatusBadge } from "../components/ui/Badge";
@@ -37,14 +39,23 @@ function addressLine(loc: Location | undefined): string {
   return [loc.address, loc.city, loc.state, loc.zip].filter(Boolean).join(", ");
 }
 
+function isApplePlatform(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
+}
+
 function mapsUrl(loc: Location | undefined): string | null {
   if (!loc) return null;
-  if (loc.lat != null && loc.lng != null) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${String(loc.lat)},${String(loc.lng)}`;
-  }
-  const q = addressLine(loc);
-  if (!q) return null;
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
+  const dest =
+    loc.lat != null && loc.lng != null
+      ? `${String(loc.lat)},${String(loc.lng)}`
+      : addressLine(loc);
+  if (!dest) return null;
+  const d = encodeURIComponent(dest);
+  // Apple Maps on iOS/macOS (opens the native app), Google Maps elsewhere.
+  return isApplePlatform()
+    ? `https://maps.apple.com/?daddr=${d}`
+    : `https://www.google.com/maps/dir/?api=1&destination=${d}`;
 }
 
 function customerName(job: Job): string {
@@ -57,7 +68,7 @@ export default function MyDayPage() {
   const navigate = useNavigate();
   const today = toDateStr(new Date());
   const [date, setDate] = useState(today);
-  const { data: jobs, isLoading } = useMyDay(date);
+  const { data: jobs, isLoading, isError, refetch } = useMyDay(date);
 
   const shiftDay = (delta: number) => {
     const d = parseDate(date);
@@ -117,6 +128,27 @@ export default function MyDayPage() {
       {isLoading ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <TableSkeleton rows={5} />
+        </div>
+      ) : isError ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
+            <ExclamationTriangleIcon className="h-6 w-6 text-red-500" />
+          </div>
+          <p className="font-medium text-gray-900">
+            Couldn&apos;t load your day
+          </p>
+          <p className="mt-1 text-sm text-gray-500">
+            Check your connection and try again.
+          </p>
+          <button
+            onClick={() => {
+              void refetch();
+            }}
+            className="mt-4 inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-700"
+          >
+            <ArrowPathIcon className="h-4 w-4" />
+            Retry
+          </button>
         </div>
       ) : !jobs || jobs.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

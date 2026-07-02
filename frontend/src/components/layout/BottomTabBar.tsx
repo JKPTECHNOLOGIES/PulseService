@@ -5,17 +5,25 @@ import {
   CalendarDaysIcon,
   BriefcaseIcon,
   MapIcon,
+  DocumentDuplicateIcon,
   Bars3Icon,
 } from "@heroicons/react/24/outline";
+import { useAuthStore } from "../../store/authStore";
 
-// A curated, thumb-reach subset of the nav. All destinations are readable by
-// every role, so no permission gating is needed here; the "More" button opens
-// the full (permission-filtered) drawer for everything else.
-const tabs = [
-  { to: "/dashboard", label: "Home", icon: HomeIcon },
+// Thumb-reach nav. Technicians get their field-first set (My Day / Jobs /
+// Dispatch); office roles get the back-office set (Home / Jobs / Invoices).
+// The "More" button opens the full, permission-filtered drawer for everything
+// else. All destinations here are readable by every role.
+const techTabs = [
   { to: "/my-day", label: "My Day", icon: CalendarDaysIcon },
   { to: "/jobs", label: "Jobs", icon: BriefcaseIcon },
   { to: "/dispatch", label: "Dispatch", icon: MapIcon },
+];
+
+const officeTabs = [
+  { to: "/dashboard", label: "Home", icon: HomeIcon },
+  { to: "/jobs", label: "Jobs", icon: BriefcaseIcon },
+  { to: "/invoices", label: "Invoices", icon: DocumentDuplicateIcon },
 ];
 
 interface BottomTabBarProps {
@@ -23,6 +31,9 @@ interface BottomTabBarProps {
 }
 
 export default function BottomTabBar({ onMore }: BottomTabBarProps) {
+  const role = useAuthStore((s) => s.user?.role);
+  const tabs = role === "technician" ? techTabs : officeTabs;
+
   return (
     <nav
       className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 pb-safe-bottom pl-safe-left pr-safe-right"
