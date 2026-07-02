@@ -4,6 +4,7 @@ const {
   paginatedResponse,
   generateNumber,
 } = require("../utils/helpers");
+const push = require("../services/push.service");
 
 // Status rules:
 //  - scheduled / dispatched / in_progress / on_hold interchange freely.
@@ -342,6 +343,11 @@ const assignTechnician = async (req, res) => {
         .json({ success: false, error: "technicianId is required" });
     }
 
+    // Was this tech already on the job? (Avoid re-notifying on a lead toggle.)
+    const existing = await prisma.jobTechnician.findUnique({
+      where: { jobId_technicianId: { jobId: req.params.id, technicianId } },
+    });
+
     const assignment = await prisma.jobTechnician.upsert({
       where: { jobId_technicianId: { jobId: req.params.id, technicianId } },
       create: { jobId: req.params.id, technicianId, isLead },
@@ -356,6 +362,22 @@ const assignTechnician = async (req, res) => {
         jobId: req.params.id,
         technicianId,
       });
+    }
+
+    // Push the newly-assigned technician (parity with the dispatch board).
+    if (!existing && job) {
+      const tech = await prisma.technician.findUnique({
+        where: { id: technicianId },
+      });
+      if (tech?.userId) {
+        void push.sendToUser(tech.userId, {
+          title: "New job assigned",
+          body: job.summary
+            ? `#${job.jobNumber}: ${job.summary}`
+            : `Job #${job.jobNumber} was assigned to you`,
+          url: `/jobs/${job.id}`,
+        });
+      }
     }
 
     return res.json({ success: true, data: assignment });
