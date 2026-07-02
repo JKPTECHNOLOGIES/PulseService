@@ -23,6 +23,7 @@ import {
   ArrowRightStartOnRectangleIcon,
   BoltIcon,
   XMarkIcon,
+  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import { useAuthStore } from "../../store/authStore";
 import { useLookup } from "../../hooks/useMetadata";
@@ -35,6 +36,12 @@ const navItems = [
   { to: "/my-day", label: "My Day", icon: CalendarDaysIcon },
   { to: "/customers", label: "Customers", icon: UsersIcon },
   { to: "/jobs", label: "Jobs", icon: BriefcaseIcon },
+  {
+    to: "/recurring",
+    label: "Recurring",
+    icon: ArrowPathIcon,
+    perm: ["jobs.create"],
+  },
   { to: "/dispatch", label: "Dispatch", icon: MapIcon },
   { to: "/estimates", label: "Estimates", icon: DocumentTextIcon },
   { to: "/invoices", label: "Invoices", icon: DocumentDuplicateIcon },

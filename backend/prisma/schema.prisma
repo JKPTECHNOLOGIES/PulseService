@@ -598,6 +598,28 @@ model PushSubscription {
   @@index([userId])
 }
 
+// Templates that spawn jobs on a repeating schedule (e.g. quarterly maintenance).
+// Plain id references (no relations) so this stays a self-contained addition;
+// the controller validates the customer/location exist at generation time.
+model RecurringJob {
+  id          String    @id @default(uuid())
+  customerId  String
+  locationId  String?
+  summary     String
+  description String?
+  type        String    @default("service")
+  priority    String    @default("normal")
+  frequency   String    @default("monthly")
+  interval    Int       @default(1)
+  nextRunDate DateTime
+  isActive    Boolean   @default(true)
+  lastRunAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([nextRunDate])
+}
+
 // DB-driven single source of truth for enumerated values (statuses, types,
 // roles, priorities, etc.). Seeded from src/constants/lookups.js and served to
 // the frontend via GET /api/v1/metadata.
