@@ -2,6 +2,7 @@ const router = require("express").Router();
 const auth = require("../middleware/auth.middleware");
 const { requirePermission } = require("../middleware/permission.middleware");
 const validateLookups = require("../middleware/validateLookups.middleware");
+const validateBody = require("../middleware/validateBody.middleware");
 const c = require("../controllers/customers.controller");
 
 router.use(auth);
@@ -12,6 +13,7 @@ router.get("/", c.list);
 router.post(
   "/",
   requirePermission("customers.create"),
+  validateBody({ required: ["firstName", "lastName", "phone"] }),
   validateCustomer,
   c.create,
 );

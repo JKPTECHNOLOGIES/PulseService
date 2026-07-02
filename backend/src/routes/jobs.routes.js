@@ -2,6 +2,7 @@ const router = require("express").Router();
 const auth = require("../middleware/auth.middleware");
 const { requirePermission } = require("../middleware/permission.middleware");
 const validateLookups = require("../middleware/validateLookups.middleware");
+const validateBody = require("../middleware/validateBody.middleware");
 const c = require("../controllers/jobs.controller");
 
 router.use(auth);
@@ -13,7 +14,13 @@ const validateJob = validateLookups({
 });
 
 router.get("/", c.list);
-router.post("/", requirePermission("jobs.create"), validateJob, c.create);
+router.post(
+  "/",
+  requirePermission("jobs.create"),
+  validateBody({ required: ["customerId", "summary"] }),
+  validateJob,
+  c.create,
+);
 router.get("/:id", c.get);
 router.put("/:id", requirePermission("jobs.edit"), validateJob, c.update);
 router.delete("/:id", requirePermission("jobs.delete"), c["delete"]);
