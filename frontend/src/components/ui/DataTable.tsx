@@ -49,6 +49,13 @@ interface DataTableProps<T> {
 
   /** Trailing per-row actions cell (e.g. edit button). */
   rowActions?: (row: T) => ReactNode;
+
+  /**
+   * When provided, small screens (< sm) render a stacked card list using this
+   * renderer instead of the sideways-scrolling table. The table is shown at
+   * the sm breakpoint and up.
+   */
+  renderMobileCard?: (row: T) => ReactNode;
 }
 
 export default function DataTable<T>({
@@ -64,6 +71,7 @@ export default function DataTable<T>({
   bulkActions,
   csvFilename,
   rowActions,
+  renderMobileCard,
 }: DataTableProps<T>) {
   const sortedRows = useMemo(() => {
     if (!sort) return rows;
@@ -181,7 +189,62 @@ export default function DataTable<T>({
         </div>
       )}
 
-      <div className="overflow-x-auto">
+      {/* Mobile card list (only when a card renderer is supplied). */}
+      {renderMobileCard && (
+        <ul className="sm:hidden divide-y divide-gray-100">
+          {sortedRows.map((row) => {
+            const id = getRowId(row);
+            return (
+              <li
+                key={id}
+                className={clsx(
+                  "flex items-start gap-3 p-4",
+                  selectedSet.has(id) && "bg-primary-50/40",
+                )}
+              >
+                {selectable && (
+                  <input
+                    type="checkbox"
+                    checked={selectedSet.has(id)}
+                    onChange={() => {
+                      toggleOne(id);
+                    }}
+                    className="mt-1 h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 shrink-0"
+                    aria-label="Select row"
+                  />
+                )}
+                <div
+                  className={clsx(
+                    "min-w-0 flex-1",
+                    onRowClick && "cursor-pointer",
+                  )}
+                  onClick={
+                    onRowClick
+                      ? () => {
+                          onRowClick(row);
+                        }
+                      : undefined
+                  }
+                >
+                  {renderMobileCard(row)}
+                </div>
+                {rowActions && (
+                  <div className="shrink-0 flex items-center gap-1">
+                    {rowActions(row)}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <div
+        className={clsx(
+          "overflow-x-auto",
+          renderMobileCard && "hidden sm:block",
+        )}
+      >
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">

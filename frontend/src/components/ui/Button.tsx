@@ -22,10 +22,12 @@ const variantClasses: Record<string, string> = {
     "bg-white text-gray-700 hover:bg-gray-50 focus:ring-primary-500 border-gray-300",
 };
 
+// Taller minimum heights on touch (mobile) for comfortable ~44px tap targets,
+// tightened back up at the sm breakpoint (pointer devices) to stay compact.
 const sizeClasses: Record<string, string> = {
-  sm: "px-3 py-1.5 text-xs",
-  md: "px-4 py-2 text-sm",
-  lg: "px-6 py-3 text-base",
+  sm: "px-3 py-1.5 text-xs min-h-[40px] sm:min-h-[32px]",
+  md: "px-4 py-2 text-sm min-h-[44px] sm:min-h-[38px]",
+  lg: "px-6 py-3 text-base min-h-[48px]",
 };
 
 export default function Button({

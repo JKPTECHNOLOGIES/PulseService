@@ -8,13 +8,14 @@ import {
 import { useCustomers } from "../hooks/useCustomers";
 import { useLookup } from "../hooks/useMetadata";
 import Button from "../components/ui/Button";
+import IconButton from "../components/ui/IconButton";
 import SearchInput from "../components/ui/SearchInput";
 import Pagination from "../components/ui/Pagination";
 import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import DataTable, { Column, SortState } from "../components/ui/DataTable";
 import SavedViewsMenu from "../components/ui/SavedViewsMenu";
-import { PageSpinner } from "../components/ui/Spinner";
+import { TableSkeleton } from "../components/ui/Skeleton";
 import { formatPhone, formatCurrency, formatDate } from "../utils/formatters";
 import { downloadCsv } from "../utils/csv";
 import type { Customer } from "../types";
@@ -212,7 +213,7 @@ export default function CustomersPage() {
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {isLoading ? (
-          <PageSpinner />
+          <TableSkeleton rows={8} />
         ) : customers.length === 0 ? (
           <EmptyState
             title="No customers found"
@@ -239,6 +240,38 @@ export default function CustomersPage() {
               selectedIds={selectedIds}
               onSelectionChange={setSelectedIds}
               csvFilename="customers"
+              renderMobileCard={(c) => (
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold text-gray-900 truncate">
+                      {c.firstName} {c.lastName}
+                    </p>
+                    <span
+                      className={clsx(
+                        "font-medium text-sm shrink-0",
+                        c.balance > 0 ? "text-red-600" : "text-gray-900",
+                      )}
+                    >
+                      {formatCurrency(c.balance)}
+                    </span>
+                  </div>
+                  {c.companyName && (
+                    <p className="text-xs text-gray-500">{c.companyName}</p>
+                  )}
+                  <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                    <Badge className={getCustomerTypeColor(c.type)}>
+                      {getCustomerTypeLabel(c.type)}
+                    </Badge>
+                    <span className="text-xs text-gray-400">
+                      #{c.customerNumber}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 text-sm text-gray-600 space-y-0.5">
+                    {c.phone && <p>{formatPhone(c.phone)}</p>}
+                    {c.email && <p className="truncate">{c.email}</p>}
+                  </div>
+                </div>
+              )}
               bulkActions={(rows) => (
                 <button
                   onClick={() => {
@@ -251,15 +284,14 @@ export default function CustomersPage() {
                 </button>
               )}
               rowActions={(c) => (
-                <button
+                <IconButton
+                  label="Edit customer"
                   onClick={() => {
                     navigate(`/customers/${c.id}/edit`);
                   }}
-                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Edit"
                 >
                   <PencilIcon className="h-4 w-4" />
-                </button>
+                </IconButton>
               )}
             />
             {pagination && (

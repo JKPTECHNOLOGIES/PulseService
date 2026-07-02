@@ -157,7 +157,7 @@ export default function JobFormPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Job Type
@@ -215,7 +215,7 @@ export default function JobFormPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Scheduled Start
@@ -254,7 +254,7 @@ export default function JobFormPage() {
 
         {/* Technicians */}
         <Card title="Assign Technicians">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {techs.length === 0 ? (
               <p className="text-sm text-gray-400 col-span-2">
                 No technicians available
