@@ -1,10 +1,6 @@
 import { Fragment } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import {
-  BellIcon,
-  ChevronDownIcon,
-  Bars3Icon,
-} from "@heroicons/react/24/outline";
+import { BellIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import { Menu, Transition } from "@headlessui/react";
 import clsx from "clsx";
 import { useAuthStore } from "../../store/authStore";
@@ -40,11 +36,7 @@ function getTitle(pathname: string): string {
   return "PulseService";
 }
 
-interface HeaderProps {
-  onMenuClick: () => void;
-}
-
-export default function Header({ onMenuClick }: HeaderProps) {
+export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
@@ -64,13 +56,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
   return (
     <header className="min-h-[64px] pt-safe-top bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-6 shrink-0">
       <div className="flex items-center gap-2 min-w-0">
-        <button
-          onClick={onMenuClick}
-          className="p-2 -ml-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors md:hidden"
-          aria-label="Open menu"
-        >
-          <Bars3Icon className="h-6 w-6" />
-        </button>
         <h1 className="text-lg md:text-xl font-semibold text-gray-900 truncate">
           {title}
         </h1>

@@ -31,11 +31,7 @@ export default function AppLayout() {
         }}
       />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <Header
-          onMenuClick={() => {
-            setMobileOpen(true);
-          }}
-        />
+        <Header />
         {/* Extra bottom padding on mobile so content clears the fixed tab bar
             (bar height + home-indicator inset); normal padding on desktop. */}
         <main className="flex-1 overflow-auto scroll-momentum p-4 md:p-6 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-6">
