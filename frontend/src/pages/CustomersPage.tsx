@@ -4,6 +4,7 @@ import {
   PlusIcon,
   PencilIcon,
   ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
 } from "@heroicons/react/24/outline";
 import { useCustomers } from "../hooks/useCustomers";
 import { useLookup } from "../hooks/useMetadata";
@@ -15,6 +16,7 @@ import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import DataTable, { Column, SortState } from "../components/ui/DataTable";
 import SavedViewsMenu from "../components/ui/SavedViewsMenu";
+import ImportModal from "../components/ui/ImportModal";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import { formatPhone, formatCurrency, formatDate } from "../utils/formatters";
 import { downloadCsv } from "../utils/csv";
@@ -46,6 +48,7 @@ export default function CustomersPage() {
   const [type, setType] = useState("all");
   const [sort, setSort] = useState<SortState | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
 
   const {
     options: customerTypeOptions,
@@ -161,15 +164,45 @@ export default function CustomersPage() {
             {pagination ? `${String(pagination.total)} total customers` : ""}
           </p>
         </div>
-        <Button
-          icon={<PlusIcon className="h-4 w-4" />}
-          onClick={() => {
-            navigate("/customers/new");
-          }}
-        >
-          New Customer
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            icon={<ArrowUpTrayIcon className="h-4 w-4" />}
+            onClick={() => {
+              setImportOpen(true);
+            }}
+          >
+            Import
+          </Button>
+          <Button
+            icon={<PlusIcon className="h-4 w-4" />}
+            onClick={() => {
+              navigate("/customers/new");
+            }}
+          >
+            New Customer
+          </Button>
+        </div>
       </div>
+
+      <ImportModal
+        isOpen={importOpen}
+        onClose={() => {
+          setImportOpen(false);
+        }}
+        title="Import Customers"
+        endpoint="/customers/import"
+        invalidateKey={["customers"]}
+        templateColumns={[
+          "firstName",
+          "lastName",
+          "phone",
+          "email",
+          "type",
+          "companyName",
+          "source",
+        ]}
+      />
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">

@@ -281,12 +281,91 @@ const createContact = async (req, res) => {
   }
 };
 
+// Bulk-create customers from parsed CSV rows. Each row needs at least a name
+// and phone; customer numbers are auto-assigned sequentially. Returns per-row
+// results so the UI can report which rows failed and why.
+const importCustomers = async (req, res) => {
+  try {
+    const rows = Array.isArray(req.body.rows) ? req.body.rows : [];
+    if (rows.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, error: "No rows to import" });
+    }
+    if (rows.length > 1000) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Import is limited to 1000 rows" });
+    }
+
+    const settings = await prisma.companySettings.findFirst();
+    if (!settings) {
+      return res
+        .status(500)
+        .json({ success: false, error: "Company settings not found" });
+    }
+
+    let next = settings.nextCustomerNumber;
+    let created = 0;
+    const errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const firstName = (r.firstName || "").trim();
+      const lastName = (r.lastName || "").trim();
+      const phone = (r.phone || "").trim();
+      if (!firstName || !lastName || !phone) {
+        errors.push({
+          row: i + 1,
+          error: "Missing first name, last name, or phone",
+        });
+        continue;
+      }
+      try {
+        await prisma.customer.create({
+          data: {
+            customerNumber: generateNumber(settings.customerPrefix, next),
+            firstName,
+            lastName,
+            phone,
+            email: r.email?.trim() || null,
+            mobilePhone: r.mobilePhone?.trim() || null,
+            type: r.type?.trim() || "residential",
+            companyName: r.companyName?.trim() || null,
+            source: r.source?.trim() || null,
+          },
+        });
+        next += 1;
+        created += 1;
+      } catch (e) {
+        errors.push({ row: i + 1, error: e.message || "Failed to create" });
+      }
+    }
+
+    if (created > 0) {
+      await prisma.companySettings.update({
+        where: { id: settings.id },
+        data: { nextCustomerNumber: next },
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: { created, failed: errors.length, errors },
+    });
+  } catch (err) {
+    console.error("customers.importCustomers error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
 module.exports = {
   list,
   get,
   create,
   update,
   delete: deleteCustomer,
+  importCustomers,
   getLocations,
   createLocation,
   getContacts,

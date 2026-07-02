@@ -310,4 +310,106 @@ const arAging = async (req, res) => {
   }
 };
 
-module.exports = { revenue, jobs, technicians, customers, arAging };
+const round2 = (n) => Math.round((n || 0) * 100) / 100;
+
+// Revenue attributed to how the customer was acquired (Customer.source), over an
+// optional custom date range. Answers "which marketing channels pay off?".
+const salesBySource = async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const where = { status: { not: "void" } };
+    if (from || to) {
+      where.createdAt = {};
+      if (from) where.createdAt.gte = new Date(`${from}T00:00:00.000Z`);
+      if (to) where.createdAt.lte = new Date(`${to}T23:59:59.999Z`);
+    }
+
+    const invoices = await prisma.invoice.findMany({
+      where,
+      select: {
+        total: true,
+        amountPaid: true,
+        customer: { select: { source: true } },
+      },
+    });
+
+    const map = {};
+    invoices.forEach((inv) => {
+      const src = inv.customer?.source || "Unknown";
+      map[src] ??= { source: src, invoiceCount: 0, invoiced: 0, collected: 0 };
+      map[src].invoiceCount += 1;
+      map[src].invoiced += inv.total;
+      map[src].collected += inv.amountPaid;
+    });
+
+    const sources = Object.values(map)
+      .map((r) => ({
+        source: r.source,
+        invoiceCount: r.invoiceCount,
+        invoiced: round2(r.invoiced),
+        collected: round2(r.collected),
+      }))
+      .sort((a, b) => b.invoiced - a.invoiced);
+
+    return res.json({
+      success: true,
+      data: {
+        totalInvoiced: round2(sources.reduce((s, r) => s + r.invoiced, 0)),
+        totalCollected: round2(sources.reduce((s, r) => s + r.collected, 0)),
+        sources,
+      },
+    });
+  } catch (err) {
+    console.error("reports.salesBySource error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+// Estimate pipeline + win rate.
+const estimatePipeline = async (req, res) => {
+  try {
+    const grouped = await prisma.estimate.groupBy({
+      by: ["status"],
+      _count: { id: true },
+      _sum: { total: true },
+    });
+
+    const byStatus = grouped.map((g) => ({
+      status: g.status,
+      count: g._count.id,
+      value: round2(g._sum.total || 0),
+    }));
+    const stat = (s) =>
+      byStatus.find((b) => b.status === s) ?? { count: 0, value: 0 };
+
+    const approved = stat("approved");
+    const rejected = stat("rejected");
+    const decided = approved.count + rejected.count;
+    const openValue =
+      stat("draft").value + stat("sent").value + stat("viewed").value;
+
+    return res.json({
+      success: true,
+      data: {
+        byStatus,
+        winRate: decided > 0 ? Math.round((approved.count / decided) * 100) : 0,
+        approvedValue: approved.value,
+        approvedCount: approved.count,
+        openValue: round2(openValue),
+      },
+    });
+  } catch (err) {
+    console.error("reports.estimatePipeline error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+module.exports = {
+  revenue,
+  jobs,
+  technicians,
+  customers,
+  arAging,
+  salesBySource,
+  estimatePipeline,
+};

@@ -29,11 +29,15 @@ import {
   useTechniciansReport,
   useCustomersReport,
   useArAgingReport,
+  useSalesBySourceReport,
+  useEstimatePipelineReport,
 } from "../hooks/useReports";
 import StatCard from "../components/ui/StatCard";
 import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency, formatDate } from "../utils/formatters";
+import { downloadCsv } from "../utils/csv";
 import { useLookup } from "../hooks/useMetadata";
 
 const CHART_COLORS = [
@@ -459,9 +463,232 @@ function ArAgingTab() {
   );
 }
 
+function SalesTab() {
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const { data, isLoading } = useSalesBySourceReport({
+    from: from || undefined,
+    to: to || undefined,
+  });
+
+  const sources = data?.sources ?? [];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">From</label>
+            <input
+              type="date"
+              value={from}
+              onChange={(e) => {
+                setFrom(e.target.value);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">To</label>
+            <input
+              type="date"
+              value={to}
+              onChange={(e) => {
+                setTo(e.target.value);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={sources.length === 0}
+          onClick={() => {
+            downloadCsv("sales-by-source", sources, [
+              { header: "Source", value: (r) => r.source },
+              { header: "Invoices", value: (r) => r.invoiceCount },
+              { header: "Invoiced", value: (r) => r.invoiced },
+              { header: "Collected", value: (r) => r.collected },
+            ]);
+          }}
+        >
+          Export CSV
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <StatCard
+          title="Total Invoiced"
+          value={formatCurrency(data?.totalInvoiced ?? 0)}
+          icon={<CurrencyDollarIcon />}
+          color="blue"
+        />
+        <StatCard
+          title="Total Collected"
+          value={formatCurrency(data?.totalCollected ?? 0)}
+          icon={<CurrencyDollarIcon />}
+          color="green"
+        />
+      </div>
+
+      <Card title="Revenue by Source">
+        {isLoading ? (
+          <PageSpinner />
+        ) : (
+          <>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={sources}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="source" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                  <Bar
+                    dataKey="invoiced"
+                    fill="#3b82f6"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <table className="w-full text-sm mt-4">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
+                    Source
+                  </th>
+                  <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
+                    Invoices
+                  </th>
+                  <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
+                    Invoiced
+                  </th>
+                  <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
+                    Collected
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {sources.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-gray-400">
+                      No data for this range.
+                    </td>
+                  </tr>
+                ) : (
+                  sources.map((s) => (
+                    <tr key={s.source} className="hover:bg-gray-50">
+                      <td className="py-3 font-medium text-gray-900 capitalize">
+                        {s.source}
+                      </td>
+                      <td className="py-3 text-right text-gray-600">
+                        {s.invoiceCount}
+                      </td>
+                      <td className="py-3 text-right text-gray-900">
+                        {formatCurrency(s.invoiced)}
+                      </td>
+                      <td className="py-3 text-right text-green-600">
+                        {formatCurrency(s.collected)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function EstimatesTab() {
+  const { data, isLoading } = useEstimatePipelineReport();
+  const { getLabel: getStatusLabel } = useLookup("estimateStatus");
+  if (isLoading) return <PageSpinner />;
+
+  const byStatus = data?.byStatus ?? [];
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <StatCard
+          title="Win Rate"
+          value={`${String(data?.winRate ?? 0)}%`}
+          subtitle="approved of decided"
+          icon={<CheckCircleIcon />}
+          color="green"
+        />
+        <StatCard
+          title="Approved Value"
+          value={formatCurrency(data?.approvedValue ?? 0)}
+          subtitle={`${String(data?.approvedCount ?? 0)} estimates`}
+          icon={<CurrencyDollarIcon />}
+          color="blue"
+        />
+        <StatCard
+          title="Open Pipeline"
+          value={formatCurrency(data?.openValue ?? 0)}
+          subtitle="draft / sent / viewed"
+          icon={<CurrencyDollarIcon />}
+          color="yellow"
+        />
+      </div>
+
+      <Card title="Estimates by Status">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-100">
+              <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
+                Status
+              </th>
+              <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
+                Count
+              </th>
+              <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
+                Value
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {byStatus.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="py-8 text-center text-gray-400">
+                  No estimates yet.
+                </td>
+              </tr>
+            ) : (
+              byStatus.map((s) => (
+                <tr key={s.status} className="hover:bg-gray-50">
+                  <td className="py-3 font-medium text-gray-900">
+                    {getStatusLabel(s.status)}
+                  </td>
+                  <td className="py-3 text-right text-gray-600">{s.count}</td>
+                  <td className="py-3 text-right text-gray-900">
+                    {formatCurrency(s.value)}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
+
 export default function ReportsPage() {
   const [selectedTab, setSelectedTab] = useState(0);
-  const tabs = ["Revenue", "Jobs", "Technicians", "Customers", "AR Aging"];
+  const tabs = [
+    "Revenue",
+    "Sales",
+    "Estimates",
+    "Jobs",
+    "Technicians",
+    "Customers",
+    "AR Aging",
+  ];
 
   return (
     <div className="space-y-5">
@@ -486,6 +713,12 @@ export default function ReportsPage() {
         <Tab.Panels className="mt-5">
           <Tab.Panel>
             <RevenueTab />
+          </Tab.Panel>
+          <Tab.Panel>
+            <SalesTab />
+          </Tab.Panel>
+          <Tab.Panel>
+            <EstimatesTab />
           </Tab.Panel>
           <Tab.Panel>
             <JobsTab />

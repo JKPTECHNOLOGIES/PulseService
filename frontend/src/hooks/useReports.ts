@@ -90,6 +90,50 @@ export function useArAgingReport() {
   });
 }
 
+export interface SalesBySource {
+  totalInvoiced: number;
+  totalCollected: number;
+  sources: {
+    source: string;
+    invoiceCount: number;
+    invoiced: number;
+    collected: number;
+  }[];
+}
+
+export function useSalesBySourceReport(params: { from?: string; to?: string }) {
+  return useQuery({
+    queryKey: ["reports", "sales-by-source", params],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<SalesBySource>>(
+        "/reports/sales-by-source",
+        { params },
+      );
+      return res.data;
+    },
+  });
+}
+
+export interface EstimatePipeline {
+  byStatus: { status: string; count: number; value: number }[];
+  winRate: number;
+  approvedValue: number;
+  approvedCount: number;
+  openValue: number;
+}
+
+export function useEstimatePipelineReport() {
+  return useQuery({
+    queryKey: ["reports", "estimate-pipeline"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<EstimatePipeline>>(
+        "/reports/estimate-pipeline",
+      );
+      return res.data;
+    },
+  });
+}
+
 export function useCustomersReport() {
   return useQuery({
     queryKey: ["reports", "customers"],

@@ -28,6 +28,11 @@ router.delete(
 // Items
 router.get("/items", c.listItems);
 router.post("/items", requirePermission("pricebook.manage"), c.createItem);
+router.post(
+  "/items/import",
+  requirePermission("pricebook.manage"),
+  c.importItems,
+);
 router.put("/items/:id", requirePermission("pricebook.manage"), c.updateItem);
 router.delete(
   "/items/:id",

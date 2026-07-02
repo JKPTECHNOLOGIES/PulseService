@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { PlusIcon, FolderIcon, PencilIcon } from "@heroicons/react/24/outline";
+import {
+  PlusIcon,
+  FolderIcon,
+  PencilIcon,
+  ArrowUpTrayIcon,
+} from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import {
   usePricebookCategories,
@@ -12,6 +17,7 @@ import {
 import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
+import ImportModal from "../components/ui/ImportModal";
 import EmptyState from "../components/ui/EmptyState";
 import { LookupSelect } from "../components/ui/LookupSelect";
 import { PageSpinner } from "../components/ui/Spinner";
@@ -34,6 +40,7 @@ export default function PricebookPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [itemModal, setItemModal] = useState(false);
   const [categoryModal, setCategoryModal] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PricebookItem | null>(null);
 
   const { data: categories, isLoading: catLoading } = usePricebookCategories();
@@ -163,13 +170,25 @@ export default function PricebookPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">Items</h3>
-            <Button
-              size="sm"
-              icon={<PlusIcon className="h-4 w-4" />}
-              onClick={openCreateItem}
-            >
-              Add Item
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                icon={<ArrowUpTrayIcon className="h-4 w-4" />}
+                onClick={() => {
+                  setImportOpen(true);
+                }}
+              >
+                Import
+              </Button>
+              <Button
+                size="sm"
+                icon={<PlusIcon className="h-4 w-4" />}
+                onClick={openCreateItem}
+              >
+                Add Item
+              </Button>
+            </div>
           </div>
           {itemsLoading ? (
             <PageSpinner />
@@ -276,6 +295,24 @@ export default function PricebookPage() {
       </div>
 
       {/* Item Modal */}
+      <ImportModal
+        isOpen={importOpen}
+        onClose={() => {
+          setImportOpen(false);
+        }}
+        title="Import Pricebook Items"
+        endpoint="/pricebook/items/import"
+        invalidateKey={["pricebook"]}
+        templateColumns={[
+          "name",
+          "sku",
+          "type",
+          "unitCost",
+          "unitPrice",
+          "unit",
+        ]}
+      />
+
       <Modal
         isOpen={itemModal}
         onClose={() => {

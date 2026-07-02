@@ -15,6 +15,11 @@ router.post(
   validateCustomer,
   c.create,
 );
+router.post(
+  "/import",
+  requirePermission("customers.create"),
+  c.importCustomers,
+);
 router.get("/:id", c.get);
 router.put(
   "/:id",

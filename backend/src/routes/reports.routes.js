@@ -7,6 +7,8 @@ const {
   technicians,
   customers,
   arAging,
+  salesBySource,
+  estimatePipeline,
 } = require("../controllers/reports.controller");
 
 router.use(auth);
@@ -20,5 +22,15 @@ router.get(
 );
 router.get("/customers", requirePermission("reports.financial"), customers);
 router.get("/ar-aging", requirePermission("reports.financial"), arAging);
+router.get(
+  "/sales-by-source",
+  requirePermission("reports.financial"),
+  salesBySource,
+);
+router.get(
+  "/estimate-pipeline",
+  requirePermission("reports.financial"),
+  estimatePipeline,
+);
 
 module.exports = router;
