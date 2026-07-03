@@ -27,6 +27,12 @@ const PaymentsPage = lazy(() => import("./pages/PaymentsPage"));
 const TechniciansPage = lazy(() => import("./pages/TechniciansPage"));
 const PricebookPage = lazy(() => import("./pages/PricebookPage"));
 const InventoryPage = lazy(() => import("./pages/InventoryPage"));
+const SuppliersPage = lazy(() => import("./pages/SuppliersPage"));
+const PurchaseOrdersPage = lazy(() => import("./pages/PurchaseOrdersPage"));
+const PurchaseOrderDetailPage = lazy(
+  () => import("./pages/PurchaseOrderDetailPage"),
+);
+const SerializedUnitsPage = lazy(() => import("./pages/SerializedUnitsPage"));
 const AgreementsPage = lazy(() => import("./pages/AgreementsPage"));
 const AgreementDetailPage = lazy(() => import("./pages/AgreementDetailPage"));
 const MarketingPage = lazy(() => import("./pages/MarketingPage"));
@@ -80,6 +86,10 @@ export default function App() {
           <Route path="technicians" element={<TechniciansPage />} />
           <Route path="pricebook" element={<PricebookPage />} />
           <Route path="inventory" element={<InventoryPage />} />
+          <Route path="suppliers" element={<SuppliersPage />} />
+          <Route path="purchasing" element={<PurchaseOrdersPage />} />
+          <Route path="purchasing/:id" element={<PurchaseOrderDetailPage />} />
+          <Route path="serials" element={<SerializedUnitsPage />} />
           <Route path="equipment" element={<EquipmentPage />} />
           <Route path="agreements" element={<AgreementsPage />} />
           <Route path="agreements/:id" element={<AgreementDetailPage />} />

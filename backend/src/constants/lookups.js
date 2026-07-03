@@ -260,11 +260,111 @@ const LOOKUPS = {
     },
   ],
   inventoryTransactionType: [
-    { value: "purchase", label: "Purchase" },
-    { value: "usage", label: "Usage" },
+    { value: "receipt", label: "Receipt" },
+    { value: "issue", label: "Issue" },
+    { value: "transfer_out", label: "Transfer Out" },
+    { value: "transfer_in", label: "Transfer In" },
     { value: "adjustment", label: "Adjustment" },
-    { value: "transfer", label: "Transfer" },
-    { value: "return", label: "Return" },
+    { value: "count", label: "Cycle Count" },
+    { value: "reversal", label: "Reversal" },
+  ],
+  stockLocationType: [
+    {
+      value: "warehouse",
+      label: "Warehouse",
+      color: "bg-blue-100 text-blue-800",
+    },
+    {
+      value: "truck",
+      label: "Truck",
+      color: "bg-green-100 text-green-800",
+    },
+  ],
+  poStatus: [
+    { value: "draft", label: "Draft", color: "bg-gray-100 text-gray-800" },
+    {
+      value: "ordered",
+      label: "Ordered",
+      color: "bg-blue-100 text-blue-800",
+    },
+    {
+      value: "partially_received",
+      label: "Partially Received",
+      color: "bg-yellow-100 text-yellow-800",
+    },
+    {
+      value: "received",
+      label: "Received",
+      color: "bg-green-100 text-green-800",
+    },
+    { value: "closed", label: "Closed", color: "bg-gray-100 text-gray-500" },
+    {
+      value: "cancelled",
+      label: "Cancelled",
+      color: "bg-red-100 text-red-800",
+    },
+  ],
+  poLineType: [
+    { value: "inventory", label: "Inventory" },
+    { value: "non_stock", label: "Non-Stock" },
+  ],
+  poLineStatus: [
+    { value: "open", label: "Open", color: "bg-blue-100 text-blue-800" },
+    {
+      value: "cancelled",
+      label: "Cancelled",
+      color: "bg-red-100 text-red-800",
+    },
+  ],
+  receiptStatus: [
+    {
+      value: "active",
+      label: "Active",
+      color: "bg-green-100 text-green-800",
+    },
+    {
+      value: "reversed",
+      label: "Reversed",
+      color: "bg-orange-100 text-orange-800",
+    },
+    { value: "voided", label: "Voided", color: "bg-gray-100 text-gray-500" },
+  ],
+  serializedUnitStatus: [
+    {
+      value: "in_stock",
+      label: "In Stock",
+      color: "bg-blue-100 text-blue-800",
+    },
+    {
+      value: "reserved",
+      label: "Reserved",
+      color: "bg-yellow-100 text-yellow-800",
+    },
+    {
+      value: "installed",
+      label: "Installed",
+      color: "bg-green-100 text-green-800",
+    },
+    {
+      value: "returned",
+      label: "Returned",
+      color: "bg-gray-100 text-gray-800",
+    },
+    {
+      value: "scrapped",
+      label: "Scrapped",
+      color: "bg-red-100 text-red-800",
+    },
+    {
+      value: "in_repair",
+      label: "In Repair",
+      color: "bg-orange-100 text-orange-800",
+    },
+  ],
+  costChangeSource: [
+    { value: "receipt", label: "Receipt (WAC)" },
+    { value: "manual", label: "Manual Adjustment" },
+    { value: "count_adjustment", label: "Count Adjustment" },
   ],
   pricebookItemType: [
     { value: "service", label: "Service" },

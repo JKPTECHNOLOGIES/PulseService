@@ -73,7 +73,21 @@ const PERMISSION_GROUPS = [
   {
     group: "Inventory",
     permissions: [
-      { key: "inventory.manage", label: "Adjust & receive inventory" },
+      {
+        key: "inventory.manage",
+        label: "Manage items, adjust & transfer stock",
+      },
+    ],
+  },
+  {
+    group: "Suppliers",
+    permissions: [{ key: "suppliers.manage", label: "Manage suppliers" }],
+  },
+  {
+    group: "Purchasing",
+    permissions: [
+      { key: "purchasing.manage", label: "Create & manage purchase orders" },
+      { key: "purchasing.receive", label: "Receive goods against POs" },
     ],
   },
   {
@@ -136,6 +150,9 @@ const DEFAULT_ROLE_PERMISSIONS = {
     "reports.operational",
     "pricebook.manage",
     "inventory.manage",
+    "suppliers.manage",
+    "purchasing.manage",
+    "purchasing.receive",
     "agreements.manage",
     "agreements.visits",
     "equipment.delete",
@@ -157,6 +174,9 @@ const DEFAULT_ROLE_PERMISSIONS = {
     "payments.view",
     "reports.operational",
     "inventory.manage",
+    "suppliers.manage",
+    "purchasing.manage",
+    "purchasing.receive",
     "agreements.manage",
     "agreements.visits",
     "calls.manage",

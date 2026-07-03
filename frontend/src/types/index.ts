@@ -209,29 +209,214 @@ export interface PricebookCategory {
   items?: PricebookItem[];
 }
 
+// Numeric fields backed by Prisma `Decimal` arrive over JSON as strings; the UI
+// coerces them with Number(...) at display/compute sites.
+
+export interface StockLocation {
+  id: string;
+  name: string;
+  code: string;
+  type: string; // stockLocationType lookup: "warehouse" | "truck"
+  vehicleId?: string;
+  address?: string;
+  isDefault: boolean;
+  isActive: boolean;
+  vehicle?: { id: string; name: string; licensePlate?: string };
+  stock?: InventoryStock[];
+  _count?: { stock: number };
+}
+
+export interface InventoryStock {
+  id: string;
+  inventoryItemId: string;
+  stockLocationId: string;
+  quantityOnHand: number;
+  quantityReserved: number;
+  lastCountDate?: string;
+  stockLocation?: { id: string; name: string; code: string; type: string };
+  inventoryItem?: { id: string; sku: string; name: string; unit: string };
+}
+
+export interface Supplier {
+  id: string;
+  supplierNumber: string;
+  name: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  address1?: string;
+  address2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  paymentTerms?: string;
+  taxId?: string;
+  notes?: string;
+  isActive: boolean;
+  items?: InventoryItemSupplier[];
+  _count?: { items: number; purchaseOrders: number };
+}
+
+export interface InventoryItemSupplier {
+  id: string;
+  inventoryItemId: string;
+  supplierId: string;
+  supplierSku?: string;
+  unitCost: number;
+  leadTimeDays?: number;
+  minimumOrderQty?: number;
+  isPrimary: boolean;
+  isActive: boolean;
+  supplier?: { id: string; name: string };
+}
+
+export interface InventoryItemCostHistory {
+  id: string;
+  inventoryItemId: string;
+  oldUnitCost: number;
+  newUnitCost: number;
+  changeSource: string;
+  quantityOnHand?: number;
+  receiptQuantity?: number;
+  receiptUnitCost?: number;
+  createdAt: string;
+}
+
 export interface InventoryItem {
   id: string;
-  warehouseId: string;
-  pricebookItemId?: string;
-  name: string;
   sku: string;
-  quantity: number;
+  name: string;
+  description?: string;
+  pricebookItemId?: string;
+  categoryId?: string;
+  unit: string;
+  unitCost: number; // perpetual weighted-average cost
+  defaultSupplierId?: string;
+  minQuantity: number;
+  maxQuantity: number;
   reorderPoint: number;
   reorderQuantity: number;
-  unitCost: number;
-  location?: string;
+  leadTimeDays?: number;
+  isSerialized: boolean;
+  isStockItem: boolean;
+  isActive: boolean;
+  isArchived: boolean;
+  notes?: string;
+  // Computed / included by the API
+  totalOnHand?: number;
+  isLowStock?: boolean;
+  stock?: InventoryStock[];
+  defaultSupplier?: { id: string; name: string };
+  suppliers?: InventoryItemSupplier[];
+  transactions?: InventoryTransaction[];
+  costHistory?: InventoryItemCostHistory[];
 }
 
 export interface InventoryTransaction {
   id: string;
-  itemId: string;
+  inventoryItemId: string;
+  stockLocationId: string;
   type: string;
   quantity: number;
-  unitCost: number;
-  reference?: string;
+  unitCost?: number;
+  quantityBefore?: number;
+  quantityAfter?: number;
+  referenceType?: string;
+  referenceId?: string;
+  referenceNumber?: string;
   jobId?: string;
   notes?: string;
+  transactionDate: string;
   createdAt: string;
+  stockLocation?: { id: string; name: string; code: string };
+}
+
+export interface POLineReceipt {
+  id: string;
+  poLineId: string;
+  receiptNumber: string;
+  quantityReceived: number;
+  unitCost: number;
+  totalCost: number;
+  stockLocationId?: string;
+  receivedAt: string;
+  status: string;
+  documentNumber?: string;
+  serialNumbers: string[];
+  lotNumber?: string;
+  notes?: string;
+  isReturn: boolean;
+  stockLocation?: { id: string; name: string; code: string };
+}
+
+export interface POLine {
+  id: string;
+  purchaseOrderId: string;
+  inventoryItemId?: string;
+  lineType: string;
+  lineNumber: number;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  receivedQuantity: number;
+  lineStatus: string;
+  notes?: string;
+  inventoryItem?: { id: string; sku: string; name: string; unit: string };
+  receipts?: POLineReceipt[];
+}
+
+export interface PurchaseOrder {
+  id: string;
+  poNumber: string;
+  supplierId: string;
+  status: string;
+  shipToLocationId?: string;
+  jobId?: string;
+  customerId?: string;
+  orderDate: string;
+  expectedDate?: string;
+  receivedDate?: string;
+  subtotal: number;
+  taxAmount: number;
+  shippingCost: number;
+  totalAmount: number;
+  deliveryTerms?: string;
+  notes?: string;
+  supplier?: { id: string; name: string };
+  shipToLocation?: { id: string; name: string; code: string };
+  job?: { id: string; jobNumber: string; summary?: string };
+  customer?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    companyName?: string;
+  };
+  lines?: POLine[];
+  _count?: { lines: number };
+}
+
+export interface SerializedUnit {
+  id: string;
+  serialNumber: string;
+  inventoryItemId: string;
+  status: string;
+  stockLocationId?: string;
+  sourceReceiptId?: string;
+  purchaseCost?: number;
+  installedCustomerId?: string;
+  installedLocationId?: string;
+  installedJobId?: string;
+  equipmentId?: string;
+  installedAt?: string;
+  warrantyMonths?: number;
+  warrantyExpiresAt?: string;
+  notes?: string;
+  createdAt: string;
+  inventoryItem?: { id: string; sku: string; name: string };
+  stockLocation?: { id: string; name: string; code: string };
 }
 
 export interface AgreementVisit {
@@ -358,7 +543,14 @@ export type LookupCategory =
   | "notificationType"
   | "equipmentType"
   | "equipmentCondition"
-  | "businessUnitType";
+  | "businessUnitType"
+  | "stockLocationType"
+  | "poStatus"
+  | "poLineType"
+  | "poLineStatus"
+  | "receiptStatus"
+  | "serializedUnitStatus"
+  | "costChangeSource";
 
 export type Metadata = Partial<Record<LookupCategory, LookupOption[]>>;
 

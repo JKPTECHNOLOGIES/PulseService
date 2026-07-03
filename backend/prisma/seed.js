@@ -11,9 +11,17 @@ async function main() {
 
   // ── Cleanup (reverse dependency order) ───────────────────────────────────────
   console.log("  Cleaning existing data...");
+  await prisma.serializedUnit.deleteMany();
+  await prisma.pOLineReceipt.deleteMany();
+  await prisma.pOLine.deleteMany();
+  await prisma.purchaseOrder.deleteMany();
   await prisma.inventoryTransaction.deleteMany();
+  await prisma.inventoryItemCostHistory.deleteMany();
+  await prisma.inventoryStock.deleteMany();
+  await prisma.inventoryItemSupplier.deleteMany();
   await prisma.inventoryItem.deleteMany();
-  await prisma.warehouse.deleteMany();
+  await prisma.stockLocation.deleteMany();
+  await prisma.supplier.deleteMany();
   await prisma.agreementVisit.deleteMany();
   await prisma.serviceAgreement.deleteMany();
   await prisma.notification.deleteMany();
@@ -93,6 +101,9 @@ async function main() {
       nextInvoiceNumber: 1005,
       nextEstimateNumber: 1005,
       nextCustomerNumber: 1006,
+      nextSupplierNumber: 1003,
+      nextPoNumber: 1002,
+      nextReceiptNumber: 1002,
     },
   });
 
@@ -1367,138 +1378,278 @@ async function main() {
     }),
   ]);
 
-  // ── Warehouse & Inventory ─────────────────────────────────────────────────────
-  console.log("  Creating warehouse and inventory...");
-  const warehouse = await prisma.warehouse.create({
-    data: {
-      name: "Main Warehouse",
-      address: "1234 Main Street Suite 100, Atlanta, GA 30301",
-      isActive: true,
-    },
-  });
-
-  await Promise.all([
-    prisma.inventoryItem.create({
+  // ── Suppliers ─────────────────────────────────────────────────────────────────
+  console.log("  Creating suppliers...");
+  const [supplyCo, coolParts] = await Promise.all([
+    prisma.supplier.create({
       data: {
-        warehouseId: warehouse.id,
-        name: "Air Filter MERV-13 16x25x1",
-        sku: "FILT-1625",
-        quantity: 48,
-        reorderPoint: 20,
-        reorderQuantity: 50,
-        unitCost: 7,
-        location: "Shelf A-1",
+        supplierNumber: "SUP-1001",
+        name: "Atlanta HVAC Supply Co.",
+        contactName: "Dana Reyes",
+        email: "orders@atlhvacsupply.com",
+        phone: "404-555-0110",
+        address1: "500 Industrial Blvd",
+        city: "Atlanta",
+        state: "GA",
+        zip: "30318",
+        paymentTerms: "Net 30",
+        isActive: true,
       },
     }),
-    prisma.inventoryItem.create({
+    prisma.supplier.create({
       data: {
-        warehouseId: warehouse.id,
-        name: "Air Filter MERV-13 20x20x1",
-        sku: "FILT-2020",
-        quantity: 36,
-        reorderPoint: 20,
-        reorderQuantity: 50,
-        unitCost: 7,
-        location: "Shelf A-2",
-      },
-    }),
-    prisma.inventoryItem.create({
-      data: {
-        warehouseId: warehouse.id,
-        name: "Air Filter MERV-13 20x25x1",
-        sku: "FILT-2025",
-        quantity: 18,
-        reorderPoint: 12,
-        reorderQuantity: 30,
-        unitCost: 8,
-        location: "Shelf A-3",
-      },
-    }),
-    prisma.inventoryItem.create({
-      data: {
-        warehouseId: warehouse.id,
-        name: "R-410A Refrigerant 25-lb Cylinder",
-        sku: "REF-410A-25",
-        quantity: 6,
-        reorderPoint: 3,
-        reorderQuantity: 6,
-        unitCost: 175,
-        location: "Cage B-1",
-      },
-    }),
-    prisma.inventoryItem.create({
-      data: {
-        warehouseId: warehouse.id,
-        name: "Dual Run Capacitor 45/5 MFD",
-        sku: "CAP-45-5",
-        quantity: 15,
-        reorderPoint: 5,
-        reorderQuantity: 10,
-        unitCost: 18,
-        location: "Shelf C-3",
-      },
-    }),
-    prisma.inventoryItem.create({
-      data: {
-        warehouseId: warehouse.id,
-        name: "Contactor 40A Single Pole",
-        sku: "CONT-40A-1P",
-        quantity: 4,
-        reorderPoint: 4,
-        reorderQuantity: 8,
-        unitCost: 16,
-        location: "Shelf C-4",
-      },
-    }),
-    prisma.inventoryItem.create({
-      data: {
-        warehouseId: warehouse.id,
-        name: "Thermostat Wire 18/8 100ft",
-        sku: "WIRE-18-8",
-        quantity: 5,
-        reorderPoint: 2,
-        reorderQuantity: 5,
-        unitCost: 34,
-        location: "Shelf D-1",
-      },
-    }),
-    prisma.inventoryItem.create({
-      data: {
-        warehouseId: warehouse.id,
-        name: 'PVC Condensate Drain Pipe 3/4" (10ft)',
-        sku: "PVC-075-10",
-        quantity: 30,
-        reorderPoint: 10,
-        reorderQuantity: 20,
-        unitCost: 4.5,
-        location: "Rack E-1",
-      },
-    }),
-    prisma.inventoryItem.create({
-      data: {
-        warehouseId: warehouse.id,
-        name: "Universal Faucet Cartridge",
-        sku: "FAUC-CART-UNI",
-        quantity: 22,
-        reorderPoint: 8,
-        reorderQuantity: 15,
-        unitCost: 11,
-        location: "Shelf F-2",
-      },
-    }),
-    prisma.inventoryItem.create({
-      data: {
-        warehouseId: warehouse.id,
-        name: "Nest Learning Thermostat 3rd Gen (Charcoal)",
-        sku: "NEST-3G-CHAR",
-        quantity: 3,
-        reorderPoint: 2,
-        reorderQuantity: 5,
-        unitCost: 179,
-        location: "Secure G-1",
+        supplierNumber: "SUP-1002",
+        name: "CoolParts Distribution",
+        contactName: "Marcus Webb",
+        email: "sales@coolparts.com",
+        phone: "770-555-0145",
+        address1: "88 Commerce Way",
+        city: "Marietta",
+        state: "GA",
+        zip: "30060",
+        paymentTerms: "Net 15",
+        isActive: true,
       },
     }),
   ]);
+
+  // ── Stock Locations (warehouse + trucks) ──────────────────────────────────────
+  console.log("  Creating stock locations...");
+  const mainWarehouse = await prisma.stockLocation.create({
+    data: {
+      name: "Main Warehouse",
+      code: "WH",
+      type: "warehouse",
+      address: "1234 Main Street Suite 100, Atlanta, GA 30301",
+      isDefault: true,
+      isActive: true,
+    },
+  });
+  const [truck101, truck102] = await Promise.all([
+    prisma.stockLocation.create({
+      data: {
+        name: "Truck 101",
+        code: "TRK101",
+        type: "truck",
+        vehicleId: truck1.id,
+        isActive: true,
+      },
+    }),
+    prisma.stockLocation.create({
+      data: {
+        name: "Van 102",
+        code: "TRK102",
+        type: "truck",
+        vehicleId: van2.id,
+        isActive: true,
+      },
+    }),
+  ]);
+
+  // ── Inventory items ───────────────────────────────────────────────────────────
+  // Each entry seeds the item plus per-location stock (warehouse + trucks) and a
+  // primary-supplier catalog price. unitCost is the perpetual weighted-average.
+  console.log("  Creating inventory items, stock and supplier pricing...");
+  const inventorySeed = [
+    {
+      sku: "FILT-1625",
+      name: "Air Filter MERV-13 16x25x1",
+      unitCost: 7,
+      reorderPoint: 20,
+      reorderQuantity: 50,
+      supplier: supplyCo,
+      wh: 40,
+      t1: 6,
+      t2: 2,
+    },
+    {
+      sku: "FILT-2020",
+      name: "Air Filter MERV-13 20x20x1",
+      unitCost: 7,
+      reorderPoint: 20,
+      reorderQuantity: 50,
+      supplier: supplyCo,
+      wh: 30,
+      t1: 4,
+      t2: 2,
+    },
+    {
+      sku: "FILT-2025",
+      name: "Air Filter MERV-13 20x25x1",
+      unitCost: 8,
+      reorderPoint: 12,
+      reorderQuantity: 30,
+      supplier: supplyCo,
+      wh: 14,
+      t1: 3,
+      t2: 1,
+    },
+    {
+      sku: "REF-410A-25",
+      name: "R-410A Refrigerant 25-lb Cylinder",
+      unitCost: 175,
+      reorderPoint: 3,
+      reorderQuantity: 6,
+      supplier: coolParts,
+      wh: 4,
+      t1: 1,
+      t2: 1,
+    },
+    {
+      sku: "CAP-45-5",
+      name: "Dual Run Capacitor 45/5 MFD",
+      unitCost: 18,
+      reorderPoint: 5,
+      reorderQuantity: 10,
+      supplier: coolParts,
+      wh: 11,
+      t1: 3,
+      t2: 1,
+    },
+    {
+      sku: "CONT-40A-1P",
+      name: "Contactor 40A Single Pole",
+      unitCost: 16,
+      reorderPoint: 4,
+      reorderQuantity: 8,
+      supplier: coolParts,
+      wh: 3,
+      t1: 1,
+      t2: 0,
+    },
+    {
+      sku: "WIRE-18-8",
+      name: "Thermostat Wire 18/8 100ft",
+      unitCost: 34,
+      reorderPoint: 2,
+      reorderQuantity: 5,
+      supplier: supplyCo,
+      wh: 4,
+      t1: 1,
+      t2: 0,
+    },
+    {
+      sku: "PVC-075-10",
+      name: 'PVC Condensate Drain Pipe 3/4" (10ft)',
+      unitCost: 4.5,
+      reorderPoint: 10,
+      reorderQuantity: 20,
+      supplier: supplyCo,
+      wh: 26,
+      t1: 3,
+      t2: 1,
+    },
+    {
+      sku: "FAUC-CART-UNI",
+      name: "Universal Faucet Cartridge",
+      unitCost: 11,
+      reorderPoint: 8,
+      reorderQuantity: 15,
+      supplier: coolParts,
+      wh: 20,
+      t1: 1,
+      t2: 1,
+    },
+    {
+      sku: "NEST-3G-CHAR",
+      name: "Nest Learning Thermostat 3rd Gen (Charcoal)",
+      unitCost: 179,
+      reorderPoint: 2,
+      reorderQuantity: 5,
+      supplier: coolParts,
+      wh: 3,
+      t1: 0,
+      t2: 0,
+      serialized: true,
+    },
+  ];
+
+  const itemsBySku = {};
+  for (const row of inventorySeed) {
+    const item = await prisma.inventoryItem.create({
+      data: {
+        sku: row.sku,
+        name: row.name,
+        unit: "each",
+        unitCost: row.unitCost,
+        reorderPoint: row.reorderPoint,
+        reorderQuantity: row.reorderQuantity,
+        isSerialized: row.serialized ?? false,
+        defaultSupplierId: row.supplier.id,
+        isActive: true,
+        stock: {
+          create: [
+            { stockLocationId: mainWarehouse.id, quantityOnHand: row.wh },
+            { stockLocationId: truck101.id, quantityOnHand: row.t1 },
+            { stockLocationId: truck102.id, quantityOnHand: row.t2 },
+          ],
+        },
+        suppliers: {
+          create: {
+            supplierId: row.supplier.id,
+            unitCost: row.unitCost,
+            isPrimary: true,
+            isActive: true,
+          },
+        },
+      },
+    });
+    itemsBySku[row.sku] = item;
+  }
+
+  // ── Sample purchase order + receipt (received into the warehouse) ──────────────
+  console.log("  Creating a sample purchase order...");
+  const capItem = itemsBySku["CAP-45-5"];
+  const samplePO = await prisma.purchaseOrder.create({
+    data: {
+      poNumber: "PO-1001",
+      supplierId: coolParts.id,
+      status: "received",
+      shipToLocationId: mainWarehouse.id,
+      orderDate: new Date(),
+      receivedDate: new Date(),
+      subtotal: 180,
+      totalAmount: 180,
+      lines: {
+        create: {
+          inventoryItemId: capItem.id,
+          lineType: "inventory",
+          lineNumber: 1,
+          description: "Dual Run Capacitor 45/5 MFD",
+          quantity: 10,
+          unitPrice: 18,
+          totalPrice: 180,
+          receivedQuantity: 10,
+        },
+      },
+    },
+    include: { lines: true },
+  });
+  await prisma.pOLineReceipt.create({
+    data: {
+      poLineId: samplePO.lines[0].id,
+      receiptNumber: "RCPT-1001",
+      quantityReceived: 10,
+      unitCost: 18,
+      totalCost: 180,
+      stockLocationId: mainWarehouse.id,
+      status: "active",
+      documentNumber: "PACK-55021",
+    },
+  });
+
+  // ── Sample serialized unit (a Nest thermostat on hand in the warehouse) ────────
+  const nest = itemsBySku["NEST-3G-CHAR"];
+  await prisma.serializedUnit.create({
+    data: {
+      serialNumber: "NEST3G-000117",
+      inventoryItemId: nest.id,
+      status: "in_stock",
+      stockLocationId: mainWarehouse.id,
+      purchaseCost: 179,
+      warrantyMonths: 24,
+    },
+  });
 
   // ── Service Agreements ────────────────────────────────────────────────────────
   console.log("  Creating service agreements...");

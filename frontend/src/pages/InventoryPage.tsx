@@ -1,18 +1,23 @@
 import { useState, lazy, Suspense } from "react";
-import { useForm } from "react-hook-form";
 import {
   ExclamationTriangleIcon,
   AdjustmentsHorizontalIcon,
+  ArrowsRightLeftIcon,
   ClockIcon,
   PhotoIcon,
   QrCodeIcon,
+  PlusIcon,
+  PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import toast from "react-hot-toast";
 import {
   useInventoryItems,
+  useStockLocations,
   useAdjustInventory,
+  useTransferInventory,
   useInventoryTransactions,
+  useSaveInventoryItem,
 } from "../hooks/useInventory";
 import Button from "../components/ui/Button";
 import IconButton from "../components/ui/IconButton";
@@ -21,100 +26,99 @@ import AttachmentGallery from "../components/ui/AttachmentGallery";
 import EmptyState from "../components/ui/EmptyState";
 import DataTable, { Column, SortState } from "../components/ui/DataTable";
 import { TableSkeleton } from "../components/ui/Skeleton";
+import { Can } from "../components/ui/Can";
 import { formatCurrency, formatDateTime } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
-import { InventoryItem } from "../types";
+import type { InventoryItem } from "../types";
 
-// Lazy-loaded so the ~400KB @zxing barcode library only downloads when a user
-// actually opens the scanner, keeping the Inventory route chunk small.
 const BarcodeScanner = lazy(() => import("../components/ui/BarcodeScanner"));
 
-interface AdjustForm {
-  type: "add" | "remove" | "adjust";
-  quantity: number;
-  notes?: string;
-}
+const num = (v: unknown) => Number(v ?? 0);
 
 export default function InventoryPage() {
-  const { data: items, isLoading } = useInventoryItems();
+  const [search, setSearch] = useState("");
+  const { data: items, isLoading } = useInventoryItems(
+    search ? { search } : {},
+  );
+  const { data: locations } = useStockLocations({ active: "true" });
   const adjustMutation = useAdjustInventory();
+  const transferMutation = useTransferInventory();
+  const saveItem = useSaveInventoryItem();
 
   const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
+  const [transferItem, setTransferItem] = useState<InventoryItem | null>(null);
   const [txItem, setTxItem] = useState<InventoryItem | null>(null);
   const [photoItem, setPhotoItem] = useState<InventoryItem | null>(null);
+  const [formItem, setFormItem] = useState<Partial<InventoryItem> | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [sort, setSort] = useState<SortState | null>(null);
+
+  const { getLabel: getTxTypeLabel } = useLookup("inventoryTransactionType");
+  const { data: transactions } = useInventoryTransactions(txItem?.id ?? "");
+
+  const activeLocations = locations ?? [];
+  const lowStockItems = (items ?? []).filter((i) => i.isLowStock);
 
   // Scanned barcode -> match an item by SKU and open its adjust dialog.
   const handleScan = (code: string) => {
     const term = code.trim().toLowerCase();
     const match = (items ?? []).find((i) => i.sku.toLowerCase() === term);
-    if (match) {
-      reset({ type: "add", quantity: 0 });
-      setAdjustItem(match);
-    } else {
-      toast.error(`No inventory item with SKU \u201C${code}\u201D`);
-    }
-  };
-
-  const { register, handleSubmit, reset } = useForm<AdjustForm>({
-    defaultValues: { type: "add", quantity: 0 },
-  });
-  const { getLabel: getTxTypeLabel } = useLookup("inventoryTransactionType");
-
-  const { data: transactions } = useInventoryTransactions(txItem?.id ?? "");
-
-  const lowStockItems = (items ?? []).filter(
-    (i) => i.quantity <= i.reorderPoint,
-  );
-
-  const onAdjust = async (data: AdjustForm) => {
-    if (!adjustItem) return;
-    await adjustMutation.mutateAsync({
-      itemId: adjustItem.id,
-      quantity: data.quantity,
-      type: data.type,
-      notes: data.notes,
-    });
-    setAdjustItem(null);
-    reset({ type: "add", quantity: 0 });
+    if (match) setAdjustItem(match);
+    else toast.error(`No inventory item with SKU \u201C${code}\u201D`);
   };
 
   const columns: Column<InventoryItem>[] = [
     {
       key: "sku",
       header: "SKU",
-      sortValue: (item) => item.sku,
-      exportValue: (item) => item.sku,
-      render: (item) => (
-        <span className="font-mono text-xs text-gray-600">{item.sku}</span>
+      sortValue: (i) => i.sku,
+      exportValue: (i) => i.sku,
+      render: (i) => (
+        <span className="font-mono text-xs text-gray-600">{i.sku}</span>
       ),
     },
     {
       key: "name",
       header: "Name",
-      sortValue: (item) => item.name.toLowerCase(),
-      exportValue: (item) => item.name,
-      render: (item) => (
-        <span className="font-medium text-gray-900">{item.name}</span>
+      sortValue: (i) => i.name.toLowerCase(),
+      exportValue: (i) => i.name,
+      render: (i) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-gray-900">{i.name}</span>
+          {i.isSerialized && (
+            <span className="text-[10px] uppercase tracking-wide bg-indigo-100 text-indigo-700 rounded px-1.5 py-0.5">
+              Serial
+            </span>
+          )}
+        </div>
       ),
     },
     {
-      key: "quantity",
-      header: "Quantity",
+      key: "totalOnHand",
+      header: "On Hand",
       align: "right",
-      sortValue: (item) => item.quantity,
-      exportValue: (item) => item.quantity,
-      render: (item) => (
+      sortValue: (i) => num(i.totalOnHand),
+      exportValue: (i) => num(i.totalOnHand),
+      render: (i) => (
         <span
           className={clsx(
             "font-semibold",
-            item.quantity <= item.reorderPoint
-              ? "text-yellow-700"
-              : "text-gray-900",
+            i.isLowStock ? "text-yellow-700" : "text-gray-900",
           )}
         >
-          {item.quantity}
+          {num(i.totalOnHand)}
+        </span>
+      ),
+    },
+    {
+      key: "locations",
+      header: "Locations",
+      align: "right",
+      sortValue: (i) => i.stock?.length ?? 0,
+      exportValue: (i) => i.stock?.length ?? 0,
+      render: (i) => (
+        <span className="text-gray-500 text-xs">
+          {(i.stock ?? []).filter((s) => num(s.quantityOnHand) > 0).length}
         </span>
       ),
     },
@@ -122,44 +126,52 @@ export default function InventoryPage() {
       key: "reorderPoint",
       header: "Reorder Pt",
       align: "right",
-      sortValue: (item) => item.reorderPoint,
-      exportValue: (item) => item.reorderPoint,
-      render: (item) => (
-        <span className="text-gray-500">{item.reorderPoint}</span>
+      sortValue: (i) => num(i.reorderPoint),
+      exportValue: (i) => num(i.reorderPoint),
+      render: (i) => (
+        <span className="text-gray-500">{num(i.reorderPoint)}</span>
       ),
     },
     {
       key: "unitCost",
-      header: "Unit Cost",
+      header: "Avg Cost",
       align: "right",
-      sortValue: (item) => item.unitCost,
-      exportValue: (item) => item.unitCost,
-      render: (item) => (
-        <span className="text-gray-600">{formatCurrency(item.unitCost)}</span>
-      ),
-    },
-    {
-      key: "location",
-      header: "Location",
-      sortValue: (item) => item.location ?? "",
-      exportValue: (item) => item.location ?? "",
-      render: (item) => (
-        <span className="text-gray-500 text-xs">{item.location ?? "-"}</span>
+      sortValue: (i) => num(i.unitCost),
+      exportValue: (i) => num(i.unitCost),
+      render: (i) => (
+        <span className="text-gray-600">{formatCurrency(num(i.unitCost))}</span>
       ),
     },
   ];
 
   const itemActions = (item: InventoryItem) => (
     <>
-      <IconButton
-        label="Adjust stock"
-        onClick={() => {
-          reset({ type: "add", quantity: 0 });
-          setAdjustItem(item);
-        }}
-      >
-        <AdjustmentsHorizontalIcon className="h-4 w-4" />
-      </IconButton>
+      <Can permission="inventory.manage">
+        <IconButton
+          label="Adjust stock"
+          onClick={() => {
+            setAdjustItem(item);
+          }}
+        >
+          <AdjustmentsHorizontalIcon className="h-4 w-4" />
+        </IconButton>
+        <IconButton
+          label="Transfer"
+          onClick={() => {
+            setTransferItem(item);
+          }}
+        >
+          <ArrowsRightLeftIcon className="h-4 w-4" />
+        </IconButton>
+        <IconButton
+          label="Edit"
+          onClick={() => {
+            setFormItem(item);
+          }}
+        >
+          <PencilSquareIcon className="h-4 w-4" />
+        </IconButton>
+      </Can>
       <IconButton
         label="Photos"
         onClick={() => {
@@ -184,17 +196,41 @@ export default function InventoryPage() {
   return (
     <div className="space-y-5">
       {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">{items?.length ?? 0} items</p>
-        <Button
-          size="sm"
-          icon={<QrCodeIcon className="h-4 w-4" />}
-          onClick={() => {
-            setScannerOpen(true);
-          }}
-        >
-          Scan
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+            }}
+            placeholder="Search SKU or name..."
+            className="px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-64"
+          />
+          <p className="text-sm text-gray-500">{items?.length ?? 0} items</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            icon={<QrCodeIcon className="h-4 w-4" />}
+            onClick={() => {
+              setScannerOpen(true);
+            }}
+          >
+            Scan
+          </Button>
+          <Can permission="inventory.manage">
+            <Button
+              size="sm"
+              icon={<PlusIcon className="h-4 w-4" />}
+              onClick={() => {
+                setFormItem({});
+              }}
+            >
+              New Item
+            </Button>
+          </Can>
+        </div>
       </div>
 
       {/* Low stock alert */}
@@ -220,39 +256,33 @@ export default function InventoryPage() {
           <DataTable<InventoryItem>
             columns={columns}
             rows={items}
-            getRowId={(item) => item.id}
+            getRowId={(i) => i.id}
             sort={sort}
             onSortChange={setSort}
             csvFilename="inventory"
             rowActions={itemActions}
-            rowClassName={(item) =>
-              item.quantity <= item.reorderPoint &&
-              "bg-yellow-50 hover:bg-yellow-100"
+            rowClassName={(i) =>
+              i.isLowStock ? "bg-yellow-50 hover:bg-yellow-100" : undefined
             }
-            renderMobileCard={(item) => (
+            renderMobileCard={(i) => (
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium text-gray-900 truncate">
-                    {item.name}
-                  </p>
+                  <p className="font-medium text-gray-900 truncate">{i.name}</p>
                   <span
                     className={clsx(
                       "font-semibold text-sm shrink-0",
-                      item.quantity <= item.reorderPoint
-                        ? "text-yellow-700"
-                        : "text-gray-900",
+                      i.isLowStock ? "text-yellow-700" : "text-gray-900",
                     )}
                   >
-                    {item.quantity} on hand
+                    {num(i.totalOnHand)} on hand
                   </span>
                 </div>
                 <p className="font-mono text-xs text-gray-500 mt-0.5">
-                  {item.sku}
+                  {i.sku}
                 </p>
                 <div className="mt-0.5 text-xs text-gray-500">
-                  Reorder at {item.reorderPoint} ·{" "}
-                  {formatCurrency(item.unitCost)}
-                  {item.location ? ` · ${item.location}` : ""}
+                  Reorder at {num(i.reorderPoint)} ·{" "}
+                  {formatCurrency(num(i.unitCost))} avg
                 </div>
               </div>
             )}
@@ -260,112 +290,109 @@ export default function InventoryPage() {
         )}
       </div>
 
-      {/* Adjust Modal */}
-      <Modal
-        isOpen={!!adjustItem}
+      {/* Adjust modal */}
+      <AdjustModal
+        item={adjustItem}
+        locations={activeLocations}
+        pending={adjustMutation.isPending}
         onClose={() => {
           setAdjustItem(null);
         }}
-        title={`Adjust: ${adjustItem?.name ?? ""}`}
-      >
-        <form
-          onSubmit={(e) => void handleSubmit(onAdjust)(e)}
-          className="space-y-4"
-        >
-          <p className="text-sm text-gray-500">
-            Current quantity:{" "}
-            <span className="font-semibold text-gray-900">
-              {adjustItem?.quantity}
-            </span>
-          </p>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Adjustment Type
-            </label>
-            <select
-              {...register("type")}
-              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
-            >
-              <option value="add">Add Stock (+)</option>
-              <option value="remove">Remove Stock (-)</option>
-              <option value="adjust">Set Exact Quantity</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Quantity
-            </label>
-            <input
-              type="number"
-              {...register("quantity", { valueAsNumber: true })}
-              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Notes
-            </label>
-            <textarea
-              {...register("notes")}
-              rows={2}
-              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
-            />
-          </div>
-          <div className="flex justify-end gap-3">
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() => {
-                setAdjustItem(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" loading={adjustMutation.isPending}>
-              Apply Adjustment
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onSubmit={async (payload) => {
+          if (!adjustItem) return;
+          await adjustMutation.mutateAsync({
+            itemId: adjustItem.id,
+            ...payload,
+          });
+          setAdjustItem(null);
+        }}
+      />
 
-      {/* Transactions Modal */}
+      {/* Transfer modal */}
+      <TransferModal
+        item={transferItem}
+        locations={activeLocations}
+        pending={transferMutation.isPending}
+        onClose={() => {
+          setTransferItem(null);
+        }}
+        onSubmit={async (payload) => {
+          if (!transferItem) return;
+          await transferMutation.mutateAsync({
+            itemId: transferItem.id,
+            ...payload,
+          });
+          setTransferItem(null);
+        }}
+      />
+
+      {/* Item create/edit modal */}
+      <ItemFormModal
+        item={formItem}
+        pending={saveItem.isPending}
+        onClose={() => {
+          setFormItem(null);
+        }}
+        onSubmit={async (payload) => {
+          await saveItem.mutateAsync(payload);
+          setFormItem(null);
+        }}
+      />
+
+      {/* Transactions modal */}
       <Modal
         isOpen={!!txItem}
         onClose={() => {
           setTxItem(null);
         }}
-        title={`Transactions: ${txItem?.name ?? ""}`}
+        title={`Stock activity: ${txItem?.name ?? ""}`}
         size="lg"
       >
+        {/* Per-location breakdown */}
+        {txItem?.stock && txItem.stock.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-2">
+            {txItem.stock.map((s) => (
+              <span
+                key={s.id}
+                className="text-xs bg-gray-100 rounded-lg px-2.5 py-1 text-gray-700"
+              >
+                {s.stockLocation?.code ?? "?"}:{" "}
+                <span className="font-semibold">{num(s.quantityOnHand)}</span>
+              </span>
+            ))}
+          </div>
+        )}
         {transactions && transactions.length > 0 ? (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left py-2 font-medium text-gray-500 text-xs">
-                  DATE
-                </th>
-                <th className="text-left py-2 font-medium text-gray-500 text-xs">
-                  TYPE
-                </th>
-                <th className="text-right py-2 font-medium text-gray-500 text-xs">
-                  QTY
-                </th>
-                <th className="text-left py-2 font-medium text-gray-500 text-xs">
-                  NOTES
-                </th>
+              <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+                <th className="py-2 font-medium">DATE</th>
+                <th className="py-2 font-medium">TYPE</th>
+                <th className="py-2 font-medium">LOCATION</th>
+                <th className="py-2 font-medium text-right">QTY</th>
+                <th className="py-2 font-medium">NOTES</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {transactions.map((tx) => (
                 <tr key={tx.id}>
                   <td className="py-2.5 text-gray-700">
-                    {formatDateTime(tx.createdAt)}
+                    {formatDateTime(tx.transactionDate)}
                   </td>
                   <td className="py-2.5 text-gray-700">
                     {getTxTypeLabel(tx.type)}
                   </td>
-                  <td className="py-2.5 text-right font-medium">
-                    {tx.quantity}
+                  <td className="py-2.5 text-gray-500 text-xs">
+                    {tx.stockLocation?.code ?? "-"}
+                  </td>
+                  <td
+                    className={clsx(
+                      "py-2.5 text-right font-medium",
+                      num(tx.quantity) < 0 ? "text-red-600" : "text-green-700",
+                    )}
+                  >
+                    {num(tx.quantity) > 0 ? "+" : ""}
+                    {num(tx.quantity)}
                   </td>
                   <td className="py-2.5 text-gray-500">{tx.notes ?? "-"}</td>
                 </tr>
@@ -379,7 +406,7 @@ export default function InventoryPage() {
         )}
       </Modal>
 
-      {/* Photos Modal */}
+      {/* Photos modal */}
       <Modal
         isOpen={!!photoItem}
         onClose={() => {
@@ -393,8 +420,6 @@ export default function InventoryPage() {
         )}
       </Modal>
 
-      {/* Mounted only while open so its heavy camera library is fetched on
-          demand rather than bundled into the Inventory route chunk. */}
       {scannerOpen && (
         <Suspense fallback={null}>
           <BarcodeScanner
@@ -406,6 +431,416 @@ export default function InventoryPage() {
           />
         </Suspense>
       )}
+    </div>
+  );
+}
+
+// ─── Adjust modal ────────────────────────────────────────────────────────────
+
+interface LocationOpt {
+  id: string;
+  name: string;
+  code: string;
+}
+
+function AdjustModal({
+  item,
+  locations,
+  pending,
+  onClose,
+  onSubmit,
+}: {
+  item: InventoryItem | null;
+  locations: LocationOpt[];
+  pending: boolean;
+  onClose: () => void;
+  onSubmit: (p: {
+    stockLocationId: string;
+    quantity: number;
+    type: "add" | "remove" | "set";
+    notes?: string;
+  }) => Promise<void>;
+}) {
+  const [stockLocationId, setStockLocationId] = useState("");
+  const [type, setType] = useState<"add" | "remove" | "set">("add");
+  const [quantity, setQuantity] = useState(0);
+  const [notes, setNotes] = useState("");
+
+  const current =
+    item?.stock?.find((s) => s.stockLocationId === stockLocationId)
+      ?.quantityOnHand ?? 0;
+
+  return (
+    <Modal
+      isOpen={!!item}
+      onClose={onClose}
+      title={`Adjust stock: ${item?.name ?? ""}`}
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!stockLocationId) {
+            toast.error("Select a location");
+            return;
+          }
+          void onSubmit({ stockLocationId, quantity, type, notes });
+        }}
+        className="space-y-4"
+      >
+        <Field label="Location">
+          <select
+            value={stockLocationId}
+            onChange={(e) => {
+              setStockLocationId(e.target.value);
+            }}
+            className={INPUT}
+          >
+            <option value="">Select location...</option>
+            {locations.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name} ({l.code})
+              </option>
+            ))}
+          </select>
+        </Field>
+        {stockLocationId && (
+          <p className="text-sm text-gray-500">
+            Current at location:{" "}
+            <span className="font-semibold text-gray-900">{num(current)}</span>
+          </p>
+        )}
+        <Field label="Adjustment type">
+          <select
+            value={type}
+            onChange={(e) => {
+              setType(e.target.value as "add" | "remove" | "set");
+            }}
+            className={INPUT}
+          >
+            <option value="add">Add stock (+)</option>
+            <option value="remove">Remove stock (-)</option>
+            <option value="set">Set exact quantity</option>
+          </select>
+        </Field>
+        <Field label="Quantity">
+          <input
+            type="number"
+            step="any"
+            value={quantity}
+            onChange={(e) => {
+              setQuantity(Number(e.target.value));
+            }}
+            className={INPUT}
+          />
+        </Field>
+        <Field label="Notes">
+          <textarea
+            value={notes}
+            onChange={(e) => {
+              setNotes(e.target.value);
+            }}
+            rows={2}
+            className={clsx(INPUT, "resize-none")}
+          />
+        </Field>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={pending}>
+            Apply
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Transfer modal ──────────────────────────────────────────────────────────
+
+function TransferModal({
+  item,
+  locations,
+  pending,
+  onClose,
+  onSubmit,
+}: {
+  item: InventoryItem | null;
+  locations: LocationOpt[];
+  pending: boolean;
+  onClose: () => void;
+  onSubmit: (p: {
+    fromLocationId: string;
+    toLocationId: string;
+    quantity: number;
+    notes?: string;
+  }) => Promise<void>;
+}) {
+  const [fromLocationId, setFrom] = useState("");
+  const [toLocationId, setTo] = useState("");
+  const [quantity, setQuantity] = useState(0);
+  const [notes, setNotes] = useState("");
+
+  const available =
+    item?.stock?.find((s) => s.stockLocationId === fromLocationId)
+      ?.quantityOnHand ?? 0;
+
+  return (
+    <Modal
+      isOpen={!!item}
+      onClose={onClose}
+      title={`Transfer: ${item?.name ?? ""}`}
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!fromLocationId || !toLocationId) {
+            toast.error("Select both locations");
+            return;
+          }
+          if (fromLocationId === toLocationId) {
+            toast.error("Source and destination must differ");
+            return;
+          }
+          void onSubmit({ fromLocationId, toLocationId, quantity, notes });
+        }}
+        className="space-y-4"
+      >
+        <Field label="From">
+          <select
+            value={fromLocationId}
+            onChange={(e) => {
+              setFrom(e.target.value);
+            }}
+            className={INPUT}
+          >
+            <option value="">Select source...</option>
+            {locations.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name} ({l.code})
+              </option>
+            ))}
+          </select>
+        </Field>
+        {fromLocationId && (
+          <p className="text-sm text-gray-500">
+            Available:{" "}
+            <span className="font-semibold text-gray-900">
+              {num(available)}
+            </span>
+          </p>
+        )}
+        <Field label="To">
+          <select
+            value={toLocationId}
+            onChange={(e) => {
+              setTo(e.target.value);
+            }}
+            className={INPUT}
+          >
+            <option value="">Select destination...</option>
+            {locations
+              .filter((l) => l.id !== fromLocationId)
+              .map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name} ({l.code})
+                </option>
+              ))}
+          </select>
+        </Field>
+        <Field label="Quantity">
+          <input
+            type="number"
+            step="any"
+            value={quantity}
+            onChange={(e) => {
+              setQuantity(Number(e.target.value));
+            }}
+            className={INPUT}
+          />
+        </Field>
+        <Field label="Notes">
+          <textarea
+            value={notes}
+            onChange={(e) => {
+              setNotes(e.target.value);
+            }}
+            rows={2}
+            className={clsx(INPUT, "resize-none")}
+          />
+        </Field>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={pending}>
+            Transfer
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Item create/edit modal ──────────────────────────────────────────────────
+
+function ItemFormModal({
+  item,
+  pending,
+  onClose,
+  onSubmit,
+}: {
+  item: Partial<InventoryItem> | null;
+  pending: boolean;
+  onClose: () => void;
+  onSubmit: (p: Partial<InventoryItem> & { id?: string }) => Promise<void>;
+}) {
+  const editing = !!item?.id;
+  const [sku, setSku] = useState("");
+  const [name, setName] = useState("");
+  const [unit, setUnit] = useState("each");
+  const [reorderPoint, setReorderPoint] = useState(0);
+  const [reorderQuantity, setReorderQuantity] = useState(0);
+  const [isSerialized, setIsSerialized] = useState(false);
+
+  // Sync fields whenever a new item is opened.
+  const [loadedId, setLoadedId] = useState<string | undefined>(undefined);
+  if (item && loadedId !== (item.id ?? "new")) {
+    setLoadedId(item.id ?? "new");
+    setSku(item.sku ?? "");
+    setName(item.name ?? "");
+    setUnit(item.unit ?? "each");
+    setReorderPoint(num(item.reorderPoint));
+    setReorderQuantity(num(item.reorderQuantity));
+    setIsSerialized(item.isSerialized ?? false);
+  }
+
+  if (!item) return null;
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={editing ? `Edit item: ${item.name ?? ""}` : "New inventory item"}
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void onSubmit({
+            ...(editing ? { id: item.id } : {}),
+            sku,
+            name,
+            unit,
+            reorderPoint,
+            reorderQuantity,
+            isSerialized,
+          });
+        }}
+        className="space-y-4"
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="SKU">
+            <input
+              value={sku}
+              onChange={(e) => {
+                setSku(e.target.value);
+              }}
+              required
+              className={INPUT}
+            />
+          </Field>
+          <Field label="Unit">
+            <input
+              value={unit}
+              onChange={(e) => {
+                setUnit(e.target.value);
+              }}
+              className={INPUT}
+            />
+          </Field>
+        </div>
+        <Field label="Name">
+          <input
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+            }}
+            required
+            className={INPUT}
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Reorder point">
+            <input
+              type="number"
+              step="any"
+              value={reorderPoint}
+              onChange={(e) => {
+                setReorderPoint(Number(e.target.value));
+              }}
+              className={INPUT}
+            />
+          </Field>
+          <Field label="Reorder qty">
+            <input
+              type="number"
+              step="any"
+              value={reorderQuantity}
+              onChange={(e) => {
+                setReorderQuantity(Number(e.target.value));
+              }}
+              className={INPUT}
+            />
+          </Field>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={isSerialized}
+            onChange={(e) => {
+              setIsSerialized(e.target.checked);
+            }}
+            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+          Track individual serial numbers
+        </label>
+        {!editing && (
+          <p className="text-xs text-gray-400">
+            Average cost is set automatically when goods are received against a
+            purchase order.
+          </p>
+        )}
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={pending}>
+            {editing ? "Save" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Small shared bits ───────────────────────────────────────────────────────
+
+const INPUT =
+  "w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white";
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+        {label}
+      </label>
+      {children}
     </div>
   );
 }

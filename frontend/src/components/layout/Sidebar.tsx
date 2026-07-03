@@ -14,6 +14,9 @@ import {
   WrenchScrewdriverIcon,
   BookOpenIcon,
   ArchiveBoxIcon,
+  TruckIcon,
+  ShoppingCartIcon,
+  QrCodeIcon,
   // CpuChipIcon, // Equipment tab hidden for now
   ClipboardDocumentCheckIcon,
   MegaphoneIcon,
@@ -56,6 +59,23 @@ const navItems = [
   { to: "/technicians", label: "Technicians", icon: WrenchScrewdriverIcon },
   { to: "/pricebook", label: "Pricebook", icon: BookOpenIcon },
   { to: "/inventory", label: "Inventory", icon: ArchiveBoxIcon },
+  {
+    to: "/purchasing",
+    label: "Purchase Orders",
+    icon: ShoppingCartIcon,
+    perm: ["purchasing.manage", "purchasing.receive"],
+  },
+  {
+    to: "/suppliers",
+    label: "Suppliers",
+    icon: TruckIcon,
+    perm: ["suppliers.manage"],
+  },
+  {
+    to: "/serials",
+    label: "Serialized Units",
+    icon: QrCodeIcon,
+  },
   // Equipment tab hidden for now (route/page kept intact):
   // { to: "/equipment", label: "Equipment", icon: CpuChipIcon },
   { to: "/agreements", label: "Agreements", icon: ClipboardDocumentCheckIcon },

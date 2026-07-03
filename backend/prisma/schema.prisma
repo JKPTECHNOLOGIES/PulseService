@@ -59,6 +59,8 @@ model Customer {
   serviceAgreements ServiceAgreement[]
   payments          Payment[]
   equipment         Equipment[]
+  purchaseOrders    PurchaseOrder[]
+  serializedUnits   SerializedUnit[]
 }
 
 model Contact {
@@ -94,9 +96,10 @@ model Location {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  customer  Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  jobs      Job[]
-  equipment Equipment[]
+  customer      Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  jobs          Job[]
+  equipment     Equipment[]
+  installedUnits SerializedUnit[]
 }
 
 model Technician {
@@ -132,7 +135,8 @@ model Vehicle {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  technicians Technician[]
+  technicians   Technician[]
+  stockLocation StockLocation?
 }
 
 model Job {
@@ -169,13 +173,16 @@ model Job {
   customer    Customer        @relation(fields: [customerId], references: [id])
   location    Location?       @relation(fields: [locationId], references: [id])
   createdBy   User            @relation("JobCreatedBy", fields: [createdById], references: [id])
-  technicians JobTechnician[]
-  estimates   Estimate[]
-  invoices    Invoice[]
-  equipment   Equipment[]
-  forms       JobForm[]
-  timeEntries TimeEntry[]
-  call        Call?           @relation(fields: [callId], references: [id])
+  technicians          JobTechnician[]
+  estimates            Estimate[]
+  invoices             Invoice[]
+  equipment            Equipment[]
+  forms                JobForm[]
+  timeEntries          TimeEntry[]
+  call                 Call?           @relation(fields: [callId], references: [id])
+  purchaseOrders       PurchaseOrder[]
+  inventoryTransactions InventoryTransaction[]
+  serializedUnits      SerializedUnit[]
 }
 
 model JobTechnician {
@@ -321,9 +328,10 @@ model PricebookCategory {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  parent   PricebookCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children PricebookCategory[] @relation("CategoryHierarchy")
-  items    PricebookItem[]
+  parent         PricebookCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children       PricebookCategory[] @relation("CategoryHierarchy")
+  items          PricebookItem[]
+  inventoryItems InventoryItem[]
 }
 
 model PricebookItem {
@@ -348,47 +356,317 @@ model PricebookItem {
   inventoryItems InventoryItem[]
 }
 
-model Warehouse {
+// ─── Inventory & Purchasing ──────────────────────────────────────────────────
+// Multi-location model: stock lives in InventoryStock keyed by (item, location).
+// A StockLocation is either the main warehouse or a truck (a Vehicle assigned to
+// a technician). Costing is perpetual weighted-average, recomputed at receipt.
+
+model Supplier {
+  id             String   @id @default(uuid())
+  supplierNumber String   @unique
+  name           String
+  contactName    String?
+  email          String?
+  phone          String?
+  website        String?
+  address1       String?
+  address2       String?
+  city           String?
+  state          String?
+  zip            String?
+  country        String?  @default("USA")
+  paymentTerms   String?
+  taxId          String?
+  notes          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  items           InventoryItemSupplier[]
+  purchaseOrders  PurchaseOrder[]
+  defaultForItems InventoryItem[]         @relation("ItemDefaultSupplier")
+}
+
+model StockLocation {
   id        String   @id @default(uuid())
-  name      String
+  name      String   @unique
+  code      String   @unique
+  type      String   @default("warehouse") // lookup: stockLocationType
+  vehicleId String?  @unique // set when type = truck
   address   String?
+  isDefault Boolean  @default(false) // the main warehouse
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  items InventoryItem[]
+  vehicle         Vehicle?               @relation(fields: [vehicleId], references: [id])
+  stock           InventoryStock[]
+  transactions    InventoryTransaction[]
+  receipts        POLineReceipt[]
+  shipToPOs       PurchaseOrder[]        @relation("PO_ShipTo")
+  serializedUnits SerializedUnit[]
+
+  @@index([type])
+  @@index([code])
 }
 
 model InventoryItem {
-  id              String   @id @default(uuid())
-  warehouseId     String
-  pricebookItemId String?
-  name            String
-  sku             String?
-  quantity        Float    @default(0)
-  reorderPoint    Float    @default(0)
-  reorderQuantity Float    @default(0)
-  unitCost        Float    @default(0)
-  location        String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String   @id @default(uuid())
+  sku               String   @unique
+  name              String
+  description       String?
+  pricebookItemId   String?
+  categoryId        String?
+  unit              String   @default("each")
+  unitCost          Decimal  @default(0) @db.Decimal(12, 4) // perpetual weighted-average cost
+  defaultSupplierId String?
+  minQuantity       Decimal  @default(0) @db.Decimal(12, 2)
+  maxQuantity       Decimal  @default(0) @db.Decimal(12, 2)
+  reorderPoint      Decimal  @default(0) @db.Decimal(12, 2)
+  reorderQuantity   Decimal  @default(0) @db.Decimal(12, 2)
+  leadTimeDays      Int?
+  isSerialized      Boolean  @default(false)
+  isStockItem       Boolean  @default(true)
+  isActive          Boolean  @default(true)
+  isArchived        Boolean  @default(false)
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  warehouse     Warehouse      @relation(fields: [warehouseId], references: [id])
-  pricebookItem PricebookItem? @relation(fields: [pricebookItemId], references: [id])
-  transactions  InventoryTransaction[]
+  pricebookItem   PricebookItem?             @relation(fields: [pricebookItemId], references: [id])
+  category        PricebookCategory?         @relation(fields: [categoryId], references: [id])
+  defaultSupplier Supplier?                  @relation("ItemDefaultSupplier", fields: [defaultSupplierId], references: [id])
+  stock           InventoryStock[]
+  transactions    InventoryTransaction[]
+  suppliers       InventoryItemSupplier[]
+  poLines         POLine[]
+  serializedUnits SerializedUnit[]
+  costHistory     InventoryItemCostHistory[]
+
+  @@index([sku])
+  @@index([isActive, isArchived])
+  @@index([defaultSupplierId])
+}
+
+model InventoryStock {
+  id               String    @id @default(uuid())
+  inventoryItemId  String
+  stockLocationId  String
+  quantityOnHand   Decimal   @default(0) @db.Decimal(12, 2)
+  quantityReserved Decimal   @default(0) @db.Decimal(12, 2)
+  lastCountDate    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  stockLocation StockLocation @relation(fields: [stockLocationId], references: [id])
+
+  @@unique([inventoryItemId, stockLocationId])
+  @@index([stockLocationId])
+}
+
+model InventoryItemSupplier {
+  id              String    @id @default(uuid())
+  inventoryItemId String
+  supplierId      String
+  supplierSku     String?
+  unitCost        Decimal   @db.Decimal(12, 4)
+  leadTimeDays    Int?
+  minimumOrderQty Decimal?  @db.Decimal(12, 2)
+  isPrimary       Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  lastOrderDate   DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  supplier      Supplier      @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([inventoryItemId, supplierId])
+  @@index([supplierId])
+}
+
+model InventoryItemCostHistory {
+  id              String   @id @default(uuid())
+  inventoryItemId String
+  oldUnitCost     Decimal  @db.Decimal(12, 4)
+  newUnitCost     Decimal  @db.Decimal(12, 4)
+  changeSource    String   // lookup: costChangeSource
+  quantityOnHand  Decimal? @db.Decimal(12, 2)
+  receiptQuantity Decimal? @db.Decimal(12, 2)
+  receiptUnitCost Decimal? @db.Decimal(12, 4)
+  supplierId      String?
+  referenceType   String?
+  referenceId     String?
+  notes           String?
+  performedBy     String?
+  createdAt       DateTime @default(now())
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  @@index([inventoryItemId, createdAt])
 }
 
 model InventoryTransaction {
-  id        String   @id @default(uuid())
-  itemId    String
-  type      String
-  quantity  Float
-  unitCost  Float?
-  reference String?
-  jobId     String?
-  notes     String?
-  createdAt DateTime @default(now())
+  id              String   @id @default(uuid())
+  inventoryItemId String
+  stockLocationId String
+  type            String   // lookup: inventoryTransactionType
+  quantity        Decimal  @db.Decimal(12, 2)
+  unitCost        Decimal? @db.Decimal(12, 4)
+  quantityBefore  Decimal? @db.Decimal(12, 2)
+  quantityAfter   Decimal? @db.Decimal(12, 2)
+  referenceType   String?
+  referenceId     String?
+  referenceNumber String?
+  jobId           String?
+  notes           String?
+  performedBy     String?  // userId (audit-style, no hard FK)
+  transactionDate DateTime @default(now())
+  createdAt       DateTime @default(now())
 
-  item InventoryItem @relation(fields: [itemId], references: [id])
+  // reversal linkage — transactions are append-only and reversed, never deleted
+  isReversed     Boolean   @default(false)
+  reversalOfId   String?   @unique
+  reversalReason String?
+  reversedAt     DateTime?
+
+  inventoryItem InventoryItem         @relation(fields: [inventoryItemId], references: [id])
+  stockLocation StockLocation         @relation(fields: [stockLocationId], references: [id])
+  job           Job?                  @relation(fields: [jobId], references: [id])
+  reversalOf    InventoryTransaction? @relation("TxnReversal", fields: [reversalOfId], references: [id])
+  reversal      InventoryTransaction? @relation("TxnReversal")
+
+  @@index([inventoryItemId, transactionDate])
+  @@index([referenceType, referenceId])
+  @@index([stockLocationId])
+  @@index([type])
+}
+
+model PurchaseOrder {
+  id               String    @id @default(uuid())
+  poNumber         String    @unique
+  supplierId       String
+  status           String    @default("draft") // lookup: poStatus
+  shipToLocationId String?
+  jobId            String?
+  customerId       String?
+  orderDate        DateTime  @default(now())
+  expectedDate     DateTime?
+  receivedDate     DateTime?
+  sentAt           DateTime?
+  approvedAt       DateTime?
+  closedAt         DateTime?
+  subtotal         Decimal   @default(0) @db.Decimal(14, 4)
+  taxAmount        Decimal   @default(0) @db.Decimal(14, 4)
+  shippingCost     Decimal   @default(0) @db.Decimal(14, 4)
+  totalAmount      Decimal   @default(0) @db.Decimal(14, 4)
+  deliveryTerms    String?
+  notes            String?
+  cancelledReason  String?
+  cancelledAt      DateTime?
+  createdById      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  supplier       Supplier       @relation(fields: [supplierId], references: [id])
+  shipToLocation StockLocation? @relation("PO_ShipTo", fields: [shipToLocationId], references: [id])
+  job            Job?           @relation(fields: [jobId], references: [id])
+  customer       Customer?      @relation(fields: [customerId], references: [id])
+  lines          POLine[]
+
+  @@index([status, orderDate])
+  @@index([supplierId])
+  @@index([jobId])
+}
+
+model POLine {
+  id               String    @id @default(uuid())
+  purchaseOrderId  String
+  inventoryItemId  String?
+  lineType         String    @default("inventory") // lookup: poLineType
+  lineNumber       Int       @default(0)
+  description      String
+  quantity         Decimal   @db.Decimal(12, 2)
+  unitPrice        Decimal   @db.Decimal(14, 4)
+  totalPrice       Decimal   @db.Decimal(14, 4)
+  receivedQuantity Decimal   @default(0) @db.Decimal(12, 2) // denormalized cache; self-healed from receipts
+  lineStatus       String    @default("open") // lookup: poLineStatus
+  deliveryDate     DateTime?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  purchaseOrder PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+  receipts      POLineReceipt[]
+
+  @@index([purchaseOrderId])
+  @@index([inventoryItemId])
+}
+
+model POLineReceipt {
+  id                String   @id @default(uuid())
+  poLineId          String
+  receiptNumber     String   @unique
+  quantityReceived  Decimal  @db.Decimal(12, 2)
+  unitCost          Decimal  @db.Decimal(14, 4)
+  totalCost         Decimal  @db.Decimal(14, 4)
+  stockLocationId   String   // the truck/warehouse the goods were received into
+  receivedById      String?
+  receivedAt        DateTime @default(now())
+  status            String   @default("active") // lookup: receiptStatus
+  documentNumber    String?  // packing slip / receiving doc
+  serialNumbers     String[] @default([])
+  lotNumber         String?
+  notes             String?
+  isReturn          Boolean  @default(false)
+  originalReceiptId String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  poLine          POLine           @relation(fields: [poLineId], references: [id], onDelete: Cascade)
+  stockLocation   StockLocation    @relation(fields: [stockLocationId], references: [id])
+  originalReceipt POLineReceipt?   @relation("ReceiptReturns", fields: [originalReceiptId], references: [id])
+  returnReceipts  POLineReceipt[]  @relation("ReceiptReturns")
+  serializedUnits SerializedUnit[]
+
+  @@index([poLineId])
+  @@index([stockLocationId])
+}
+
+model SerializedUnit {
+  id                  String    @id @default(uuid())
+  serialNumber        String
+  inventoryItemId     String
+  status              String    @default("in_stock") // lookup: serializedUnitStatus
+  stockLocationId     String?
+  sourceReceiptId     String?
+  purchaseCost        Decimal?  @db.Decimal(14, 4)
+  installedCustomerId String?
+  installedLocationId String?
+  installedJobId      String?
+  equipmentId         String?   @unique
+  installedAt         DateTime?
+  warrantyMonths      Int?
+  warrantyExpiresAt   DateTime?
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  inventoryItem     InventoryItem  @relation(fields: [inventoryItemId], references: [id])
+  stockLocation     StockLocation? @relation(fields: [stockLocationId], references: [id])
+  sourceReceipt     POLineReceipt? @relation(fields: [sourceReceiptId], references: [id])
+  installedCustomer Customer?      @relation(fields: [installedCustomerId], references: [id])
+  installedLocation Location?      @relation(fields: [installedLocationId], references: [id])
+  installedJob      Job?           @relation(fields: [installedJobId], references: [id])
+  equipment         Equipment?     @relation(fields: [equipmentId], references: [id])
+
+  @@unique([inventoryItemId, serialNumber])
+  @@index([status])
+  @@index([stockLocationId])
+  @@index([equipmentId])
 }
 
 model ServiceAgreement {
@@ -442,9 +720,10 @@ model Equipment {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  customer Customer? @relation(fields: [customerId], references: [id])
-  location Location? @relation(fields: [locationId], references: [id])
-  job      Job?      @relation(fields: [jobId], references: [id])
+  customer       Customer?       @relation(fields: [customerId], references: [id])
+  location       Location?       @relation(fields: [locationId], references: [id])
+  job            Job?            @relation(fields: [jobId], references: [id])
+  serializedUnit SerializedUnit?
 }
 
 model Call {
@@ -542,10 +821,16 @@ model CompanySettings {
   invoicePrefix      String   @default("INV")
   estimatePrefix     String   @default("EST")
   customerPrefix     String   @default("CUST")
+  supplierPrefix     String   @default("SUP")
+  poPrefix           String   @default("PO")
+  receiptPrefix      String   @default("RCPT")
   nextJobNumber      Int      @default(1001)
   nextInvoiceNumber  Int      @default(1001)
   nextEstimateNumber Int      @default(1001)
   nextCustomerNumber Int      @default(1001)
+  nextSupplierNumber Int      @default(1001)
+  nextPoNumber       Int      @default(1001)
+  nextReceiptNumber  Int      @default(1001)
   updatedAt          DateTime @updatedAt
 }
 

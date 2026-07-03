@@ -18,11 +18,15 @@ import {
   useClockOut,
 } from "../hooks/useTime";
 import { useLookup } from "../hooks/useMetadata";
+import { useSerializedUnits } from "../hooks/useSerials";
+import { usePurchaseOrders } from "../hooks/usePurchasing";
 import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
 import SignatureCard from "../components/ui/SignatureCard";
+import InstallSerialModal from "../components/ui/InstallSerialModal";
+import { Can } from "../components/ui/Can";
 import { PageSpinner } from "../components/ui/Spinner";
 import { directionsUrl } from "../lib/maps";
 import {
@@ -334,6 +338,8 @@ export default function JobDetailPage() {
               </div>
             </div>
           </div>
+
+          <JobMaterialsCard jobId={job.id} customerId={job.customerId} />
         </div>
 
         {/* Right column */}
@@ -581,6 +587,109 @@ export default function JobDetailPage() {
           </div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+// Materials & equipment used on this job: serialized units installed here plus
+// purchase orders raised for it.
+function JobMaterialsCard({
+  jobId,
+  customerId,
+}: {
+  jobId: string;
+  customerId: string;
+}) {
+  const { data: serials } = useSerializedUnits({ jobId, limit: 50 });
+  const { data: pos } = usePurchaseOrders({ jobId, limit: 50 });
+  const [installOpen, setInstallOpen] = useState(false);
+
+  const units = serials?.data ?? [];
+  const orders = pos?.data ?? [];
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-gray-900">
+          Materials &amp; Equipment
+        </h3>
+        <Can permission="inventory.manage">
+          <button
+            onClick={() => {
+              setInstallOpen(true);
+            }}
+            className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+          >
+            Install unit
+          </button>
+        </Can>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <p className="text-xs font-medium text-gray-500 mb-2">
+            Installed serialized units
+          </p>
+          {units.length > 0 ? (
+            <ul className="space-y-1.5">
+              {units.map((u) => (
+                <li
+                  key={u.id}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <span className="text-gray-700">
+                    {u.inventoryItem?.name ?? "Unit"}{" "}
+                    <span className="font-mono text-xs text-gray-400">
+                      {u.serialNumber}
+                    </span>
+                  </span>
+                  <StatusBadge
+                    status={u.status}
+                    category="serializedUnitStatus"
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-400">No units installed yet</p>
+          )}
+        </div>
+
+        <div>
+          <p className="text-xs font-medium text-gray-500 mb-2">
+            Purchase orders
+          </p>
+          {orders.length > 0 ? (
+            <ul className="space-y-1.5">
+              {orders.map((po) => (
+                <li
+                  key={po.id}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <Link
+                    to={`/purchasing/${po.id}`}
+                    className="font-mono text-xs text-primary-600 hover:text-primary-700"
+                  >
+                    {po.poNumber}
+                  </Link>
+                  <StatusBadge status={po.status} category="poStatus" />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-400">No purchase orders</p>
+          )}
+        </div>
+      </div>
+
+      <InstallSerialModal
+        isOpen={installOpen}
+        defaultCustomerId={customerId}
+        defaultJobId={jobId}
+        onClose={() => {
+          setInstallOpen(false);
+        }}
+      />
     </div>
   );
 }

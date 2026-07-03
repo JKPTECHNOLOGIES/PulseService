@@ -1,4 +1,4 @@
-const prisma = require('../config/database');
+const prisma = require("../config/database");
 
 const get = async (req, res) => {
   try {
@@ -8,8 +8,8 @@ const get = async (req, res) => {
     }
     return res.json({ success: true, data: settings });
   } catch (err) {
-    console.error('settings.get error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("settings.get error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -23,6 +23,9 @@ const update = async (req, res) => {
       nextInvoiceNumber: _nin,
       nextEstimateNumber: _nen,
       nextCustomerNumber: _ncn,
+      nextSupplierNumber: _nsn,
+      nextPoNumber: _npn,
+      nextReceiptNumber: _nrn,
       ...data
     } = req.body;
 
@@ -30,15 +33,18 @@ const update = async (req, res) => {
     let settings;
 
     if (existing) {
-      settings = await prisma.companySettings.update({ where: { id: existing.id }, data });
+      settings = await prisma.companySettings.update({
+        where: { id: existing.id },
+        data,
+      });
     } else {
       settings = await prisma.companySettings.create({ data });
     }
 
     return res.json({ success: true, data: settings });
   } catch (err) {
-    console.error('settings.update error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("settings.update error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -46,12 +52,12 @@ const getBusinessUnits = async (req, res) => {
   try {
     const units = await prisma.businessUnit.findMany({
       where: { isActive: true },
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
     });
     return res.json({ success: true, data: units });
   } catch (err) {
-    console.error('settings.getBusinessUnits error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("settings.getBusinessUnits error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -60,8 +66,8 @@ const createBusinessUnit = async (req, res) => {
     const unit = await prisma.businessUnit.create({ data: req.body });
     return res.status(201).json({ success: true, data: unit });
   } catch (err) {
-    console.error('settings.createBusinessUnit error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("settings.createBusinessUnit error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -74,9 +80,12 @@ const updateBusinessUnit = async (req, res) => {
     });
     return res.json({ success: true, data: unit });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, error: 'Business unit not found' });
-    console.error('settings.updateBusinessUnit error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    if (err.code === "P2025")
+      return res
+        .status(404)
+        .json({ success: false, error: "Business unit not found" });
+    console.error("settings.updateBusinessUnit error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -86,12 +95,22 @@ const deleteBusinessUnit = async (req, res) => {
       where: { id: req.params.id },
       data: { isActive: false },
     });
-    return res.json({ success: true, message: 'Business unit deactivated' });
+    return res.json({ success: true, message: "Business unit deactivated" });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, error: 'Business unit not found' });
-    console.error('settings.deleteBusinessUnit error:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    if (err.code === "P2025")
+      return res
+        .status(404)
+        .json({ success: false, error: "Business unit not found" });
+    console.error("settings.deleteBusinessUnit error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
-module.exports = { get, update, getBusinessUnits, createBusinessUnit, updateBusinessUnit, deleteBusinessUnit };
+module.exports = {
+  get,
+  update,
+  getBusinessUnits,
+  createBusinessUnit,
+  updateBusinessUnit,
+  deleteBusinessUnit,
+};
