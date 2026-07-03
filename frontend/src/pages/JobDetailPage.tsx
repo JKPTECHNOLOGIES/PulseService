@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   PencilIcon,
@@ -12,6 +12,7 @@ import clsx from "clsx";
 import { useJob } from "../hooks/useJobs";
 import { useUpdateJobStatus, useAssignTechnician } from "../hooks/useJobs";
 import { useTechnicians } from "../hooks/useTechnicians";
+import { useAuthStore } from "../store/authStore";
 import {
   useCurrentTimeEntry,
   useJobTimeEntries,
@@ -629,7 +630,7 @@ function JobMaterialsCard({
         <h3 className="font-semibold text-gray-900">
           Materials &amp; Equipment
         </h3>
-        <Can permission="inventory.manage">
+        <Can permission={["inventory.manage", "inventory.issueToJob"]}>
           <div className="flex items-center gap-3">
             <button
               onClick={() => {
@@ -791,10 +792,28 @@ function AddPartModal({
   const issue = useIssueToJob();
   const { data: items } = useInventoryItems();
   const { data: locations } = useStockLocations({ active: "true" });
+  const { data: techsData } = useTechnicians();
+  const currentUser = useAuthStore((s) => s.user);
 
   const [inventoryItemId, setItemId] = useState("");
   const [stockLocationId, setLocationId] = useState("");
   const [quantity, setQuantity] = useState(1);
+
+  // Default the source location to the tech's own assigned truck, so a
+  // technician issuing a part in the field doesn't have to hunt through every
+  // truck/warehouse to find theirs. Still fully editable (e.g. to borrow from
+  // another truck or the warehouse).
+  const myVehicleId = techsData?.data.find((t) => t.userId === currentUser?.id)
+    ?.vehicle?.id;
+  const myLocationId = (locations ?? []).find(
+    (l) => l.vehicleId === myVehicleId,
+  )?.id;
+  useEffect(() => {
+    if (isOpen && myLocationId && !stockLocationId) {
+      setLocationId(myLocationId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, myLocationId]);
 
   if (!isOpen) return null;
 

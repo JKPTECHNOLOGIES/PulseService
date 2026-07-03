@@ -42,8 +42,14 @@ router.delete(
   c.removeSupplier,
 );
 
-// Job parts consumption
-router.post("/issue", requirePermission("inventory.manage"), c.issueToJob);
+// Job parts consumption. Techs get a scoped permission for this one action
+// (issuing already-stocked parts to a job they're working) without the full
+// inventory.manage rights (item CRUD, adjustments, transfers).
+router.post(
+  "/issue",
+  requirePermission("inventory.manage", "inventory.issueToJob"),
+  c.issueToJob,
+);
 router.get("/jobs/:jobId/parts", c.getJobParts);
 router.post(
   "/transactions/:id/reverse",

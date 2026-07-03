@@ -77,6 +77,10 @@ const PERMISSION_GROUPS = [
         key: "inventory.manage",
         label: "Manage items, adjust & transfer stock",
       },
+      {
+        key: "inventory.issueToJob",
+        label: "Issue parts & install units on a job (field use)",
+      },
     ],
   },
   {
@@ -203,7 +207,7 @@ const DEFAULT_ROLE_PERMISSIONS = {
     "agreements.manage",
     "calls.manage",
   ],
-  technician: ["jobs.status"],
+  technician: ["jobs.status", "inventory.issueToJob"],
   exec: [
     "payments.view",
     "reports.financial",

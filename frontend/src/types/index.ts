@@ -88,6 +88,7 @@ export interface Technician {
   skills: string[];
   isAvailable: boolean;
   user: User;
+  vehicle?: { id: string; name: string } | null;
 }
 
 export interface JobTechnician {

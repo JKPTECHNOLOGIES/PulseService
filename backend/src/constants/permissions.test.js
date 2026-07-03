@@ -11,8 +11,14 @@ describe("permission defaults", () => {
     );
   });
 
-  it("technician is limited to updating job status", () => {
-    expect(DEFAULT_ROLE_PERMISSIONS.technician).toEqual(["jobs.status"]);
+  it("technician is limited to job status + field parts/serial issuing", () => {
+    // Technicians need to update job status and consume truck stock / install
+    // serialized units on their own jobs, but nothing broader (no item CRUD,
+    // stock adjustments/transfers, pricing, or other roles' write actions).
+    expect(DEFAULT_ROLE_PERMISSIONS.technician).toEqual([
+      "jobs.status",
+      "inventory.issueToJob",
+    ]);
   });
 
   it("every default permission is a known catalog key", () => {

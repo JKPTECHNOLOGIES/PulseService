@@ -20,6 +20,12 @@ router.put(
   validateLookups({ status: "serializedUnitStatus" }),
   c.update,
 );
-router.post("/:id/install", requirePermission("inventory.manage"), c.install);
+// Installing a unit on a job is a field action techs need; scoped separately
+// from the broader inventory.manage rights (create/edit serial records).
+router.post(
+  "/:id/install",
+  requirePermission("inventory.manage", "inventory.issueToJob"),
+  c.install,
+);
 
 module.exports = router;
