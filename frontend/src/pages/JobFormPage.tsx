@@ -112,7 +112,11 @@ export default function JobFormPage() {
     };
 
     if (isEditing) {
-      await updateMutation.mutateAsync({ id: id, ...payload });
+      await updateMutation.mutateAsync({
+        id: id,
+        ...payload,
+        expectedUpdatedAt: job?.updatedAt,
+      });
       navigate(`/jobs/${id}`);
     } else {
       const result = (await createMutation.mutateAsync(payload)) as {

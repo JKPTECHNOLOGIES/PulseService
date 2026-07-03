@@ -413,6 +413,15 @@ const LOOKUPS = {
     { value: "electrical", label: "Electrical" },
     { value: "general", label: "General" },
   ],
+  messageDirection: [
+    { value: "outbound", label: "Outbound" },
+    { value: "inbound", label: "Inbound" },
+  ],
+  messageChannel: [
+    { value: "sms", label: "Text (SMS)" },
+    { value: "email", label: "Email" },
+    { value: "other", label: "Other" },
+  ],
   pricingOverrideType: [
     { value: "percentage", label: "Percentage Off" },
     { value: "fixed", label: "Fixed Amount Off" },

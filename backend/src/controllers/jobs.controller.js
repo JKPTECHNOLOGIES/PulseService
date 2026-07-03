@@ -245,8 +245,34 @@ const update = async (req, res) => {
       createdAt: _ca,
       updatedAt: _ua,
       technicians: _t,
+      expectedUpdatedAt,
       ...data
     } = req.body;
+
+    // Optimistic concurrency: rather than locking a job while a tech has it
+    // open (the FieldEdge behavior this is meant to beat), we let anyone edit
+    // at any time but detect when someone else's save landed first, so
+    // changes are never silently overwritten.
+    if (expectedUpdatedAt) {
+      const current = await prisma.job.findUnique({
+        where: { id: req.params.id },
+        select: { updatedAt: true },
+      });
+      if (!current) {
+        return res.status(404).json({ success: false, error: "Job not found" });
+      }
+      if (
+        new Date(current.updatedAt).getTime() !==
+        new Date(expectedUpdatedAt).getTime()
+      ) {
+        return res.status(409).json({
+          success: false,
+          error:
+            "This job was updated by someone else since you opened it. Refresh to see the latest changes before saving.",
+          code: "STALE_JOB",
+        });
+      }
+    }
 
     const job = await prisma.job.update({
       where: { id: req.params.id },

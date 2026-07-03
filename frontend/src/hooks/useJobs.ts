@@ -50,15 +50,25 @@ export function useCreateJob() {
 export function useUpdateJob() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...payload }: Partial<Job> & { id: string }) =>
-      api.put<ApiResponse<Job>>(`/jobs/${id}`, payload),
+    mutationFn: ({
+      id,
+      expectedUpdatedAt,
+      ...payload
+    }: Partial<Job> & { id: string; expectedUpdatedAt?: string }) =>
+      api.put<ApiResponse<Job>>(`/jobs/${id}`, {
+        ...payload,
+        expectedUpdatedAt,
+      }),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["jobs"] });
       void qc.invalidateQueries({ queryKey: ["job", vars.id] });
       void qc.invalidateQueries({ queryKey: ["dispatch"] });
       toast.success("Job updated successfully");
     },
-    onError: (err: unknown) => {
+    onError: (err: unknown, vars) => {
+      // On a stale-job conflict (409), refetch the job so the next save
+      // attempt has the latest `updatedAt` instead of failing again.
+      void qc.invalidateQueries({ queryKey: ["job", vars.id] });
       toast.error(getErrorMessage(err, "Failed to update job"));
     },
   });

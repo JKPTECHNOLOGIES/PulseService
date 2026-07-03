@@ -117,6 +117,7 @@ export interface Job {
   techNotes?: string;
   totalAmount: number;
   createdAt: string;
+  updatedAt: string;
   customer?: Customer;
   location?: Location;
   technicians?: JobTechnician[];
@@ -618,6 +619,25 @@ export interface Call {
   customer?: Customer;
 }
 
+export interface CustomerMessage {
+  id: string;
+  customerId: string;
+  direction: string;
+  channel: string;
+  subject?: string;
+  body: string;
+  sentAt: string;
+  sentById?: string;
+  createdAt: string;
+  customer?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    companyName?: string;
+  };
+  sentBy?: { id: string; firstName: string; lastName: string };
+}
+
 export interface Notification {
   id: string;
   userId: string;
@@ -698,7 +718,9 @@ export type LookupCategory =
   | "quickbooksEntityType"
   | "quickbooksSyncOperation"
   | "quickbooksSyncStatus"
-  | "pricingOverrideType";
+  | "pricingOverrideType"
+  | "messageDirection"
+  | "messageChannel";
 
 export type Metadata = Partial<Record<LookupCategory, LookupOption[]>>;
 

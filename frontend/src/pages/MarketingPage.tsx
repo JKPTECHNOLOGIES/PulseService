@@ -8,10 +8,14 @@ import {
   PhoneArrowDownLeftIcon,
   PhoneArrowUpRightIcon,
   PhoneIcon,
+  ChatBubbleLeftRightIcon,
+  ArrowUpCircleIcon,
+  ArrowDownCircleIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
-import type { Call, Campaign } from "../types";
+import type { Call, Campaign, CustomerMessage } from "../types";
 import { useCalls, useLogCall } from "../hooks/useCalls";
+import { useMessages, useLogMessage } from "../hooks/useMessages";
 import {
   useCampaigns,
   useCreateCampaign,
@@ -694,6 +698,287 @@ function CallsTab() {
   );
 }
 
+const messageSchema = z.object({
+  customerId: z.string().min(1, "Customer is required"),
+  direction: z.string().min(1, "Direction is required"),
+  channel: z.string().min(1, "Channel is required"),
+  subject: z.string().optional(),
+  body: z.string().min(1, "Message is required"),
+});
+
+type MessageFormData = z.infer<typeof messageSchema>;
+
+function LogMessageModal({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  const logMessage = useLogMessage();
+  const { data: customersData } = useCustomers({ limit: 200 });
+  const customers = customersData?.data ?? [];
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<MessageFormData>({
+    resolver: zodResolver(messageSchema),
+    defaultValues: { direction: "outbound", channel: "sms" },
+  });
+
+  const close = () => {
+    reset();
+    onClose();
+  };
+
+  const onSubmit = async (data: MessageFormData) => {
+    const payload: Partial<CustomerMessage> = {
+      customerId: data.customerId,
+      direction: data.direction,
+      channel: data.channel,
+      body: data.body,
+    };
+    if (data.subject) payload.subject = data.subject;
+
+    await logMessage.mutateAsync(payload);
+    close();
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={close} title="Log Message" size="lg">
+      <form
+        onSubmit={(e) => void handleSubmit(onSubmit)(e)}
+        className="space-y-4"
+      >
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Customer <span className="text-red-500">*</span>
+          </label>
+          <select className={SELECT_CLASS} {...register("customerId")}>
+            <option value="">Select customer...</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.firstName} {c.lastName}
+                {c.companyName ? ` (${c.companyName})` : ""}
+              </option>
+            ))}
+          </select>
+          {errors.customerId && (
+            <p className="mt-1 text-xs text-red-600">
+              {errors.customerId.message}
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Direction <span className="text-red-500">*</span>
+            </label>
+            <LookupSelect
+              category="messageDirection"
+              {...register("direction")}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Channel <span className="text-red-500">*</span>
+            </label>
+            <LookupSelect category="messageChannel" {...register("channel")} />
+          </div>
+        </div>
+
+        <Input
+          label="Subject"
+          placeholder="Optional subject line (email only)"
+          {...register("subject")}
+        />
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Message <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            rows={4}
+            className={clsx(SELECT_CLASS, "resize-none")}
+            placeholder="What was sent to the customer..."
+            {...register("body")}
+          />
+          {errors.body && (
+            <p className="mt-1 text-xs text-red-600">{errors.body.message}</p>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="outline" type="button" onClick={close}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={isSubmitting || logMessage.isPending}>
+            Log Message
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function MessagesTab() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [sort, setSort] = useState<SortState | null>(null);
+  const { data, isLoading } = useMessages({ limit: 50 });
+  const messages = data?.data ?? [];
+
+  const messageCustomer = (msg: CustomerMessage) =>
+    msg.customer
+      ? `${msg.customer.firstName} ${msg.customer.lastName}`
+      : "Unknown";
+
+  const columns: Column<CustomerMessage>[] = [
+    {
+      key: "date",
+      header: "Date",
+      sortValue: (msg) => new Date(msg.sentAt).getTime(),
+      exportValue: (msg) => formatDateTime(msg.sentAt),
+      render: (msg) => (
+        <span className="text-gray-700">{formatDateTime(msg.sentAt)}</span>
+      ),
+    },
+    {
+      key: "direction",
+      header: "Direction",
+      sortValue: (msg) => msg.direction,
+      exportValue: (msg) => msg.direction,
+      render: (msg) => (
+        <span className="inline-flex items-center gap-1 text-xs">
+          {msg.direction === "inbound" ? (
+            <>
+              <ArrowDownCircleIcon className="h-3.5 w-3.5 text-green-600" /> In
+            </>
+          ) : (
+            <>
+              <ArrowUpCircleIcon className="h-3.5 w-3.5 text-blue-600" /> Out
+            </>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: "customer",
+      header: "Customer",
+      sortValue: (msg) => messageCustomer(msg).toLowerCase(),
+      exportValue: (msg) => messageCustomer(msg),
+      render: (msg) => (
+        <span className="text-gray-900">{messageCustomer(msg)}</span>
+      ),
+    },
+    {
+      key: "channel",
+      header: "Channel",
+      sortValue: (msg) => msg.channel,
+      exportValue: (msg) => msg.channel,
+      render: (msg) => (
+        <StatusBadge status={msg.channel} category="messageChannel" />
+      ),
+    },
+    {
+      key: "subject",
+      header: "Subject",
+      exportValue: (msg) => msg.subject ?? "",
+      render: (msg) => (
+        <span className="text-gray-600 text-xs truncate max-w-[140px] inline-block align-middle">
+          {msg.subject ?? "-"}
+        </span>
+      ),
+    },
+    {
+      key: "body",
+      header: "Message",
+      exportValue: (msg) => msg.body,
+      render: (msg) => (
+        <span className="text-gray-600 text-xs truncate max-w-[220px] inline-block align-middle">
+          {msg.body}
+        </span>
+      ),
+    },
+  ];
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-900">
+          Customer Messages
+        </h3>
+        <Button
+          size="sm"
+          icon={<ChatBubbleLeftRightIcon className="h-4 w-4" />}
+          onClick={() => {
+            setIsModalOpen(true);
+          }}
+        >
+          Log Message
+        </Button>
+      </div>
+      {isLoading ? (
+        <TableSkeleton rows={8} />
+      ) : messages.length === 0 ? (
+        <EmptyState
+          title="No messages logged"
+          description="Keep a record of SMS and email messages sent to existing customers."
+          action={{
+            label: "Log Message",
+            onClick: () => {
+              setIsModalOpen(true);
+            },
+          }}
+        />
+      ) : (
+        <DataTable<CustomerMessage>
+          columns={columns}
+          rows={messages}
+          getRowId={(msg) => msg.id}
+          sort={sort}
+          onSortChange={setSort}
+          csvFilename="messages"
+          renderMobileCard={(msg) => (
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1 text-sm text-gray-700">
+                  {msg.direction === "inbound" ? (
+                    <ArrowDownCircleIcon className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <ArrowUpCircleIcon className="h-4 w-4 text-blue-600" />
+                  )}
+                  {messageCustomer(msg)}
+                </span>
+                <StatusBadge status={msg.channel} category="messageChannel" />
+              </div>
+              {msg.subject && (
+                <p className="text-xs text-gray-500 mt-0.5 font-medium">
+                  {msg.subject}
+                </p>
+              )}
+              <p className="text-xs text-gray-500 mt-0.5">{msg.body}</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {formatDateTime(msg.sentAt)}
+              </p>
+            </div>
+          )}
+        />
+      )}
+
+      <LogMessageModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+        }}
+      />
+    </div>
+  );
+}
+
 export default function MarketingPage() {
   const [selectedTab, setSelectedTab] = useState(0);
 
@@ -701,7 +986,7 @@ export default function MarketingPage() {
     <div className="space-y-5">
       <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
         <Tab.List className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
-          {["Campaigns", "Calls"].map((tab) => (
+          {["Campaigns", "Calls", "Messages"].map((tab) => (
             <Tab
               key={tab}
               className={({ selected }) =>
@@ -723,6 +1008,9 @@ export default function MarketingPage() {
           </Tab.Panel>
           <Tab.Panel>
             <CallsTab />
+          </Tab.Panel>
+          <Tab.Panel>
+            <MessagesTab />
           </Tab.Panel>
         </Tab.Panels>
       </Tab.Group>

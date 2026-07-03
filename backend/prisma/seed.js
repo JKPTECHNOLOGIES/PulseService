@@ -40,6 +40,7 @@ async function main() {
   await prisma.jobTechnician.deleteMany();
   await prisma.job.deleteMany();
   await prisma.call.deleteMany();
+  await prisma.customerMessage.deleteMany();
   await prisma.contact.deleteMany();
   await prisma.location.deleteMany();
   await prisma.customer.deleteMany();
@@ -2037,6 +2038,41 @@ async function main() {
         toNumber: "(404) 555-0100",
         reason: "Missed call - no voicemail left",
         createdAt: daysOffset(0, 12, 10),
+      },
+    }),
+  ]);
+
+  // ── Customer messages (lightweight comms log, not marketing campaigns) ────────
+  console.log("  Creating customer message log...");
+  await Promise.all([
+    prisma.customerMessage.create({
+      data: {
+        customerId: customer1.id,
+        direction: "outbound",
+        channel: "sms",
+        body: "Hi Robert, this is PulseService confirming your HVAC tune-up tomorrow between 9-11am. Reply STOP to opt out.",
+        sentById: csr.id,
+        sentAt: daysOffset(-1, 14, 0),
+      },
+    }),
+    prisma.customerMessage.create({
+      data: {
+        customerId: customer3.id,
+        direction: "outbound",
+        channel: "email",
+        subject: "Invoice INV-1001 attached",
+        body: "Hi David, attached is your invoice for the recent HVAC inspection. Let us know if you have any questions.",
+        sentById: dispatcher.id,
+        sentAt: daysOffset(-2, 9, 30),
+      },
+    }),
+    prisma.customerMessage.create({
+      data: {
+        customerId: customer2.id,
+        direction: "inbound",
+        channel: "sms",
+        body: "Can we push tomorrow's appointment to the afternoon?",
+        sentAt: daysOffset(0, 8, 5),
       },
     }),
   ]);

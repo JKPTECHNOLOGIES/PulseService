@@ -28,6 +28,7 @@ model User {
   calls            Call[]
   notifications    Notification[]
   timeEntries      TimeEntry[]
+  sentMessages     CustomerMessage[]
 }
 
 model Customer {
@@ -63,6 +64,7 @@ model Customer {
   purchaseOrders    PurchaseOrder[]
   serializedUnits   SerializedUnit[]
   pricingTier       PricingTier?     @relation(fields: [pricingTierId], references: [id])
+  messages          CustomerMessage[]
 }
 
 model Contact {
@@ -867,6 +869,26 @@ model Call {
   customer  Customer? @relation(fields: [customerId], references: [id])
   handledBy User?     @relation(fields: [handledById], references: [id])
   jobs      Job[]
+}
+
+// A lightweight log of messages (SMS/email/other) sent to existing customers —
+// not marketing campaigns, just a record of what was communicated and when.
+model CustomerMessage {
+  id         String   @id @default(uuid())
+  customerId String
+  direction  String   @default("outbound") // lookup: messageDirection
+  channel    String   @default("sms") // lookup: messageChannel
+  subject    String?
+  body       String
+  sentAt     DateTime @default(now())
+  sentById   String?
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  sentBy   User?    @relation(fields: [sentById], references: [id])
+
+  @@index([customerId])
+  @@index([sentAt])
 }
 
 model Campaign {
