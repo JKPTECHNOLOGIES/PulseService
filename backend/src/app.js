@@ -258,6 +258,7 @@ const pushRoutes = require("./routes/push.routes");
 const recurringRoutes = require("./routes/recurring.routes");
 const geocodeRoutes = require("./routes/geocode.routes");
 const quickbooksRoutes = require("./routes/quickbooks.routes");
+const pricingTierRoutes = require("./routes/pricingTiers.routes");
 
 // Record mutating actions across every resource (must run before the routers so
 // it can hook the response; req.user is populated by each router's auth guard).
@@ -296,6 +297,7 @@ app.use("/api/v1/push", pushRoutes);
 app.use("/api/v1/recurring", recurringRoutes);
 app.use("/api/v1/geocode", geocodeRoutes);
 app.use("/api/v1/quickbooks", quickbooksRoutes);
+app.use("/api/v1/pricing-tiers", pricingTierRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get("/api/health", (req, res) =>

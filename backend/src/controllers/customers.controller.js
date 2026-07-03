@@ -66,6 +66,14 @@ const get = async (req, res) => {
       include: {
         locations: { orderBy: { isPrimary: "desc" } },
         contacts: { orderBy: { isPrimary: "desc" } },
+        pricingTier: {
+          select: {
+            id: true,
+            name: true,
+            discountType: true,
+            discountValue: true,
+          },
+        },
         jobs: {
           orderBy: { createdAt: "desc" },
           take: 5,

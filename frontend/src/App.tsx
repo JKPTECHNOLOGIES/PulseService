@@ -26,6 +26,7 @@ const InvoiceFormPage = lazy(() => import("./pages/InvoiceFormPage"));
 const PaymentsPage = lazy(() => import("./pages/PaymentsPage"));
 const TechniciansPage = lazy(() => import("./pages/TechniciansPage"));
 const PricebookPage = lazy(() => import("./pages/PricebookPage"));
+const PricingTiersPage = lazy(() => import("./pages/PricingTiersPage"));
 const InventoryPage = lazy(() => import("./pages/InventoryPage"));
 const SuppliersPage = lazy(() => import("./pages/SuppliersPage"));
 const StockLocationsPage = lazy(() => import("./pages/StockLocationsPage"));
@@ -87,6 +88,10 @@ export default function App() {
           <Route path="payments" element={<PaymentsPage />} />
           <Route path="technicians" element={<TechniciansPage />} />
           <Route path="pricebook" element={<PricebookPage />} />
+          <Route
+            path="pricebook/pricing-tiers"
+            element={<PricingTiersPage />}
+          />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="inventory/locations" element={<StockLocationsPage />} />
           <Route path="inventory/cycle-count" element={<CycleCountPage />} />

@@ -56,6 +56,29 @@ export interface Customer {
   createdAt: string;
   locations?: Location[];
   jobs?: Job[];
+  pricingTierId?: string | null;
+  pricingTier?: PricingTier;
+}
+
+export interface PricingTier {
+  id: string;
+  name: string;
+  description?: string;
+  discountType: string;
+  discountValue: number;
+  isDefault: boolean;
+  isActive: boolean;
+  overrides?: PricingTierOverride[];
+  _count?: { customers: number; overrides: number };
+}
+
+export interface PricingTierOverride {
+  id: string;
+  pricingTierId: string;
+  pricebookItemId: string;
+  overrideType: string;
+  overrideValue: number;
+  pricebookItem?: { id: string; name: string; sku?: string; unitPrice: number };
 }
 
 export interface Technician {
@@ -198,6 +221,8 @@ export interface PricebookItem {
   unit: string;
   taxable: boolean;
   isActive: boolean;
+  /** Customer-tier-adjusted price; equals unitPrice when no customerId was requested. */
+  effectivePrice?: number;
 }
 
 export interface PricebookCategory {
@@ -672,7 +697,8 @@ export type LookupCategory =
   | "costChangeSource"
   | "quickbooksEntityType"
   | "quickbooksSyncOperation"
-  | "quickbooksSyncStatus";
+  | "quickbooksSyncStatus"
+  | "pricingOverrideType";
 
 export type Metadata = Partial<Record<LookupCategory, LookupOption[]>>;
 

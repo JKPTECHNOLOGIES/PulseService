@@ -43,6 +43,8 @@ async function main() {
   await prisma.contact.deleteMany();
   await prisma.location.deleteMany();
   await prisma.customer.deleteMany();
+  await prisma.pricingTierOverride.deleteMany();
+  await prisma.pricingTier.deleteMany();
   await prisma.technician.deleteMany();
   await prisma.vehicle.deleteMany();
   await prisma.user.deleteMany();
@@ -262,7 +264,29 @@ async function main() {
     }),
   ]);
 
-  // ── Customers ─────────────────────────────────────────────────────────────────
+  // ── Pricing Tiers ───────────────────────────────────────────────────────
+  console.log("  Creating pricing tiers...");
+  const [standardTier, commercialPreferredTier] = await Promise.all([
+    prisma.pricingTier.create({
+      data: {
+        name: "Standard",
+        description: "Default catalog pricing — no discount.",
+        discountType: "percentage",
+        discountValue: 0,
+        isDefault: true,
+      },
+    }),
+    prisma.pricingTier.create({
+      data: {
+        name: "Commercial Preferred",
+        description: "Negotiated discount for repeat commercial accounts.",
+        discountType: "percentage",
+        discountValue: 10,
+      },
+    }),
+  ]);
+
+  // ── Customers ───────────────────────────────────────────────────
   console.log("  Creating customers...");
   const customer1 = await prisma.customer.create({
     data: {
@@ -314,6 +338,7 @@ async function main() {
       phone: "(678) 555-2001",
       type: "residential",
       source: "Referral",
+      pricingTierId: standardTier.id,
       locations: {
         create: [
           {
@@ -343,6 +368,7 @@ async function main() {
       companyName: "TechCorp Solutions",
       source: "Direct",
       creditLimit: 50000,
+      pricingTierId: commercialPreferredTier.id,
       notes: "Net-30 terms approved. Contact facilities manager for access.",
       locations: {
         create: [
@@ -1658,6 +1684,22 @@ async function main() {
       warrantyMonths: 24,
     },
   });
+
+  // ── Pricing tier override (demo) ──────────────────────────────────────
+  console.log("  Creating a demo pricing tier override...");
+  const commercialInspectionItem = await prisma.pricebookItem.findUnique({
+    where: { sku: "HVAC-MAINT-COM" },
+  });
+  if (commercialInspectionItem) {
+    await prisma.pricingTierOverride.create({
+      data: {
+        pricingTierId: commercialPreferredTier.id,
+        pricebookItemId: commercialInspectionItem.id,
+        overrideType: "fixed_price",
+        overrideValue: 99,
+      },
+    });
+  }
 
   // ── Service Agreements ────────────────────────────────────────────────────────
   console.log("  Creating service agreements...");

@@ -235,7 +235,11 @@ export default function InvoiceFormPage() {
               </Button>
             </div>
           )}
-          <LineItemsTable items={lineItems} onChange={setLineItems} />
+          <LineItemsTable
+            items={lineItems}
+            onChange={setLineItems}
+            customerId={customerId}
+          />
         </Card>
 
         <Card title="Pricing">

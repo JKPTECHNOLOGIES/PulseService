@@ -17,7 +17,7 @@ export function usePricebookCategories() {
 }
 
 export function usePricebookItems(
-  params: { categoryId?: string; search?: string } = {},
+  params: { categoryId?: string; search?: string; customerId?: string } = {},
 ) {
   return useQuery({
     queryKey: ["pricebook", "items", params],

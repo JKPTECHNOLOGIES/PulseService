@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { formatCurrency } from "../../utils/formatters";
 import { useLookup } from "../../hooks/useMetadata";
+import { usePricebookItems } from "../../hooks/usePricebook";
 import Button from "./Button";
 
 export interface LineItem {
@@ -17,12 +19,16 @@ interface LineItemsTableProps {
   items: LineItem[];
   onChange: (items: LineItem[]) => void;
   readonly?: boolean;
+  /** When given, the pricebook quick-add picker shows that customer's
+   * tier-adjusted price instead of the raw catalog price. */
+  customerId?: string;
 }
 
 export default function LineItemsTable({
   items,
   onChange,
   readonly = false,
+  customerId,
 }: LineItemsTableProps) {
   const { options: lineItemTypes } = useLookup("lineItemType");
   const addItem = () => {
@@ -102,6 +108,12 @@ export default function LineItemsTable({
 
   return (
     <div>
+      <PricebookQuickAdd
+        customerId={customerId}
+        onAdd={(item) => {
+          onChange([...items, item]);
+        }}
+      />
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-200">
@@ -223,6 +235,70 @@ export default function LineItemsTable({
           </span>
         </p>
       </div>
+    </div>
+  );
+}
+
+// Lets a user pick a catalog item instead of typing a line from scratch. When
+// `customerId` is given, prices reflect that customer's pricing tier.
+function PricebookQuickAdd({
+  customerId,
+  onAdd,
+}: {
+  customerId?: string;
+  onAdd: (item: LineItem) => void;
+}) {
+  const { data: pricebookItems } = usePricebookItems({ customerId });
+  const [selectedId, setSelectedId] = useState("");
+
+  if (!pricebookItems || pricebookItems.length === 0) return null;
+
+  const handleAdd = () => {
+    const item = pricebookItems.find((i) => i.id === selectedId);
+    if (!item) return;
+    const price = item.effectivePrice ?? item.unitPrice;
+    onAdd({
+      type: item.type,
+      name: item.name,
+      description: item.description,
+      quantity: 1,
+      unitPrice: price,
+      total: price,
+    });
+    setSelectedId("");
+  };
+
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <select
+        value={selectedId}
+        onChange={(e) => {
+          setSelectedId(e.target.value);
+        }}
+        className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white"
+      >
+        <option value="">Add from pricebook…</option>
+        {pricebookItems.map((i) => {
+          const price = i.effectivePrice ?? i.unitPrice;
+          const discounted =
+            i.effectivePrice !== undefined && i.effectivePrice !== i.unitPrice;
+          return (
+            <option key={i.id} value={i.id}>
+              {i.name} — {formatCurrency(price)}
+              {discounted ? ` (catalog ${formatCurrency(i.unitPrice)})` : ""}
+            </option>
+          );
+        })}
+      </select>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={handleAdd}
+        disabled={!selectedId}
+      >
+        Add
+      </Button>
     </div>
   );
 }

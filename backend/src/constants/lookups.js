@@ -413,6 +413,11 @@ const LOOKUPS = {
     { value: "electrical", label: "Electrical" },
     { value: "general", label: "General" },
   ],
+  pricingOverrideType: [
+    { value: "percentage", label: "Percentage Off" },
+    { value: "fixed", label: "Fixed Amount Off" },
+    { value: "fixed_price", label: "Fixed Price" },
+  ],
   quickbooksEntityType: [
     { value: "customer", label: "Customer" },
     { value: "invoice", label: "Invoice" },

@@ -9,6 +9,7 @@ import {
   useUpdateCustomer,
 } from "../hooks/useCustomers";
 import { useLookup } from "../hooks/useMetadata";
+import { usePricingTiers } from "../hooks/usePricingTiers";
 import type { Customer } from "../types";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
@@ -28,6 +29,7 @@ const schema = z.object({
   state: z.string().optional(),
   zip: z.string().optional(),
   source: z.string().optional(),
+  pricingTierId: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -51,6 +53,7 @@ export default function CustomerFormPage() {
   const createMutation = useCreateCustomer();
   const updateMutation = useUpdateCustomer();
   const { options: customerTypeOptions } = useLookup("customerType");
+  const { data: pricingTiers } = usePricingTiers();
 
   const {
     register,
@@ -79,6 +82,7 @@ export default function CustomerFormPage() {
         companyName: customer.companyName ?? "",
         notes: customer.notes ?? "",
         source: customer.source ?? "",
+        pricingTierId: customer.pricingTierId ?? "",
         address: primary?.address ?? "",
         city: primary?.city ?? "",
         state: primary?.state ?? "",
@@ -95,6 +99,11 @@ export default function CustomerFormPage() {
     const payload = {
       ...customerFields,
       type: customerFields.type as Customer["type"],
+      // Prisma needs an explicit null to clear the relation, not "".
+      pricingTierId:
+        customerFields.pricingTierId === ""
+          ? null
+          : customerFields.pricingTierId,
     };
     const locations = address?.trim()
       ? [
@@ -263,6 +272,30 @@ export default function CustomerFormPage() {
                     {s
                       .replace(/_/g, " ")
                       .replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Pricing Tier
+              </label>
+              <select
+                {...register("pricingTierId")}
+                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+              >
+                <option value="">No tier (catalog pricing)</option>
+                {(pricingTiers ?? []).map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                    {t.discountValue > 0
+                      ? ` (${
+                          t.discountType === "percentage"
+                            ? `${String(t.discountValue)}% off`
+                            : `$${String(t.discountValue)} off`
+                        })`
+                      : ""}
                   </option>
                 ))}
               </select>

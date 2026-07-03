@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { Link } from "react-router-dom";
 import {
   PlusIcon,
   FolderIcon,
   PencilIcon,
   ArrowUpTrayIcon,
+  TagIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import {
@@ -171,6 +173,15 @@ export default function PricebookPage() {
           <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">Items</h3>
             <div className="flex gap-2">
+              <Link to="/pricebook/pricing-tiers">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={<TagIcon className="h-4 w-4" />}
+                >
+                  Pricing Tiers
+                </Button>
+              </Link>
               <Button
                 size="sm"
                 variant="outline"

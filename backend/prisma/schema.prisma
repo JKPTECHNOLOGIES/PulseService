@@ -47,6 +47,7 @@ model Customer {
   creditLimit    Float?
   balance        Float    @default(0)
   isActive       Boolean  @default(true)
+  pricingTierId  String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -61,6 +62,7 @@ model Customer {
   equipment         Equipment[]
   purchaseOrders    PurchaseOrder[]
   serializedUnits   SerializedUnit[]
+  pricingTier       PricingTier?     @relation(fields: [pricingTierId], references: [id])
 }
 
 model Contact {
@@ -355,6 +357,43 @@ model PricebookItem {
   category           PricebookCategory?       @relation(fields: [categoryId], references: [id])
   inventoryItems     InventoryItem[]
   quickbooksMappings QuickBooksItemMapping[]
+  tierOverrides      PricingTierOverride[]
+}
+
+// ─── Customer pricing tiers ───────────────────────────────────────────────
+// A tier applies a blanket discount to every pricebook item for the customers
+// assigned to it, with optional per-item overrides (e.g. "10% off everything,
+// but this one part is always $45 flat"). Resolution order: item-specific
+// override, then the tier's blanket discount, then the catalog price as-is.
+
+model PricingTier {
+  id            String   @id @default(uuid())
+  name          String   @unique
+  description   String?
+  discountType  String   @default("percentage") // lookup: discountType
+  discountValue Float    @default(0)
+  isDefault     Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  customers Customer[]
+  overrides PricingTierOverride[]
+}
+
+model PricingTierOverride {
+  id              String   @id @default(uuid())
+  pricingTierId   String
+  pricebookItemId String
+  overrideType    String   // lookup: pricingOverrideType (percentage|fixed|fixed_price)
+  overrideValue   Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  pricingTier   PricingTier   @relation(fields: [pricingTierId], references: [id], onDelete: Cascade)
+  pricebookItem PricebookItem @relation(fields: [pricebookItemId], references: [id], onDelete: Cascade)
+
+  @@unique([pricingTierId, pricebookItemId])
 }
 
 // ─── QuickBooks Desktop sync (Web Connector / qbXML) ────────────────────────

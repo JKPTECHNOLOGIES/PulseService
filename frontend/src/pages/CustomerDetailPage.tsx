@@ -183,6 +183,14 @@ export default function CustomerDetailPage() {
               {formatCurrency(customer.balance)}
             </p>
           </div>
+          <div>
+            <p className="text-xs text-gray-500">Pricing Tier</p>
+            <p className="text-sm font-medium text-gray-900 mt-1">
+              {customer.pricingTier
+                ? customer.pricingTier.name
+                : "Standard (catalog pricing)"}
+            </p>
+          </div>
         </div>
       </div>
 

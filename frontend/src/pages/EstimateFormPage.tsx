@@ -218,7 +218,11 @@ export default function EstimateFormPage() {
 
         {/* Line Items */}
         <Card title="Line Items">
-          <LineItemsTable items={lineItems} onChange={setLineItems} />
+          <LineItemsTable
+            items={lineItems}
+            onChange={setLineItems}
+            customerId={customerId}
+          />
         </Card>
 
         {/* Pricing */}

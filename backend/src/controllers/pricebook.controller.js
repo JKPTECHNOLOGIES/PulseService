@@ -1,4 +1,5 @@
 const prisma = require("../config/database");
+const { withEffectivePrices } = require("../services/pricing.service");
 
 const listCategories = async (req, res) => {
   try {
@@ -67,7 +68,7 @@ const deleteCategory = async (req, res) => {
 
 const listItems = async (req, res) => {
   try {
-    const { categoryId, search, type } = req.query;
+    const { categoryId, search, type, customerId } = req.query;
 
     const where = { isActive: true };
     if (categoryId) where.categoryId = categoryId;
@@ -86,7 +87,11 @@ const listItems = async (req, res) => {
       orderBy: [{ category: { sortOrder: "asc" } }, { name: "asc" }],
     });
 
-    return res.json({ success: true, data: items });
+    // Adds `effectivePrice` per item, reflecting the customer's pricing tier
+    // (falls back to the catalog unitPrice when no customerId is given).
+    const withPricing = await withEffectivePrices(items, customerId);
+
+    return res.json({ success: true, data: withPricing });
   } catch (err) {
     console.error("pricebook.listItems error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
