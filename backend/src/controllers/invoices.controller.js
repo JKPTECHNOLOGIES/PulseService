@@ -7,8 +7,45 @@ const {
 } = require("../utils/helpers");
 const { generateInvoicePdf } = require("../services/pdf.service");
 const { sendMail } = require("../services/email.service");
+const quickbooksSync = require("../services/quickbooks/sync-queue.service");
 
 const money = (n) => "$" + Number(n || 0).toFixed(2);
+
+// Drafts never sync — an invoice only goes to QuickBooks once it's finalized.
+// A void supersedes whatever operation would otherwise apply. Never lets a
+// QuickBooks hiccup break the invoicing API.
+async function enqueueQuickBooksInvoiceSync(invoiceId) {
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      select: { status: true },
+    });
+    if (!invoice || invoice.status === "draft") return;
+
+    if (invoice.status === "void") {
+      const mapping = await prisma.quickBooksMapping.findUnique({
+        where: {
+          entityType_entityId: { entityType: "invoice", entityId: invoiceId },
+        },
+      });
+      if (!mapping) return; // never synced — nothing to void in QuickBooks
+      await quickbooksSync.enqueueSync("invoice", invoiceId, "void");
+      return;
+    }
+
+    await quickbooksSync.enqueueSync("invoice", invoiceId);
+  } catch (err) {
+    console.error("quickbooks enqueueSync (invoice) error:", err);
+  }
+}
+
+async function enqueueQuickBooksPaymentSync(paymentId) {
+  try {
+    await quickbooksSync.enqueueSync("payment", paymentId);
+  } catch (err) {
+    console.error("quickbooks enqueueSync (payment) error:", err);
+  }
+}
 
 const list = async (req, res) => {
   try {
@@ -145,6 +182,7 @@ const create = async (req, res) => {
       include: { lineItems: { orderBy: { sortOrder: "asc" } }, customer: true },
     });
 
+    await enqueueQuickBooksInvoiceSync(invoice.id);
     return res.status(201).json({ success: true, data: invoice });
   } catch (err) {
     console.error("invoices.create error:", err);
@@ -225,6 +263,7 @@ const update = async (req, res) => {
       include: { lineItems: { orderBy: { sortOrder: "asc" } } },
     });
 
+    await enqueueQuickBooksInvoiceSync(invoice.id);
     return res.json({ success: true, data: invoice });
   } catch (err) {
     if (err.code === "P2025")
@@ -318,6 +357,7 @@ const send = async (req, res) => {
       where: { id: req.params.id },
       data: { status: "sent", sentAt: new Date() },
     });
+    await enqueueQuickBooksInvoiceSync(updated.id);
     return res.json({
       success: true,
       data: updated,
@@ -389,6 +429,15 @@ const recordPayment = async (req, res) => {
       },
     });
 
+    // Only (re)sync the invoice if this payment is what takes it out of draft
+    // for the first time. Once an invoice is already synced, paid/balance
+    // status flows through the ReceivePayment transaction itself in
+    // QuickBooks — re-syncing the invoice header would just be a no-op Mod.
+    if (invoice.status === "draft") {
+      await enqueueQuickBooksInvoiceSync(updatedInvoice.id);
+    }
+    await enqueueQuickBooksPaymentSync(payment.id);
+
     return res.json({
       success: true,
       data: { payment, invoice: updatedInvoice },
@@ -406,6 +455,7 @@ const voidInvoice = async (req, res) => {
       where: { id: req.params.id },
       data: { status: "void", voidedAt: new Date(), voidReason },
     });
+    await enqueueQuickBooksInvoiceSync(invoice.id);
     return res.json({ success: true, data: invoice });
   } catch (err) {
     if (err.code === "P2025")

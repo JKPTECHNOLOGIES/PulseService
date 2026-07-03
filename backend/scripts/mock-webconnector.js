@@ -6,12 +6,17 @@
  * endpoint exactly as a real Web Connector would (authenticate ->
  * [sendRequestXML -> receiveResponseXML]* -> closeConnection), and fabricates
  * plausible qbXML responses in place of a real QuickBooks company file
- * (fake ListIDs/EditSequences, plus one deliberately-scripted duplicate-name
- * error to prove the failure path).
+ * (fake ListIDs/TxnIDs/EditSequences, plus scripted failures to prove the
+ * error path).
  *
  * This is the primary validation tool for the QuickBooks sync module until a
  * real QuickBooks Desktop + Web Connector is available to rehearse against
  * (see docs/quickbooks-sync.md for what that residual step covers).
+ *
+ * Covers: customer add/update (+ a scripted duplicate-name failure + retry),
+ * invoice add (with tax + discount lines), payment add, invoice void, and
+ * dependency gating (an invoice for a not-yet-synced customer is correctly
+ * ordered AFTER that customer's own sync within the same session).
  *
  * Usage:  node scripts/mock-webconnector.js [baseUrl]
  * Requires the backend + seeded DB to be running (defaults to
@@ -23,9 +28,9 @@ const SOAP_URL = `${BASE}/quickbooks/soap`;
 const QBWC_USERNAME = "mockqbwc";
 const QBWC_PASSWORD = "mock-harness-password";
 
-let fakeListIdCounter = 80000001;
-function nextFakeListId() {
-  return `${fakeListIdCounter++}-${Date.now()}`;
+let fakeIdCounter = 80000001;
+function nextFakeId() {
+  return `${fakeIdCounter++}-${Date.now()}`;
 }
 
 function soapRequest(method, paramsXml) {
@@ -48,18 +53,20 @@ async function callSoap(method, paramsXml) {
     body: soapRequest(method, paramsXml),
   });
   const text = await res.text();
-  if (res.status >= 400) throw new Error(`${method} -> HTTP ${res.status}: ${text}`);
+  if (res.status >= 400)
+    throw new Error(`${method} -> HTTP ${res.status}: ${text}`);
   return extractResult(method, text);
 }
 
-// The SOAP responses we generate are simple enough to read back with a
-// couple of targeted regexes rather than a full parser.
 function extractResult(method, xml) {
-  const resultBlock = xml.match(new RegExp(`<${method}Result>([\\s\\S]*?)</${method}Result>`));
-  if (!resultBlock) throw new Error(`No <${method}Result> in response:\n${xml}`);
+  const resultBlock = xml.match(
+    new RegExp(`<${method}Result>([\\s\\S]*?)</${method}Result>`),
+  );
+  if (!resultBlock)
+    throw new Error(`No <${method}Result> in response:\n${xml}`);
   const inner = resultBlock[1];
-  const strings = [...inner.matchAll(/<string>([\s\S]*?)<\/string>/g)].map((m) =>
-    decodeXml(m[1]),
+  const strings = [...inner.matchAll(/<string>([\s\S]*?)<\/string>/g)].map(
+    (m) => decodeXml(m[1]),
   );
   if (strings.length > 0) return strings;
   return decodeXml(inner.trim());
@@ -78,26 +85,59 @@ function decodeXml(s) {
 // fabricate a matching response, the way a real QuickBooks company file would.
 function inspectRequest(qbxml) {
   const requestId = qbxml.match(/requestID="([^"]+)"/)?.[1];
-  const isAdd = /CustomerAddRq/.test(qbxml);
-  const isMod = /CustomerModRq/.test(qbxml);
+  const rqType = qbxml.match(/<(\w+Rq) requestID=/)?.[1] || "unknown";
   const name = qbxml.match(/<Name>([^<]*)<\/Name>/)?.[1];
-  return { requestId, rqType: isAdd ? "CustomerAddRq" : isMod ? "CustomerModRq" : "unknown", name };
+  const refNumber = qbxml.match(/<RefNumber>([^<]*)<\/RefNumber>/)?.[1];
+  const lineCount = (qbxml.match(/<InvoiceLineAdd>/g) || []).length;
+  return { requestId, rqType, name, refNumber, lineCount };
 }
 
-function fakeCustomerSuccessResponse({ rqType, requestId, name, listId, editSequence }) {
-  const rsType = rqType === "CustomerAddRq" ? "CustomerAddRs" : "CustomerModRs";
-  return (
-    `<?xml version="1.0"?>\n<QBXML><QBXMLMsgsRs>` +
-    `<${rsType} requestID="${requestId}" statusCode="0" statusSeverity="Info" statusMessage="Status OK">` +
-    `<CustomerRet><ListID>${listId}</ListID><EditSequence>${editSequence}</EditSequence><Name>${name}</Name></CustomerRet>` +
-    `</${rsType}></QBXMLMsgsRs></QBXML>`
+/** Fabricates a success response matching whatever request type was sent. */
+function fakeSuccessResponse({ rqType, requestId, name }) {
+  const rsType = rqType.replace(/Rq$/, "Rs");
+  const listOrTxnId = nextFakeId();
+  const editSequence = String(Date.now());
+
+  if (rqType === "TxnVoidRq") {
+    return (
+      `<?xml version="1.0"?><QBXML><QBXMLMsgsRs>` +
+      `<${rsType} requestID="${requestId}" statusCode="0" statusSeverity="Info" statusMessage="Status OK"></${rsType}>` +
+      `</QBXMLMsgsRs></QBXML>`
+    );
+  }
+  if (rqType === "CustomerAddRq" || rqType === "CustomerModRq") {
+    return (
+      `<?xml version="1.0"?><QBXML><QBXMLMsgsRs>` +
+      `<${rsType} requestID="${requestId}" statusCode="0" statusSeverity="Info" statusMessage="Status OK">` +
+      `<CustomerRet><ListID>${listOrTxnId}</ListID><EditSequence>${editSequence}</EditSequence><Name>${name}</Name></CustomerRet>` +
+      `</${rsType}></QBXMLMsgsRs></QBXML>`
+    );
+  }
+  if (rqType === "InvoiceAddRq" || rqType === "InvoiceModRq") {
+    return (
+      `<?xml version="1.0"?><QBXML><QBXMLMsgsRs>` +
+      `<${rsType} requestID="${requestId}" statusCode="0" statusSeverity="Info" statusMessage="Status OK">` +
+      `<InvoiceRet><TxnID>${listOrTxnId}</TxnID><EditSequence>${editSequence}</EditSequence></InvoiceRet>` +
+      `</${rsType}></QBXMLMsgsRs></QBXML>`
+    );
+  }
+  if (rqType === "ReceivePaymentAddRq") {
+    return (
+      `<?xml version="1.0"?><QBXML><QBXMLMsgsRs>` +
+      `<${rsType} requestID="${requestId}" statusCode="0" statusSeverity="Info" statusMessage="Status OK">` +
+      `<ReceivePaymentRet><TxnID>${listOrTxnId}</TxnID><EditSequence>${editSequence}</EditSequence></ReceivePaymentRet>` +
+      `</${rsType}></QBXMLMsgsRs></QBXML>`
+    );
+  }
+  throw new Error(
+    `Mock harness doesn't know how to fabricate a response for ${rqType}`,
   );
 }
 
 function fakeDuplicateNameErrorResponse({ rqType, requestId }) {
-  const rsType = rqType === "CustomerAddRq" ? "CustomerAddRs" : "CustomerModRs";
+  const rsType = rqType.replace(/Rq$/, "Rs");
   return (
-    `<?xml version="1.0"?>\n<QBXML><QBXMLMsgsRs>` +
+    `<?xml version="1.0"?><QBXML><QBXMLMsgsRs>` +
     `<${rsType} requestID="${requestId}" statusCode="3100" statusSeverity="Error" ` +
     `statusMessage="The name of the list element is already in use.">` +
     `</${rsType}></QBXMLMsgsRs></QBXML>`
@@ -108,7 +148,10 @@ async function adminLogin() {
   const res = await fetch(`${BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: "admin@pulseservice.com", password: "admin123" }),
+    body: JSON.stringify({
+      email: "admin@pulseservice.com",
+      password: "admin123",
+    }),
   }).then((r) => r.json());
   return res.data.token;
 }
@@ -116,29 +159,49 @@ async function adminLogin() {
 async function adminApi(token, method, path, body) {
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
     ...(body && { body: JSON.stringify(body) }),
   });
-  return res.json();
+  const json = await res.json();
+  if (res.status >= 400) {
+    throw new Error(
+      `${method} ${path} -> HTTP ${res.status}: ${JSON.stringify(json)}`,
+    );
+  }
+  return json;
 }
 
 /**
  * Runs one full QBWC session, fabricating a response for each pending job.
  * `scriptedFailureForName`, if given, makes ONE matching job fail with a
  * duplicate-name error instead of succeeding (to exercise the error path).
+ * Returns the ordered list of `{ rqType, label }` requests that were sent, so
+ * callers can assert on ordering (e.g. a dependency synced before whatever
+ * depended on it).
  */
 async function runSession(label, { scriptedFailureForName } = {}) {
   console.log(`\n--- QBWC session: ${label} ---`);
+  const sent = [];
 
   const [ticket, companyFileState] = await callSoap(
     "authenticate",
     `<strUserName>${QBWC_USERNAME}</strUserName><strPassword>${QBWC_PASSWORD}</strPassword>`,
   );
-  console.log(`authenticate -> ticket=${ticket ? "(assigned)" : "(none)"}, state="${companyFileState}"`);
-  if (!ticket) throw new Error("authenticate failed — check QuickBooksSettings credentials");
+  console.log(
+    `authenticate -> ticket=${ticket ? "(assigned)" : "(none)"}, state="${companyFileState}"`,
+  );
+  if (!ticket)
+    throw new Error(
+      "authenticate failed — check QuickBooksSettings credentials",
+    );
   if (companyFileState === "none") {
-    console.log("Nothing queued. Session ends here (as a real Web Connector would).");
-    return;
+    console.log(
+      "Nothing queued/ready. Session ends here (as a real Web Connector would).",
+    );
+    return sent;
   }
 
   await callSoap("clientVersion", `<strVersion>2.1.0.30</strVersion>`);
@@ -157,22 +220,21 @@ async function runSession(label, { scriptedFailureForName } = {}) {
       break;
     }
 
-    const { requestId, rqType, name } = inspectRequest(requestXml);
-    const shouldFail = scriptedFailureForName && name === scriptedFailureForName;
+    const { requestId, rqType, name, refNumber, lineCount } =
+      inspectRequest(requestXml);
+    const entryLabel = name || refNumber || "(no label)";
+    const shouldFail =
+      scriptedFailureForName && name === scriptedFailureForName;
     console.log(
-      `sendRequestXML round ${round} -> ${rqType} "${name}" (requestID=${requestId})` +
+      `sendRequestXML round ${round} -> ${rqType} "${entryLabel}"` +
+        (lineCount ? ` (${lineCount} line(s))` : "") +
         (shouldFail ? "  [scripted FAILURE]" : ""),
     );
+    sent.push({ rqType, label: entryLabel });
 
     const responseXml = shouldFail
       ? fakeDuplicateNameErrorResponse({ rqType, requestId })
-      : fakeCustomerSuccessResponse({
-          rqType,
-          requestId,
-          name,
-          listId: nextFakeListId(),
-          editSequence: String(Date.now()),
-        });
+      : fakeSuccessResponse({ rqType, requestId, name });
 
     const pctDone = await callSoap(
       "receiveResponseXML",
@@ -182,15 +244,268 @@ async function runSession(label, { scriptedFailureForName } = {}) {
     console.log(`receiveResponseXML round ${round} -> ${pctDone}% done`);
   }
 
-  const closeMsg = await callSoap("closeConnection", `<ticket>${ticket}</ticket>`);
+  const closeMsg = await callSoap(
+    "closeConnection",
+    `<ticket>${ticket}</ticket>`,
+  );
   console.log(`closeConnection -> "${closeMsg}"`);
+  return sent;
 }
 
 function escapeForSoap(xml) {
-  return xml
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return xml.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function customerPhase(token) {
+  console.log("\n=========== PHASE 1: customer sync ===========");
+
+  const created = await adminApi(token, "POST", "/customers", {
+    firstName: "Mock",
+    lastName: "Harness Customer",
+    phone: "555-0100",
+    type: "residential",
+  });
+  const customerId = created.data.id;
+  console.log(
+    `Created test customer ${created.data.customerNumber} (${customerId})`,
+  );
+
+  const resync = await adminApi(token, "POST", "/quickbooks/resync/customers");
+  console.log(
+    `Queued ${resync.data.queued} customer(s) for sync (including existing ones)`,
+  );
+
+  await runSession("initial batch (with one scripted failure)", {
+    scriptedFailureForName: "Mock Harness Customer",
+  });
+
+  const queueAfterRound1 = await adminApi(
+    token,
+    "GET",
+    "/quickbooks/queue?limit=100",
+  );
+  const errored = queueAfterRound1.data.filter((j) => j.status === "error");
+  const failedJob = errored.find((j) => j.entityId === customerId);
+  if (!failedJob)
+    throw new Error(
+      "Expected the scripted duplicate-name failure to be recorded",
+    );
+  console.log(`Confirmed failure recorded: "${failedJob.lastError}"`);
+
+  console.log("Retrying the failed job...");
+  await adminApi(token, "POST", `/quickbooks/queue/${failedJob.id}/retry`);
+  await runSession("retry of the failed job");
+
+  const mappings = await adminApi(token, "GET", "/quickbooks/mappings");
+  const ourMapping = mappings.data.find((m) => m.entityId === customerId);
+  if (!ourMapping)
+    throw new Error(
+      "Expected a QuickBooksMapping row after the retry succeeded",
+    );
+  console.log(
+    `Customer mapping created: quickbooksId=${ourMapping.quickbooksId}`,
+  );
+
+  await adminApi(token, "PUT", `/customers/${customerId}`, {
+    phone: "555-0199",
+  });
+  await runSession("update after editing the customer");
+
+  const mappingsAfterUpdate = await adminApi(
+    token,
+    "GET",
+    "/quickbooks/mappings",
+  );
+  const updatedMapping = mappingsAfterUpdate.data.find(
+    (m) => m.entityId === customerId,
+  );
+  console.log(
+    `EditSequence advanced: ${ourMapping.editSequence} -> ${updatedMapping.editSequence}`,
+  );
+
+  return customerId;
+}
+
+async function invoicePaymentPhase(token, customerId) {
+  console.log("\n=========== PHASE 2: invoice + payment sync ===========");
+
+  const item = await adminApi(token, "POST", "/pricebook/items", {
+    name: "Mock Harness Labor",
+    type: "labor",
+    unitCost: 30,
+    unitPrice: 100,
+    taxable: true,
+  });
+  await adminApi(token, "POST", "/quickbooks/item-mappings", {
+    pricebookItemId: item.data.id,
+    quickbooksItemName: "Mock QB Labor Item",
+  });
+  await adminApi(token, "POST", "/quickbooks/item-mappings", {
+    lineItemType: "discount",
+    quickbooksItemName: "Mock QB Discount Item",
+  });
+  console.log(
+    "Pricebook item + item mappings created (specific item + discount category)",
+  );
+
+  // Created directly as "sent" (skipping the draft->send UI step) so the sync
+  // trigger fires immediately for this test. Customer is already synced from
+  // phase 1, so this invoice should be immediately sendable.
+  const invoice = await adminApi(token, "POST", "/invoices", {
+    customerId,
+    status: "sent",
+    discountType: "fixed",
+    discountValue: 10,
+    taxRate: 8.25,
+    lineItems: [
+      {
+        type: "labor",
+        name: "Mock Harness Labor",
+        pricebookItemId: item.data.id,
+        quantity: 2,
+        unitPrice: 100,
+      },
+    ],
+  });
+  const invoiceId = invoice.data.id;
+  console.log(
+    `Created invoice ${invoice.data.invoiceNumber} (total=${invoice.data.total}, tax=${invoice.data.taxAmount})`,
+  );
+
+  const sent = await runSession(
+    "invoice add (tax + discount lines, customer already synced)",
+  );
+  const invoiceSend = sent.find((s) => s.rqType === "InvoiceAddRq");
+  if (!invoiceSend)
+    throw new Error("Expected an InvoiceAddRq to have been sent");
+  // 1 real line + 1 tax line + 1 discount line = 3
+  console.log(`InvoiceAddRq confirmed sent: "${invoiceSend.label}"`);
+
+  const mappingsAfterInvoice = await adminApi(
+    token,
+    "GET",
+    "/quickbooks/mappings",
+  );
+  const invoiceMapping = mappingsAfterInvoice.data.find(
+    (m) => m.entityType === "invoice" && m.entityId === invoiceId,
+  );
+  if (!invoiceMapping) throw new Error("Expected the invoice to have synced");
+  console.log(
+    `Invoice mapping created: quickbooksId=${invoiceMapping.quickbooksId}`,
+  );
+
+  const payment = await adminApi(
+    token,
+    "POST",
+    `/invoices/${invoiceId}/payments`,
+    {
+      amount: invoice.data.total,
+      method: "ach",
+      referenceNumber: "ACH-MOCK-1",
+    },
+  );
+  console.log(
+    `Recorded payment ${payment.data.payment.id} for ${payment.data.payment.amount}`,
+  );
+
+  await runSession("payment add (invoice already synced)");
+
+  const mappingsAfterPayment = await adminApi(
+    token,
+    "GET",
+    "/quickbooks/mappings",
+  );
+  const paymentMapping = mappingsAfterPayment.data.find(
+    (m) => m.entityType === "payment" && m.entityId === payment.data.payment.id,
+  );
+  if (!paymentMapping) throw new Error("Expected the payment to have synced");
+  console.log(
+    `Payment mapping created: quickbooksId=${paymentMapping.quickbooksId}`,
+  );
+
+  console.log("Voiding the invoice (just to exercise the void path)...");
+  await adminApi(token, "POST", `/invoices/${invoiceId}/void`, {
+    voidReason: "Mock harness test",
+  });
+  await runSession("invoice void");
+
+  const queueAfterVoid = await adminApi(
+    token,
+    "GET",
+    "/quickbooks/queue?limit=100",
+  );
+  const voidJob = queueAfterVoid.data.find(
+    (j) =>
+      j.entityType === "invoice" &&
+      j.entityId === invoiceId &&
+      j.operation === "void",
+  );
+  if (!voidJob || voidJob.status !== "synced")
+    throw new Error("Expected the void to have synced");
+  if (!voidJob || voidJob.status !== "synced")
+    throw new Error("Expected the void to have synced");
+  console.log("Void confirmed synced.");
+
+  return { pricebookItemId: item.data.id, pricebookItemName: item.data.name };
+}
+
+async function dependencyGatingPhase(token, mappedItem) {
+  console.log("\n=========== PHASE 3: dependency gating ===========");
+
+  // A brand-new, not-yet-synced customer + an invoice for them created in the
+  // same breath. Both jobs land in the queue at once; the invoice must not be
+  // sent before its customer, even though a single continuous session will
+  // resolve both (dependencies clear progressively as each job completes).
+  const customer = await adminApi(token, "POST", "/customers", {
+    firstName: "Not",
+    lastName: "YetSynced",
+    phone: "555-0200",
+    type: "residential",
+  });
+
+  // Reuse the item mapped in phase 2 so building the request can't fail for
+  // an unrelated reason (unmapped item) and mask the ordering assertion.
+  const invoice = await adminApi(token, "POST", "/invoices", {
+    customerId: customer.data.id,
+    status: "sent",
+    taxRate: 0,
+    lineItems: [
+      {
+        type: "labor",
+        name: mappedItem.pricebookItemName,
+        pricebookItemId: mappedItem.pricebookItemId,
+        quantity: 1,
+        unitPrice: 50,
+      },
+    ],
+  });
+  console.log(
+    `Created customer "${customer.data.firstName} ${customer.data.lastName}" and invoice ` +
+      `${invoice.data.invoiceNumber} together (customer not yet synced)`,
+  );
+
+  const sent = await runSession(
+    "dependency gating: unsynced customer + its invoice",
+  );
+  const customerIdx = sent.findIndex(
+    (s) => s.rqType === "CustomerAddRq" && s.label === "Not YetSynced",
+  );
+  const invoiceIdx = sent.findIndex(
+    (s) =>
+      s.rqType === "InvoiceAddRq" && s.label === invoice.data.invoiceNumber,
+  );
+  if (customerIdx === -1)
+    throw new Error("Expected the new customer to have been sent");
+  if (invoiceIdx === -1)
+    throw new Error("Expected the invoice to eventually have been sent");
+  if (!(customerIdx < invoiceIdx)) {
+    throw new Error(
+      `Expected the customer (index ${customerIdx}) to sync before its invoice (index ${invoiceIdx})`,
+    );
+  }
+  console.log(
+    `Confirmed correct ordering: customer sent at position ${customerIdx}, its invoice at ${invoiceIdx}.`,
+  );
 }
 
 async function main() {
@@ -203,57 +518,9 @@ async function main() {
     webConnectorPassword: QBWC_PASSWORD,
   });
 
-  // A fresh customer guarantees at least one clean "Add" job.
-  const created = await adminApi(token, "POST", "/customers", {
-    firstName: "Mock",
-    lastName: "Harness Customer",
-    phone: "555-0100",
-    type: "residential",
-  });
-  const newCustomerId = created.data.id;
-  console.log(`Created test customer ${created.data.customerNumber} (${newCustomerId})`);
-
-  // Also queue every other active customer so we exercise a realistic batch.
-  const resync = await adminApi(token, "POST", "/quickbooks/resync/customers");
-  console.log(`Queued ${resync.data.queued} customer(s) for sync (including existing ones)`);
-
-  // Round 1: everything succeeds except one deliberately-scripted duplicate name.
-  await runSession("initial batch (with one scripted failure)", {
-    scriptedFailureForName: "Mock Harness Customer",
-  });
-
-  const queueAfterRound1 = await adminApi(token, "GET", "/quickbooks/queue?limit=100");
-  const synced = queueAfterRound1.data.filter((j) => j.status === "synced").length;
-  const errored = queueAfterRound1.data.filter((j) => j.status === "error").length;
-  console.log(`\nAfter round 1: ${synced} synced, ${errored} error(s)`);
-
-  const failedJob = queueAfterRound1.data.find(
-    (j) => j.status === "error" && j.entityId === newCustomerId,
-  );
-  if (!failedJob) throw new Error("Expected the scripted duplicate-name failure to be recorded");
-  console.log(`Confirmed failure recorded: "${failedJob.lastError}"`);
-
-  console.log("\nRetrying the failed job...");
-  await adminApi(token, "POST", `/quickbooks/queue/${failedJob.id}/retry`);
-
-  // Round 2: retry succeeds this time (no scripted failure).
-  await runSession("retry of the failed job");
-
-  const mappings = await adminApi(token, "GET", "/quickbooks/mappings");
-  const ourMapping = mappings.data.find((m) => m.entityId === newCustomerId);
-  if (!ourMapping) throw new Error("Expected a QuickBooksMapping row after the retry succeeded");
-  console.log(`Mapping created: quickbooksId=${ourMapping.quickbooksId}`);
-
-  // Round 3: update the customer -> should generate a CustomerModRq using the
-  // stored ListID/EditSequence, not another Add.
-  await adminApi(token, "PUT", `/customers/${newCustomerId}`, { phone: "555-0199" });
-  await runSession("update after editing the customer");
-
-  const mappingsAfterUpdate = await adminApi(token, "GET", "/quickbooks/mappings");
-  const updatedMapping = mappingsAfterUpdate.data.find((m) => m.entityId === newCustomerId);
-  console.log(
-    `EditSequence advanced: ${ourMapping.editSequence} -> ${updatedMapping.editSequence}`,
-  );
+  const customerId = await customerPhase(token);
+  const mappedItem = await invoicePaymentPhase(token, customerId);
+  await dependencyGatingPhase(token, mappedItem);
 
   console.log("\nMock Web Connector harness PASSED end to end.");
 }

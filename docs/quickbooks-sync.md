@@ -41,18 +41,47 @@ Key files:
 - `src/controllers/quickbooks.controller.js` — authenticated admin API
   (settings, `.qwc` file generation, sync queue, item mappings).
 
-## Why customer-only so far
+## What's implemented
+
+- **Customer** add/update — no Item dependency.
+- **Invoice** add (line items + a tax line using `QuickBooksSettings.salesTaxItemName`
+  + an optional discount line via a `discount` category mapping), a
+  **header-only** update (RefNumber/TxnDate/DueDate/Memo — deliberately does
+  **not** touch line items; see below), and **void** (via the generic
+  `TxnVoidRq`). Only synced once an invoice leaves `draft` status.
+- **Payment** add (`ReceivePaymentAddRq`), reporting a completed payment
+  against an already-synced invoice. PulseService never routes money through
+  QuickBooks — this only records that an invoice was paid.
+- **Dependency gating**: an invoice won't be sent until its customer has
+  synced; a payment won't be sent until its invoice has synced. `getNextPending`
+  scans a bounded window of pending jobs and skips ones that aren't ready yet,
+  so one blocked job never stalls everything behind it. In practice, within a
+  single QBWC session, dependencies resolve progressively (customer syncs in
+  round 1, its invoice becomes sendable by round 2) since jobs are processed
+  one at a time to completion.
 
 Every QuickBooks invoice line needs a QuickBooks **Item** reference (Items
 carry the GL account internally — we never need raw GL codes, just Item
-names). We don't have the bookkeeper's real Item list yet, so:
+names). We don't have the bookkeeper's real Item list yet, so the
+`QuickBooksItemMapping` table and its Settings UI are seeded with obvious
+placeholders (`PLACEHOLDER - Sales Tax`, etc.) — swapping placeholders for
+real values is pure data entry, never a code change. Resolution order per
+invoice line: exact `pricebookItemId` mapping, then a `lineItemType` category
+fallback (service/part/material/labor/equipment/fee, plus a synthetic
+`discount` category for the invoice-level discount line); an unmapped line
+fails loudly (queue status `error` with an actionable message) rather than
+syncing incorrectly.
 
-- **Customer sync is fully implemented** — no Item dependency.
-- **Invoice/Payment sync are not built yet.** The `QuickBooksItemMapping`
-  table and its Settings UI exist and are seeded with obvious placeholders
-  (`PLACEHOLDER - Sales Tax`, etc.) so that work isn't blocked on the
-  bookkeeper — swapping placeholders for real values is pure data entry,
-  never a code change.
+## Known limitation: invoice line-item edits after sync
+
+QuickBooks' line-replacement semantics for `InvoiceModRq` require per-line
+`TxnLineID` tracking, which is one of the gnarlier corners of the qbXML spec.
+Since invoices are effectively immutable once sent in normal use —
+balance/paid status flows through `ReceivePayment` transactions, not invoice
+edits — the current Mod only updates header fields. If someone edits an
+already-synced invoice's **line items**, that change will not be reflected in
+QuickBooks. This is a deliberate scope cut, not an oversight; full line
+reconciliation is a well-scoped follow-up if it turns out to be needed.
 
 ## Validating without any QuickBooks software installed
 

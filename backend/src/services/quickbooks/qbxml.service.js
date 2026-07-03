@@ -178,10 +178,150 @@ function extractIdentity(ret) {
   };
 }
 
+function toQbDate(date) {
+  if (!date) return "";
+  const d = date instanceof Date ? date : new Date(date);
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+/**
+ * @param {object} input
+ * @param {string} input.requestId
+ * @param {object} input.invoice - PulseService Invoice row (invoiceNumber, dueDate, createdAt, notes)
+ * @param {string} input.customerQbId - the customer's QuickBooks ListID (must already be synced)
+ * @param {Array<{itemName: string, description?: string, quantity?: number, rate?: number, amount: number}>} input.lines
+ */
+function buildInvoiceAddRequest({
+  requestId,
+  invoice,
+  customerQbId,
+  lines,
+  qbxmlVersion = DEFAULT_QBXML_VERSION,
+}) {
+  const linesXml = lines
+    .map(
+      (l) =>
+        `      <InvoiceLineAdd>\n` +
+        `        <ItemRef><FullName>${escapeXml(l.itemName)}</FullName></ItemRef>\n` +
+        `        ${tag("Desc", l.description)}\n` +
+        `        ${l.quantity !== undefined ? tag("Quantity", l.quantity) : ""}\n` +
+        `        ${l.rate !== undefined ? tag("Rate", l.rate.toFixed(2)) : ""}\n` +
+        `        ${tag("Amount", Number(l.amount).toFixed(2))}\n` +
+        `      </InvoiceLineAdd>\n`,
+    )
+    .join("");
+
+  const body =
+    `    <InvoiceAddRq requestID="${escapeXml(requestId)}">\n` +
+    `      <InvoiceAdd>\n` +
+    `        <CustomerRef><ListID>${escapeXml(customerQbId)}</ListID></CustomerRef>\n` +
+    `        ${tag("TxnDate", toQbDate(invoice.createdAt))}\n` +
+    `        ${tag("RefNumber", invoice.invoiceNumber)}\n` +
+    `        ${tag("DueDate", toQbDate(invoice.dueDate))}\n` +
+    `        ${tag("Memo", invoice.notes)}\n` +
+    linesXml +
+    `      </InvoiceAdd>\n` +
+    `    </InvoiceAddRq>\n`;
+
+  return wrap(qbxmlVersion, body);
+}
+
+/**
+ * Header-only update (RefNumber/TxnDate/DueDate/Memo) — deliberately does NOT
+ * touch line items. Replacing an already-synced invoice's lines in qbXML
+ * requires per-line TxnLineID tracking; since invoices are treated as
+ * effectively immutable once sent (balance/paid status flows through
+ * ReceivePayment, not invoice edits), this covers the realistic update case
+ * without that added complexity. See docs/quickbooks-sync.md.
+ */
+function buildInvoiceModRequest({
+  requestId,
+  invoice,
+  quickbooksId,
+  editSequence,
+  qbxmlVersion = DEFAULT_QBXML_VERSION,
+}) {
+  const body =
+    `    <InvoiceModRq requestID="${escapeXml(requestId)}">\n` +
+    `      <InvoiceMod>\n` +
+    `        ${tag("TxnID", quickbooksId)}\n` +
+    `        ${tag("EditSequence", editSequence)}\n` +
+    `        ${tag("RefNumber", invoice.invoiceNumber)}\n` +
+    `        ${tag("TxnDate", toQbDate(invoice.createdAt))}\n` +
+    `        ${tag("DueDate", toQbDate(invoice.dueDate))}\n` +
+    `        ${tag("Memo", invoice.notes)}\n` +
+    `      </InvoiceMod>\n` +
+    `    </InvoiceModRq>\n`;
+
+  return wrap(qbxmlVersion, body);
+}
+
+/**
+ * Voids a transaction (Invoice, SalesReceipt, ...) via the generic TxnVoid
+ * request — simpler and better documented than manually zeroing out a
+ * transaction's lines.
+ */
+function buildTxnVoidRequest({
+  requestId,
+  quickbooksId,
+  txnDelType = "Invoice",
+  qbxmlVersion = DEFAULT_QBXML_VERSION,
+}) {
+  const body =
+    `    <TxnVoidRq requestID="${escapeXml(requestId)}">\n` +
+    `      <TxnVoidMod>\n` +
+    `        ${tag("TxnID", quickbooksId)}\n` +
+    `        ${tag("TxnDelType", txnDelType)}\n` +
+    `      </TxnVoidMod>\n` +
+    `    </TxnVoidRq>\n`;
+
+  return wrap(qbxmlVersion, body);
+}
+
+/**
+ * Reports a completed payment against an already-synced invoice. PulseService
+ * never routes money through QuickBooks — this only records that the invoice
+ * was paid, so QuickBooks' AR matches reality.
+ */
+function buildReceivePaymentAddRequest({
+  requestId,
+  customerQbId,
+  payment,
+  invoiceTxnId,
+  depositToAccountName,
+  qbxmlVersion = DEFAULT_QBXML_VERSION,
+}) {
+  const depositXml = depositToAccountName
+    ? `        <DepositToAccountRef><FullName>${escapeXml(depositToAccountName)}</FullName></DepositToAccountRef>\n`
+    : "";
+
+  const body =
+    `    <ReceivePaymentAddRq requestID="${escapeXml(requestId)}">\n` +
+    `      <ReceivePaymentAdd>\n` +
+    `        <CustomerRef><ListID>${escapeXml(customerQbId)}</ListID></CustomerRef>\n` +
+    `        ${tag("TxnDate", toQbDate(payment.paidAt || payment.createdAt))}\n` +
+    `        ${tag("RefNumber", payment.referenceNumber)}\n` +
+    `        ${tag("TotalAmount", Number(payment.amount).toFixed(2))}\n` +
+    `        ${tag("Memo", payment.notes)}\n` +
+    depositXml +
+    `        <AppliedToTxnAdd>\n` +
+    `          <TxnID>${escapeXml(invoiceTxnId)}</TxnID>\n` +
+    `          <PaymentAmount>${Number(payment.amount).toFixed(2)}</PaymentAmount>\n` +
+    `        </AppliedToTxnAdd>\n` +
+    `      </ReceivePaymentAdd>\n` +
+    `    </ReceivePaymentAddRq>\n`;
+
+  return wrap(qbxmlVersion, body);
+}
+
 module.exports = {
   DEFAULT_QBXML_VERSION,
   buildCustomerAddRequest,
   buildCustomerModRequest,
+  buildInvoiceAddRequest,
+  buildInvoiceModRequest,
+  buildTxnVoidRequest,
+  buildReceivePaymentAddRequest,
   parseQbxmlResponse,
   isSuccess,
   extractIdentity,

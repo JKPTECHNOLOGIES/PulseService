@@ -174,6 +174,10 @@ const LOOKUPS = {
     { value: "labor", label: "Labor" },
     { value: "equipment", label: "Equipment" },
     { value: "fee", label: "Fee" },
+    // Not a real invoice line-item type — a pseudo-category so an invoice-level
+    // discount can be mapped to a QuickBooks Item the same way as any other
+    // QuickBooksItemMapping category (see item-mapping.service.js).
+    { value: "discount", label: "Discount (QuickBooks mapping only)" },
   ],
   discountType: [
     { value: "percentage", label: "Percentage (%)" },
