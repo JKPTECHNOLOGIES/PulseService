@@ -7,8 +7,13 @@ router.use(auth);
 
 // Items (catalog + aggregated stock)
 router.get("/items", c.list);
-router.get("/items/:id", c.get);
 router.post("/items", requirePermission("inventory.manage"), c.create);
+router.post(
+  "/items/import",
+  requirePermission("inventory.manage"),
+  c.importItems,
+);
+router.get("/items/:id", c.get);
 router.put("/items/:id", requirePermission("inventory.manage"), c.update);
 router.delete("/items/:id", requirePermission("inventory.manage"), c.remove);
 
@@ -35,6 +40,22 @@ router.delete(
   "/items/:id/suppliers/:linkId",
   requirePermission("inventory.manage"),
   c.removeSupplier,
+);
+
+// Job parts consumption
+router.post("/issue", requirePermission("inventory.manage"), c.issueToJob);
+router.get("/jobs/:jobId/parts", c.getJobParts);
+router.post(
+  "/transactions/:id/reverse",
+  requirePermission("inventory.manage"),
+  c.reverseTransaction,
+);
+
+// Cycle count
+router.post(
+  "/cycle-count",
+  requirePermission("inventory.manage"),
+  c.cycleCount,
 );
 
 module.exports = router;

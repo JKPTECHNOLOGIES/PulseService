@@ -1,7 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
-import type { ApiResponse, PaginatedResponse, PurchaseOrder } from "../types";
+import type {
+  ApiResponse,
+  PaginatedResponse,
+  PurchaseOrder,
+  ReorderSuggestionGroup,
+} from "../types";
 import toast from "react-hot-toast";
 
 export interface POLineInput {
@@ -43,6 +48,19 @@ export function usePurchaseOrders(
       );
       return res;
     },
+  });
+}
+
+export function useReorderSuggestions(enabled = true) {
+  return useQuery({
+    queryKey: ["purchasing", "reorder-suggestions"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<ReorderSuggestionGroup[]>>(
+        "/purchasing/reorder-suggestions",
+      );
+      return res.data;
+    },
+    enabled,
   });
 }
 

@@ -5,7 +5,9 @@ import type {
   ApiResponse,
   InventoryItem,
   InventoryTransaction,
+  JobPart,
   StockLocation,
+  VehicleOption,
 } from "../types";
 import toast from "react-hot-toast";
 
@@ -24,6 +26,32 @@ export function useStockLocations(
         },
       );
       return res.data;
+    },
+  });
+}
+
+export function useVehicles() {
+  return useQuery({
+    queryKey: ["stock-locations", "vehicles"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<VehicleOption[]>>(
+        "/stock-locations/vehicles",
+      );
+      return res.data;
+    },
+  });
+}
+
+export function useDeleteStockLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/stock-locations/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["stock-locations"] });
+      toast.success("Location deactivated");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to deactivate location"));
     },
   });
 }
@@ -196,5 +224,135 @@ export function useInventoryTransactions(itemId: string) {
       return res.data;
     },
     enabled: !!itemId,
+  });
+}
+
+// ─── Job parts consumption ───────────────────────────────────────────────────────
+
+export function useJobParts(jobId: string) {
+  return useQuery({
+    queryKey: ["inventory", "job-parts", jobId],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<JobPart[]>>(
+        `/inventory/jobs/${jobId}/parts`,
+      );
+      return res.data;
+    },
+    enabled: !!jobId,
+  });
+}
+
+export function useIssueToJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      jobId: string;
+      inventoryItemId: string;
+      stockLocationId: string;
+      quantity: number;
+      notes?: string;
+    }) => api.post("/inventory/issue", payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["inventory"] });
+      toast.success("Part issued to job");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to issue part"));
+    },
+  });
+}
+
+export function useReverseTransaction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      api.post(`/inventory/transactions/${id}/reverse`, { reason }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["inventory"] });
+      toast.success("Movement reversed");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to reverse movement"));
+    },
+  });
+}
+
+// ─── Cycle count ───────────────────────────────────────────────────────────────────
+
+export interface CycleCountResult {
+  counted: number;
+  variances: number;
+  results: {
+    inventoryItemId: string;
+    expected: number;
+    counted: number;
+    variance: number;
+  }[];
+}
+
+export function useCycleCount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      stockLocationId: string;
+      counts: { inventoryItemId: string; countedQuantity: number }[];
+      notes?: string;
+    }) => {
+      const res = await api.post<ApiResponse<CycleCountResult>>(
+        "/inventory/cycle-count",
+        payload,
+      );
+      return res.data;
+    },
+    onSuccess: (data) => {
+      void qc.invalidateQueries({ queryKey: ["inventory"] });
+      toast.success(
+        `Count applied: ${String(data.counted)} item(s), ${String(data.variances)} variance(s)`,
+      );
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to apply count"));
+    },
+  });
+}
+
+// ─── Per-supplier catalog pricing ───────────────────────────────────────────────
+
+export function useAddItemSupplier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      itemId,
+      ...payload
+    }: {
+      itemId: string;
+      supplierId: string;
+      unitCost: number;
+      supplierSku?: string;
+      leadTimeDays?: number;
+      isPrimary?: boolean;
+    }) => api.post(`/inventory/items/${itemId}/suppliers`, payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["inventory"] });
+      toast.success("Supplier price added");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to add supplier price"));
+    },
+  });
+}
+
+export function useRemoveItemSupplier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itemId, linkId }: { itemId: string; linkId: string }) =>
+      api.delete(`/inventory/items/${itemId}/suppliers/${linkId}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["inventory"] });
+      toast.success("Supplier price removed");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to remove supplier price"));
+    },
   });
 }

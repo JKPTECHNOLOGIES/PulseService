@@ -16,6 +16,7 @@ import LineItemsTable, { LineItem } from "../components/ui/LineItemsTable";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
+import { useJobParts } from "../hooks/useInventory";
 
 // Enum values are validated server-side against the DB-driven lookups; the form
 // only needs a present value so we never duplicate the enum here.
@@ -67,6 +68,34 @@ export default function InvoiceFormPage() {
   const customerJobs = (jobsData?.data ?? []).filter(
     (j) => j.customerId === customerId,
   );
+
+  // Parts issued to the selected job (from truck/warehouse stock) that can be
+  // pulled onto the invoice as line items.
+  const jobId = watch("jobId") ?? "";
+  const { data: jobParts } = useJobParts(jobId);
+  const importJobParts = () => {
+    const parts = jobParts ?? [];
+    if (parts.length === 0) return;
+    setLineItems((items) => [
+      ...items,
+      ...parts
+        // skip parts already on the invoice (matched by name + qty)
+        .filter(
+          (p) =>
+            !items.some(
+              (li) => li.name === p.name && li.quantity === p.quantityUsed,
+            ),
+        )
+        .map((p) => ({
+          type: "part",
+          name: p.name,
+          description: p.sku,
+          quantity: p.quantityUsed,
+          unitPrice: p.unitPrice,
+          total: p.total,
+        })),
+    ]);
+  };
 
   useEffect(() => {
     if (invoice && isEditing) {
@@ -191,6 +220,21 @@ export default function InvoiceFormPage() {
         </Card>
 
         <Card title="Line Items">
+          {jobId && (jobParts?.length ?? 0) > 0 && (
+            <div className="mb-3 flex items-center justify-between bg-primary-50 border border-primary-100 rounded-lg px-3.5 py-2.5">
+              <p className="text-sm text-primary-800">
+                {jobParts?.length} part(s) were used on this job.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={importJobParts}
+              >
+                Add to invoice
+              </Button>
+            </div>
+          )}
           <LineItemsTable items={lineItems} onChange={setLineItems} />
         </Card>
 

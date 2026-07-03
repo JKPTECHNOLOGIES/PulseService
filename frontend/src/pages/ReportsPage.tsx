@@ -31,6 +31,7 @@ import {
   useArAgingReport,
   useSalesBySourceReport,
   useEstimatePipelineReport,
+  useInventoryReport,
 } from "../hooks/useReports";
 import StatCard from "../components/ui/StatCard";
 import Card from "../components/ui/Card";
@@ -678,6 +679,197 @@ function EstimatesTab() {
   );
 }
 
+function InventoryReportTab() {
+  const { data, isLoading } = useInventoryReport();
+  const { getLabel: getPoStatusLabel } = useLookup("poStatus");
+  const { getLabel: getCostSourceLabel } = useLookup("costChangeSource");
+
+  if (isLoading) return <PageSpinner />;
+  if (!data) return null;
+
+  const locationChart = data.valueByLocation.map((l) => ({
+    name: l.code,
+    value: l.value,
+  }));
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
+        <StatCard
+          title="Inventory Value"
+          value={formatCurrency(data.totals.totalValue)}
+          icon={<CurrencyDollarIcon />}
+          color="blue"
+        />
+        <StatCard
+          title="Active Items"
+          value={data.totals.totalItems}
+          icon={<BriefcaseIcon />}
+          color="purple"
+        />
+        <StatCard
+          title="Below Reorder Point"
+          value={data.totals.lowStockCount}
+          icon={<ClockIcon />}
+          color={data.totals.lowStockCount > 0 ? "yellow" : "green"}
+        />
+        <StatCard
+          title="Received (30d)"
+          value={formatCurrency(data.totals.received30d)}
+          icon={<CheckCircleIcon />}
+          color="green"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Card title="Value by location">
+          {locationChart.length > 0 ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={locationChart}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" fontSize={12} />
+                <YAxis fontSize={12} />
+                <Tooltip
+                  formatter={(v) => formatCurrency(Number(v))}
+                  labelFormatter={(label) => `Location: ${String(label)}`}
+                />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                  {locationChart.map((entry, idx) => (
+                    <Cell
+                      key={entry.name}
+                      fill={CHART_COLORS[idx % CHART_COLORS.length]}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-sm text-gray-400 py-8 text-center">
+              No stocked locations
+            </p>
+          )}
+        </Card>
+
+        <Card title="Purchase orders by status">
+          {data.poByStatus.length > 0 ? (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+                  <th className="py-2 font-medium">Status</th>
+                  <th className="py-2 font-medium text-right">Count</th>
+                  <th className="py-2 font-medium text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {data.poByStatus.map((g) => (
+                  <tr key={g.status}>
+                    <td className="py-2.5 text-gray-700">
+                      {getPoStatusLabel(g.status)}
+                    </td>
+                    <td className="py-2.5 text-right text-gray-600">
+                      {g.count}
+                    </td>
+                    <td className="py-2.5 text-right text-gray-700">
+                      {formatCurrency(g.total)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="text-sm text-gray-400 py-8 text-center">
+              No purchase orders yet
+            </p>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Card title="Top items by stock value">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+                <th className="py-2 font-medium">Item</th>
+                <th className="py-2 font-medium text-right">On hand</th>
+                <th className="py-2 font-medium text-right">Avg cost</th>
+                <th className="py-2 font-medium text-right">Value</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {data.topItemsByValue.map((i) => (
+                <tr key={i.id}>
+                  <td className="py-2.5">
+                    <span className="font-medium text-gray-900">{i.name}</span>
+                    <span className="font-mono text-xs text-gray-400 ml-2">
+                      {i.sku}
+                    </span>
+                  </td>
+                  <td className="py-2.5 text-right text-gray-600">
+                    {i.onHand}
+                  </td>
+                  <td className="py-2.5 text-right text-gray-600">
+                    {formatCurrency(i.unitCost)}
+                  </td>
+                  <td className="py-2.5 text-right font-medium text-gray-900">
+                    {formatCurrency(i.value)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+
+        <Card title="Recent cost changes (weighted average)">
+          {data.recentCostChanges.length > 0 ? (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+                  <th className="py-2 font-medium">Item</th>
+                  <th className="py-2 font-medium">Source</th>
+                  <th className="py-2 font-medium text-right">Old → New</th>
+                  <th className="py-2 font-medium text-right">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {data.recentCostChanges.map((c) => (
+                  <tr key={c.id}>
+                    <td className="py-2.5 text-gray-700">{c.name}</td>
+                    <td className="py-2.5 text-gray-500 text-xs">
+                      {getCostSourceLabel(c.changeSource)}
+                    </td>
+                    <td className="py-2.5 text-right">
+                      <span className="text-gray-400">
+                        {formatCurrency(c.oldUnitCost)}
+                      </span>{" "}
+                      →{" "}
+                      <span
+                        className={
+                          c.newUnitCost >= c.oldUnitCost
+                            ? "text-red-600 font-medium"
+                            : "text-green-700 font-medium"
+                        }
+                      >
+                        {formatCurrency(c.newUnitCost)}
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-right text-gray-500 text-xs">
+                      {formatDate(c.createdAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="text-sm text-gray-400 py-8 text-center">
+              No cost changes recorded yet
+            </p>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function ReportsPage() {
   const [selectedTab, setSelectedTab] = useState(0);
   const tabs = [
@@ -688,6 +880,7 @@ export default function ReportsPage() {
     "Technicians",
     "Customers",
     "AR Aging",
+    "Inventory",
   ];
 
   return (
@@ -731,6 +924,9 @@ export default function ReportsPage() {
           </Tab.Panel>
           <Tab.Panel>
             <ArAgingTab />
+          </Tab.Panel>
+          <Tab.Panel>
+            <InventoryReportTab />
           </Tab.Panel>
         </Tab.Panels>
       </Tab.Group>

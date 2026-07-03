@@ -623,6 +623,74 @@ const reverseReceipt = async (req, res) => {
   }
 };
 
+/**
+ * Items at/below their reorder point, grouped by default supplier, with a
+ * suggested order quantity and the best-known cost (primary supplier catalog
+ * price, falling back to the item's average cost).
+ */
+const reorderSuggestions = async (req, res) => {
+  try {
+    const items = await prisma.inventoryItem.findMany({
+      where: { isArchived: false, isActive: true, isStockItem: true },
+      include: {
+        stock: true,
+        defaultSupplier: { select: { id: true, name: true } },
+        suppliers: {
+          where: { isActive: true },
+          orderBy: { isPrimary: "desc" },
+          take: 1,
+          include: { supplier: { select: { id: true, name: true } } },
+        },
+      },
+    });
+
+    const low = items
+      .map((item) => {
+        const onHand = qty(
+          item.stock.reduce((sum, s) => sum + Number(s.quantityOnHand), 0),
+        );
+        return { item, onHand };
+      })
+      .filter(
+        ({ item, onHand }) =>
+          Number(item.reorderPoint) > 0 && onHand <= Number(item.reorderPoint),
+      );
+
+    const groups = new Map();
+    for (const { item, onHand } of low) {
+      const catalog = item.suppliers[0] ?? null;
+      const supplier = catalog?.supplier ?? item.defaultSupplier ?? null;
+      const key = supplier?.id ?? "unassigned";
+      if (!groups.has(key)) {
+        groups.set(key, {
+          supplier: supplier ?? { id: null, name: "No supplier assigned" },
+          lines: [],
+        });
+      }
+      const reorderQty = Number(item.reorderQuantity);
+      const maxQty = Number(item.maxQuantity);
+      const suggestedQuantity =
+        reorderQty > 0
+          ? reorderQty
+          : Math.max(1, qty(maxQty > 0 ? maxQty - onHand : 1));
+      groups.get(key).lines.push({
+        inventoryItemId: item.id,
+        sku: item.sku,
+        name: item.name,
+        onHand,
+        reorderPoint: Number(item.reorderPoint),
+        suggestedQuantity,
+        unitCost: Number(catalog ? catalog.unitCost : item.unitCost),
+      });
+    }
+
+    return res.json({ success: true, data: Array.from(groups.values()) });
+  } catch (err) {
+    console.error("purchasing.reorderSuggestions error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
 module.exports = {
   list,
   get,
@@ -631,4 +699,5 @@ module.exports = {
   setStatus,
   receiveItems,
   reverseReceipt,
+  reorderSuggestions,
 };

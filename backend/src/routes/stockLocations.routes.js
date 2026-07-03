@@ -7,6 +7,7 @@ const c = require("../controllers/stockLocations.controller");
 router.use(auth);
 
 router.get("/", c.list);
+router.get("/vehicles", c.vehicles);
 router.get("/:id", c.get);
 router.post(
   "/",

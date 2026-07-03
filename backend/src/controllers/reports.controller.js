@@ -404,6 +404,126 @@ const estimatePipeline = async (req, res) => {
   }
 };
 
+// Inventory & purchasing overview: valuation by location, low stock, top items
+// by value, recent weighted-average cost changes, and PO/receiving activity.
+const inventory = async (req, res) => {
+  try {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const [items, locations, costChanges, poByStatus, recentReceipts] =
+      await Promise.all([
+        prisma.inventoryItem.findMany({
+          where: { isArchived: false },
+          include: {
+            stock: {
+              include: {
+                stockLocation: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
+        }),
+        prisma.stockLocation.findMany({ where: { isActive: true } }),
+        prisma.inventoryItemCostHistory.findMany({
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          include: {
+            inventoryItem: { select: { sku: true, name: true } },
+          },
+        }),
+        prisma.purchaseOrder.groupBy({
+          by: ["status"],
+          _count: { id: true },
+          _sum: { totalAmount: true },
+        }),
+        prisma.pOLineReceipt.findMany({
+          where: { status: "active", receivedAt: { gte: thirtyDaysAgo } },
+          select: { totalCost: true },
+        }),
+      ]);
+
+    const valueByLocationMap = new Map(
+      locations.map((l) => [
+        l.id,
+        {
+          id: l.id,
+          name: l.name,
+          code: l.code,
+          type: l.type,
+          value: 0,
+          items: 0,
+        },
+      ]),
+    );
+
+    let totalValue = 0;
+    let lowStockCount = 0;
+    const itemValues = [];
+
+    for (const item of items) {
+      const cost = Number(item.unitCost);
+      let onHand = 0;
+      for (const s of item.stock) {
+        const q = Number(s.quantityOnHand);
+        onHand += q;
+        const bucket = valueByLocationMap.get(s.stockLocationId);
+        if (bucket && q > 0) {
+          bucket.value = round2(bucket.value + q * cost);
+          bucket.items += 1;
+        }
+      }
+      const value = round2(onHand * cost);
+      totalValue = round2(totalValue + value);
+      if (Number(item.reorderPoint) > 0 && onHand <= Number(item.reorderPoint))
+        lowStockCount += 1;
+      itemValues.push({
+        id: item.id,
+        sku: item.sku,
+        name: item.name,
+        onHand,
+        unitCost: cost,
+        value,
+      });
+    }
+
+    const received30d = round2(
+      recentReceipts.reduce((sum, r) => sum + Number(r.totalCost), 0),
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        totals: {
+          totalItems: items.length,
+          totalValue,
+          lowStockCount,
+          received30d,
+        },
+        valueByLocation: Array.from(valueByLocationMap.values()),
+        topItemsByValue: itemValues
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 10),
+        recentCostChanges: costChanges.map((c) => ({
+          id: c.id,
+          sku: c.inventoryItem.sku,
+          name: c.inventoryItem.name,
+          oldUnitCost: Number(c.oldUnitCost),
+          newUnitCost: Number(c.newUnitCost),
+          changeSource: c.changeSource,
+          createdAt: c.createdAt,
+        })),
+        poByStatus: poByStatus.map((g) => ({
+          status: g.status,
+          count: g._count.id,
+          total: round2(Number(g._sum.totalAmount ?? 0)),
+        })),
+      },
+    });
+  } catch (err) {
+    console.error("reports.inventory error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
 module.exports = {
   revenue,
   jobs,
@@ -412,4 +532,5 @@ module.exports = {
   arAging,
   salesBySource,
   estimatePipeline,
+  inventory,
 };

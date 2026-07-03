@@ -38,7 +38,8 @@ async function totalOnHand(client, itemId) {
 
 /**
  * Apply a signed quantity delta to a single (item, location) stock row and
- * record the movement. Negative results are rejected. Returns the stock row.
+ * record the movement. Negative results are rejected.
+ * Returns `{ stock, transaction }`.
  */
 async function applyStockDelta(
   client,
@@ -84,7 +85,7 @@ async function applyStockDelta(
         },
       });
 
-  await client.inventoryTransaction.create({
+  const transaction = await client.inventoryTransaction.create({
     data: {
       inventoryItemId: itemId,
       stockLocationId: locationId,
@@ -103,7 +104,7 @@ async function applyStockDelta(
     },
   });
 
-  return stock;
+  return { stock, transaction };
 }
 
 /**

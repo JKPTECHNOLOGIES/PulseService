@@ -1,6 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "../lib/api";
-import type { ApiResponse } from "../types";
+import type { ApiResponse, InventoryReport } from "../types";
+
+export function useInventoryReport() {
+  return useQuery({
+    queryKey: ["reports", "inventory"],
+    queryFn: async () => {
+      const res =
+        await api.get<ApiResponse<InventoryReport>>("/reports/inventory");
+      return res.data;
+    },
+  });
+}
 
 export function useRevenueReport(params: { months?: number } = {}) {
   return useQuery({

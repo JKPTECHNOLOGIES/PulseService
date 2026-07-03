@@ -398,6 +398,78 @@ export interface PurchaseOrder {
   _count?: { lines: number };
 }
 
+/** A consumable part issued to a job (derived from issue transactions). */
+export interface JobPart {
+  transactionId: string;
+  inventoryItemId: string;
+  sku: string;
+  name: string;
+  unit: string;
+  stockLocation?: { id: string; name: string; code: string };
+  quantityUsed: number;
+  unitCost: number;
+  unitPrice: number;
+  total: number;
+  transactionDate: string;
+  notes?: string;
+}
+
+export interface ReorderSuggestionGroup {
+  supplier: { id: string | null; name: string };
+  lines: {
+    inventoryItemId: string;
+    sku: string;
+    name: string;
+    onHand: number;
+    reorderPoint: number;
+    suggestedQuantity: number;
+    unitCost: number;
+  }[];
+}
+
+export interface InventoryReport {
+  totals: {
+    totalItems: number;
+    totalValue: number;
+    lowStockCount: number;
+    received30d: number;
+  };
+  valueByLocation: {
+    id: string;
+    name: string;
+    code: string;
+    type: string;
+    value: number;
+    items: number;
+  }[];
+  topItemsByValue: {
+    id: string;
+    sku: string;
+    name: string;
+    onHand: number;
+    unitCost: number;
+    value: number;
+  }[];
+  recentCostChanges: {
+    id: string;
+    sku: string;
+    name: string;
+    oldUnitCost: number;
+    newUnitCost: number;
+    changeSource: string;
+    createdAt: string;
+  }[];
+  poByStatus: { status: string; count: number; total: number }[];
+}
+
+export interface VehicleOption {
+  id: string;
+  name: string;
+  licensePlate?: string;
+  technicians?: { user: { firstName: string; lastName: string } }[];
+  stockLocation?: { id: string; name: string; code: string } | null;
+}
+
 export interface SerializedUnit {
   id: string;
   serialNumber: string;

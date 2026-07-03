@@ -6,6 +6,7 @@ import {
   UserPlusIcon,
   CheckCircleIcon,
   ClockIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { useJob } from "../hooks/useJobs";
@@ -20,6 +21,13 @@ import {
 import { useLookup } from "../hooks/useMetadata";
 import { useSerializedUnits } from "../hooks/useSerials";
 import { usePurchaseOrders } from "../hooks/usePurchasing";
+import {
+  useJobParts,
+  useIssueToJob,
+  useReverseTransaction,
+  useInventoryItems,
+  useStockLocations,
+} from "../hooks/useInventory";
 import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
@@ -35,6 +43,9 @@ import {
   formatDate,
   capitalize,
 } from "../utils/formatters";
+
+// Decimal fields arrive from the API as strings; coerce defensively.
+const num = (v: unknown) => Number(v ?? 0);
 
 function formatDuration(mins?: number | null): string {
   if (!mins || mins <= 0) return "0m";
@@ -602,10 +613,15 @@ function JobMaterialsCard({
 }) {
   const { data: serials } = useSerializedUnits({ jobId, limit: 50 });
   const { data: pos } = usePurchaseOrders({ jobId, limit: 50 });
+  const { data: parts } = useJobParts(jobId);
+  const reverseTxn = useReverseTransaction();
   const [installOpen, setInstallOpen] = useState(false);
+  const [addPartOpen, setAddPartOpen] = useState(false);
 
   const units = serials?.data ?? [];
   const orders = pos?.data ?? [];
+  const usedParts = parts ?? [];
+  const partsTotal = usedParts.reduce((sum, p) => sum + p.total, 0);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -614,18 +630,78 @@ function JobMaterialsCard({
           Materials &amp; Equipment
         </h3>
         <Can permission="inventory.manage">
-          <button
-            onClick={() => {
-              setInstallOpen(true);
-            }}
-            className="text-xs text-primary-600 hover:text-primary-700 font-medium"
-          >
-            Install unit
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setAddPartOpen(true);
+              }}
+              className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+            >
+              Add part
+            </button>
+            <button
+              onClick={() => {
+                setInstallOpen(true);
+              }}
+              className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+            >
+              Install unit
+            </button>
+          </div>
         </Can>
       </div>
 
       <div className="space-y-4">
+        {/* Parts consumed from truck/warehouse stock */}
+        <div>
+          <p className="text-xs font-medium text-gray-500 mb-2">Parts used</p>
+          {usedParts.length > 0 ? (
+            <div className="space-y-1.5">
+              {usedParts.map((p) => (
+                <div
+                  key={p.transactionId}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <span className="text-gray-700">
+                    {p.quantityUsed}× {p.name}
+                    <span className="font-mono text-xs text-gray-400 ml-1.5">
+                      {p.stockLocation?.code ?? ""}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-gray-600">
+                      {formatCurrency(p.total)}
+                    </span>
+                    <Can permission="inventory.manage">
+                      <button
+                        onClick={() => {
+                          reverseTxn.mutate({
+                            id: p.transactionId,
+                            reason: "Removed from job",
+                          });
+                        }}
+                        className="p-1 text-gray-300 hover:text-red-500"
+                        aria-label="Remove part"
+                        title="Remove (returns stock to the location)"
+                      >
+                        <TrashIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </Can>
+                  </span>
+                </div>
+              ))}
+              <div className="flex justify-between text-sm pt-1.5 border-t border-gray-100">
+                <span className="text-gray-500">Parts total (suggested)</span>
+                <span className="font-semibold text-gray-900">
+                  {formatCurrency(partsTotal)}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">No parts used yet</p>
+          )}
+        </div>
+
         <div>
           <p className="text-xs font-medium text-gray-500 mb-2">
             Installed serialized units
@@ -690,6 +766,135 @@ function JobMaterialsCard({
           setInstallOpen(false);
         }}
       />
+      <AddPartModal
+        isOpen={addPartOpen}
+        jobId={jobId}
+        onClose={() => {
+          setAddPartOpen(false);
+        }}
+      />
     </div>
+  );
+}
+
+// Pick an item + source location (usually the tech's truck) and issue it to
+// the job. Stock is decremented immediately; the movement is reversible.
+function AddPartModal({
+  isOpen,
+  jobId,
+  onClose,
+}: {
+  isOpen: boolean;
+  jobId: string;
+  onClose: () => void;
+}) {
+  const issue = useIssueToJob();
+  const { data: items } = useInventoryItems();
+  const { data: locations } = useStockLocations({ active: "true" });
+
+  const [inventoryItemId, setItemId] = useState("");
+  const [stockLocationId, setLocationId] = useState("");
+  const [quantity, setQuantity] = useState(1);
+
+  if (!isOpen) return null;
+
+  const item = (items ?? []).find((i) => i.id === inventoryItemId);
+  const available = num(
+    item?.stock?.find((s) => s.stockLocationId === stockLocationId)
+      ?.quantityOnHand,
+  );
+
+  const inputClass =
+    "w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white";
+
+  return (
+    <Modal isOpen onClose={onClose} title="Add part to job" size="md">
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Part
+          </label>
+          <select
+            value={inventoryItemId}
+            onChange={(e) => {
+              setItemId(e.target.value);
+            }}
+            className={inputClass}
+          >
+            <option value="">Select part...</option>
+            {(items ?? []).map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.sku} — {i.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            From location
+          </label>
+          <select
+            value={stockLocationId}
+            onChange={(e) => {
+              setLocationId(e.target.value);
+            }}
+            className={inputClass}
+          >
+            <option value="">Select truck/warehouse...</option>
+            {(locations ?? []).map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name} ({l.code})
+              </option>
+            ))}
+          </select>
+          {inventoryItemId && stockLocationId && (
+            <p className="text-xs text-gray-500 mt-1">
+              Available here: <span className="font-semibold">{available}</span>
+            </p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Quantity
+          </label>
+          <input
+            type="number"
+            min={0}
+            step="any"
+            value={quantity}
+            onChange={(e) => {
+              setQuantity(Number(e.target.value));
+            }}
+            className={inputClass}
+          />
+        </div>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            loading={issue.isPending}
+            disabled={!inventoryItemId || !stockLocationId || !(quantity > 0)}
+            onClick={() => {
+              void issue
+                .mutateAsync({
+                  jobId,
+                  inventoryItemId,
+                  stockLocationId,
+                  quantity,
+                })
+                .then(() => {
+                  setItemId("");
+                  setLocationId("");
+                  setQuantity(1);
+                  onClose();
+                });
+            }}
+          >
+            Issue part
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }

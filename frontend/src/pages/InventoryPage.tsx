@@ -1,4 +1,5 @@
 import { useState, lazy, Suspense } from "react";
+import { Link } from "react-router-dom";
 import {
   ExclamationTriangleIcon,
   AdjustmentsHorizontalIcon,
@@ -8,17 +9,26 @@ import {
   QrCodeIcon,
   PlusIcon,
   PencilSquareIcon,
+  ArrowUpTrayIcon,
+  BuildingStorefrontIcon,
+  ClipboardDocumentListIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import toast from "react-hot-toast";
 import {
   useInventoryItems,
+  useInventoryItem,
   useStockLocations,
   useAdjustInventory,
   useTransferInventory,
   useInventoryTransactions,
   useSaveInventoryItem,
+  useAddItemSupplier,
+  useRemoveItemSupplier,
 } from "../hooks/useInventory";
+import { useSuppliers } from "../hooks/useSuppliers";
+import ImportModal from "../components/ui/ImportModal";
 import Button from "../components/ui/Button";
 import IconButton from "../components/ui/IconButton";
 import Modal from "../components/ui/Modal";
@@ -50,6 +60,8 @@ export default function InventoryPage() {
   const [txItem, setTxItem] = useState<InventoryItem | null>(null);
   const [photoItem, setPhotoItem] = useState<InventoryItem | null>(null);
   const [formItem, setFormItem] = useState<Partial<InventoryItem> | null>(null);
+  const [supplierItem, setSupplierItem] = useState<InventoryItem | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [sort, setSort] = useState<SortState | null>(null);
 
@@ -171,6 +183,14 @@ export default function InventoryPage() {
         >
           <PencilSquareIcon className="h-4 w-4" />
         </IconButton>
+        <IconButton
+          label="Supplier pricing"
+          onClick={() => {
+            setSupplierItem(item);
+          }}
+        >
+          <BuildingStorefrontIcon className="h-4 w-4" />
+        </IconButton>
       </Can>
       <IconButton
         label="Photos"
@@ -208,7 +228,27 @@ export default function InventoryPage() {
           />
           <p className="text-sm text-gray-500">{items?.length ?? 0} items</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to="/inventory/locations">
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<BuildingStorefrontIcon className="h-4 w-4" />}
+            >
+              Locations
+            </Button>
+          </Link>
+          <Can permission="inventory.manage">
+            <Link to="/inventory/cycle-count">
+              <Button
+                size="sm"
+                variant="outline"
+                icon={<ClipboardDocumentListIcon className="h-4 w-4" />}
+              >
+                Cycle Count
+              </Button>
+            </Link>
+          </Can>
           <Button
             size="sm"
             variant="outline"
@@ -220,6 +260,16 @@ export default function InventoryPage() {
             Scan
           </Button>
           <Can permission="inventory.manage">
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<ArrowUpTrayIcon className="h-4 w-4" />}
+              onClick={() => {
+                setImportOpen(true);
+              }}
+            >
+              Import
+            </Button>
             <Button
               size="sm"
               icon={<PlusIcon className="h-4 w-4" />}
@@ -420,6 +470,37 @@ export default function InventoryPage() {
         )}
       </Modal>
 
+      {/* Supplier pricing modal */}
+      <SupplierPricingModal
+        item={supplierItem}
+        onClose={() => {
+          setSupplierItem(null);
+        }}
+      />
+
+      {/* CSV import */}
+      <ImportModal
+        isOpen={importOpen}
+        onClose={() => {
+          setImportOpen(false);
+        }}
+        title="Import inventory items"
+        endpoint="/inventory/items/import"
+        invalidateKey={["inventory"]}
+        templateColumns={[
+          "sku",
+          "name",
+          "unit",
+          "quantity",
+          "unitCost",
+          "reorderPoint",
+          "reorderQuantity",
+          "supplierName",
+          "locationCode",
+          "serialized",
+        ]}
+      />
+
       {scannerOpen && (
         <Suspense fallback={null}>
           <BarcodeScanner
@@ -432,6 +513,177 @@ export default function InventoryPage() {
         </Suspense>
       )}
     </div>
+  );
+}
+
+// ─── Supplier pricing modal ──────────────────────────────────────────────────────
+
+function SupplierPricingModal({
+  item,
+  onClose,
+}: {
+  item: InventoryItem | null;
+  onClose: () => void;
+}) {
+  const { data: detail } = useInventoryItem(item?.id ?? "");
+  const { data: suppliers } = useSuppliers({ active: "true" });
+  const addLink = useAddItemSupplier();
+  const removeLink = useRemoveItemSupplier();
+
+  const [supplierId, setSupplierId] = useState("");
+  const [unitCost, setUnitCost] = useState("");
+  const [supplierSku, setSupplierSku] = useState("");
+
+  if (!item) return null;
+
+  const links = detail?.suppliers ?? [];
+  const linkedIds = new Set(links.map((l) => l.supplierId));
+  const addable = (suppliers ?? []).filter((s) => !linkedIds.has(s.id));
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={`Supplier pricing: ${item.name}`}
+      size="lg"
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-gray-500">
+          Current average cost:{" "}
+          <span className="font-semibold text-gray-900">
+            {formatCurrency(num(item.unitCost))}
+          </span>
+        </p>
+
+        {links.length > 0 ? (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+                <th className="py-2 font-medium">Supplier</th>
+                <th className="py-2 font-medium">Supplier SKU</th>
+                <th className="py-2 font-medium text-right">Price</th>
+                <th className="py-2 font-medium">Primary</th>
+                <th className="py-2" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {links.map((l) => (
+                <tr key={l.id}>
+                  <td className="py-2.5 text-gray-900 font-medium">
+                    {l.supplier?.name ?? "-"}
+                  </td>
+                  <td className="py-2.5 font-mono text-xs text-gray-500">
+                    {l.supplierSku ?? "-"}
+                  </td>
+                  <td className="py-2.5 text-right text-gray-700">
+                    {formatCurrency(num(l.unitCost))}
+                  </td>
+                  <td className="py-2.5 text-xs">
+                    {l.isPrimary ? (
+                      <span className="text-primary-600 font-medium">
+                        Primary
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
+                  </td>
+                  <td className="py-2.5 text-right">
+                    <button
+                      onClick={() => {
+                        removeLink.mutate({ itemId: item.id, linkId: l.id });
+                      }}
+                      className="p-1.5 text-gray-400 hover:text-red-500"
+                      aria-label="Remove supplier price"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="text-sm text-gray-400">No supplier prices yet.</p>
+        )}
+
+        {/* Add a supplier price */}
+        <div className="border-t border-gray-100 pt-4 grid grid-cols-12 gap-2 items-end">
+          <div className="col-span-5">
+            <label className="block text-xs text-gray-500 mb-1">Supplier</label>
+            <select
+              value={supplierId}
+              onChange={(e) => {
+                setSupplierId(e.target.value);
+              }}
+              className={INPUT}
+            >
+              <option value="">Select supplier...</option>
+              {addable.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="col-span-3">
+            <label className="block text-xs text-gray-500 mb-1">
+              Supplier SKU
+            </label>
+            <input
+              value={supplierSku}
+              onChange={(e) => {
+                setSupplierSku(e.target.value);
+              }}
+              className={INPUT}
+            />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-xs text-gray-500 mb-1">Price</label>
+            <input
+              type="number"
+              step="any"
+              min={0}
+              value={unitCost}
+              onChange={(e) => {
+                setUnitCost(e.target.value);
+              }}
+              className={INPUT}
+            />
+          </div>
+          <div className="col-span-2">
+            <Button
+              size="sm"
+              className="w-full"
+              loading={addLink.isPending}
+              disabled={!supplierId || unitCost === ""}
+              onClick={() => {
+                void addLink
+                  .mutateAsync({
+                    itemId: item.id,
+                    supplierId,
+                    unitCost: Number(unitCost),
+                    supplierSku: supplierSku || undefined,
+                    isPrimary: links.length === 0,
+                  })
+                  .then(() => {
+                    setSupplierId("");
+                    setUnitCost("");
+                    setSupplierSku("");
+                  });
+              }}
+            >
+              Add
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

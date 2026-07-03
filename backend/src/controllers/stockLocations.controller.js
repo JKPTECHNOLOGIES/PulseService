@@ -31,14 +31,18 @@ const get = async (req, res) => {
         vehicle: true,
         stock: {
           include: {
-            inventoryItem: { select: { id: true, sku: true, name: true, unit: true } },
+            inventoryItem: {
+              select: { id: true, sku: true, name: true, unit: true },
+            },
           },
           orderBy: { inventoryItem: { name: "asc" } },
         },
       },
     });
     if (!location)
-      return res.status(404).json({ success: false, error: "Location not found" });
+      return res
+        .status(404)
+        .json({ success: false, error: "Location not found" });
     return res.json({ success: true, data: location });
   } catch (err) {
     console.error("stockLocations.get error:", err);
@@ -54,7 +58,10 @@ const create = async (req, res) => {
     if (err.code === "P2002")
       return res
         .status(409)
-        .json({ success: false, error: "A location with that name or code already exists" });
+        .json({
+          success: false,
+          error: "A location with that name or code already exists",
+        });
     console.error("stockLocations.create error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
   }
@@ -70,11 +77,16 @@ const update = async (req, res) => {
     return res.json({ success: true, data: location });
   } catch (err) {
     if (err.code === "P2025")
-      return res.status(404).json({ success: false, error: "Location not found" });
+      return res
+        .status(404)
+        .json({ success: false, error: "Location not found" });
     if (err.code === "P2002")
       return res
         .status(409)
-        .json({ success: false, error: "A location with that name or code already exists" });
+        .json({
+          success: false,
+          error: "A location with that name or code already exists",
+        });
     console.error("stockLocations.update error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
   }
@@ -90,10 +102,34 @@ const remove = async (req, res) => {
     return res.json({ success: true, message: "Location deactivated" });
   } catch (err) {
     if (err.code === "P2025")
-      return res.status(404).json({ success: false, error: "Location not found" });
+      return res
+        .status(404)
+        .json({ success: false, error: "Location not found" });
     console.error("stockLocations.remove error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
-module.exports = { list, get, create, update, remove };
+// Vehicles (with their assigned technician) for linking trucks to locations.
+const vehicles = async (req, res) => {
+  try {
+    const list = await prisma.vehicle.findMany({
+      where: { isActive: true },
+      include: {
+        technicians: {
+          include: {
+            user: { select: { firstName: true, lastName: true } },
+          },
+        },
+        stockLocation: { select: { id: true, name: true, code: true } },
+      },
+      orderBy: { name: "asc" },
+    });
+    return res.json({ success: true, data: list });
+  } catch (err) {
+    console.error("stockLocations.vehicles error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+module.exports = { list, get, create, update, remove, vehicles };

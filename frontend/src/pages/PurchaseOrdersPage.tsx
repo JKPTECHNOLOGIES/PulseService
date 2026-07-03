@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import {
+  PlusIcon,
+  TrashIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import EmptyState from "../components/ui/EmptyState";
@@ -12,6 +16,7 @@ import { formatCurrency, formatDate } from "../utils/formatters";
 import {
   usePurchaseOrders,
   useCreatePurchaseOrder,
+  useReorderSuggestions,
   type POLineInput,
 } from "../hooks/usePurchasing";
 import { useSuppliers } from "../hooks/useSuppliers";
@@ -30,6 +35,7 @@ export default function PurchaseOrdersPage() {
     statusFilter ? { status: statusFilter } : {},
   );
   const [creating, setCreating] = useState(false);
+  const [reorderOpen, setReorderOpen] = useState(false);
 
   const orders = data?.data ?? [];
 
@@ -53,15 +59,27 @@ export default function PurchaseOrdersPage() {
           </p>
         </div>
         <Can permission="purchasing.manage">
-          <Button
-            size="sm"
-            icon={<PlusIcon className="h-4 w-4" />}
-            onClick={() => {
-              setCreating(true);
-            }}
-          >
-            New PO
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<ExclamationTriangleIcon className="h-4 w-4" />}
+              onClick={() => {
+                setReorderOpen(true);
+              }}
+            >
+              Reorder Suggestions
+            </Button>
+            <Button
+              size="sm"
+              icon={<PlusIcon className="h-4 w-4" />}
+              onClick={() => {
+                setCreating(true);
+              }}
+            >
+              New PO
+            </Button>
+          </div>
         </Can>
       </div>
 
@@ -123,7 +141,144 @@ export default function PurchaseOrdersPage() {
           setCreating(false);
         }}
       />
+      <ReorderSuggestionsModal
+        open={reorderOpen}
+        onClose={() => {
+          setReorderOpen(false);
+        }}
+      />
     </div>
+  );
+}
+
+function ReorderSuggestionsModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const navigate = useNavigate();
+  const { data: groups, isLoading } = useReorderSuggestions(open);
+  const create = useCreatePurchaseOrder();
+  const { data: locations } = useStockLocations({ active: "true" });
+  const [creatingFor, setCreatingFor] = useState<string | null>(null);
+
+  if (!open) return null;
+
+  const defaultWarehouse = (locations ?? []).find((l) => l.isDefault);
+
+  const createDraft = (group: NonNullable<typeof groups>[number]) => {
+    if (!group.supplier.id) return;
+    setCreatingFor(group.supplier.id);
+    void create
+      .mutateAsync({
+        supplierId: group.supplier.id,
+        shipToLocationId: defaultWarehouse?.id,
+        lines: group.lines.map((l) => ({
+          inventoryItemId: l.inventoryItemId,
+          lineType: "inventory",
+          description: l.name,
+          quantity: l.suggestedQuantity,
+          unitPrice: l.unitCost,
+        })),
+      })
+      .then((res) => {
+        onClose();
+        navigate(`/purchasing/${res.data.id}`);
+      })
+      .finally(() => {
+        setCreatingFor(null);
+      });
+  };
+
+  return (
+    <Modal isOpen onClose={onClose} title="Reorder suggestions" size="xl">
+      {isLoading ? (
+        <p className="text-sm text-gray-400 py-6 text-center">
+          Checking stock…
+        </p>
+      ) : !groups || groups.length === 0 ? (
+        <p className="text-sm text-gray-500 py-6 text-center">
+          Nothing is at or below its reorder point.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {groups.map((group) => (
+            <div
+              key={group.supplier.id ?? "unassigned"}
+              className="border border-gray-100 rounded-lg overflow-hidden"
+            >
+              <div className="bg-gray-50 px-4 py-2.5 flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-800">
+                  {group.supplier.name}
+                </span>
+                {group.supplier.id ? (
+                  <Button
+                    size="sm"
+                    loading={creatingFor === group.supplier.id}
+                    onClick={() => {
+                      createDraft(group);
+                    }}
+                  >
+                    Create draft PO
+                  </Button>
+                ) : (
+                  <span className="text-xs text-gray-400">
+                    Assign a supplier to these items to order
+                  </span>
+                )}
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+                    <th className="py-2 px-4 font-medium">Item</th>
+                    <th className="py-2 px-4 font-medium text-right">
+                      On hand
+                    </th>
+                    <th className="py-2 px-4 font-medium text-right">
+                      Reorder pt
+                    </th>
+                    <th className="py-2 px-4 font-medium text-right">
+                      Suggested
+                    </th>
+                    <th className="py-2 px-4 font-medium text-right">
+                      Est. cost
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {group.lines.map((l) => (
+                    <tr key={l.inventoryItemId}>
+                      <td className="py-2 px-4">
+                        <span className="font-medium text-gray-900">
+                          {l.name}
+                        </span>
+                        <span className="font-mono text-xs text-gray-400 ml-2">
+                          {l.sku}
+                        </span>
+                      </td>
+                      <td className="py-2 px-4 text-right text-yellow-700 font-medium">
+                        {l.onHand}
+                      </td>
+                      <td className="py-2 px-4 text-right text-gray-500">
+                        {l.reorderPoint}
+                      </td>
+                      <td className="py-2 px-4 text-right font-medium text-gray-900">
+                        {l.suggestedQuantity}
+                      </td>
+                      <td className="py-2 px-4 text-right text-gray-600">
+                        {formatCurrency(l.suggestedQuantity * l.unitCost)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
   );
 }
 

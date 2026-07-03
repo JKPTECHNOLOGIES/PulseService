@@ -9,6 +9,7 @@ const {
   arAging,
   salesBySource,
   estimatePipeline,
+  inventory,
 } = require("../controllers/reports.controller");
 
 router.use(auth);
@@ -32,5 +33,6 @@ router.get(
   requirePermission("reports.financial"),
   estimatePipeline,
 );
+router.get("/inventory", requirePermission("reports.operational"), inventory);
 
 module.exports = router;
