@@ -11,6 +11,10 @@ async function main() {
 
   // ── Cleanup (reverse dependency order) ───────────────────────────────────────
   console.log("  Cleaning existing data...");
+  await prisma.quickBooksSyncQueue.deleteMany();
+  await prisma.quickBooksMapping.deleteMany();
+  await prisma.quickBooksItemMapping.deleteMany();
+  await prisma.quickBooksSettings.deleteMany();
   await prisma.serializedUnit.deleteMany();
   await prisma.pOLineReceipt.deleteMany();
   await prisma.pOLine.deleteMany();
@@ -106,6 +110,10 @@ async function main() {
       nextReceiptNumber: 1002,
     },
   });
+
+  // ── QuickBooks sync (disabled by default until credentials/mapping are set) ────
+  console.log("  Creating QuickBooks settings (disabled by default)...");
+  await prisma.quickBooksSettings.create({ data: {} });
 
   // ── Business Units ────────────────────────────────────────────────────────────
   console.log("  Creating business units...");

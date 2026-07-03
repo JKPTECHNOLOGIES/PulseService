@@ -119,6 +119,15 @@ const PERMISSION_GROUPS = [
     ],
   },
   {
+    group: "QuickBooks",
+    permissions: [
+      {
+        key: "quickbooks.manage",
+        label: "Configure & monitor the QuickBooks sync",
+      },
+    ],
+  },
+  {
     group: "Audit",
     permissions: [{ key: "audit.view", label: "View the activity log" }],
   },
@@ -159,6 +168,7 @@ const DEFAULT_ROLE_PERMISSIONS = {
     "calls.manage",
     "campaigns.manage",
     "settings.manage",
+    "quickbooks.manage",
     "audit.view",
   ],
   dispatcher: [

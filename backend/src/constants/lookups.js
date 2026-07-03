@@ -409,6 +409,30 @@ const LOOKUPS = {
     { value: "electrical", label: "Electrical" },
     { value: "general", label: "General" },
   ],
+  quickbooksEntityType: [
+    { value: "customer", label: "Customer" },
+    { value: "invoice", label: "Invoice" },
+    { value: "payment", label: "Payment" },
+  ],
+  quickbooksSyncOperation: [
+    { value: "add", label: "Add" },
+    { value: "update", label: "Update" },
+    { value: "void", label: "Void" },
+  ],
+  quickbooksSyncStatus: [
+    {
+      value: "pending",
+      label: "Pending",
+      color: "bg-gray-100 text-gray-800",
+    },
+    { value: "sent", label: "Sent", color: "bg-blue-100 text-blue-800" },
+    {
+      value: "synced",
+      label: "Synced",
+      color: "bg-green-100 text-green-800",
+    },
+    { value: "error", label: "Error", color: "bg-red-100 text-red-800" },
+  ],
 };
 
 /** Array of all category keys. */

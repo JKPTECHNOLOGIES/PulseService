@@ -5,6 +5,16 @@ const {
   generateNumber,
 } = require("../utils/helpers");
 const { geocode } = require("../services/geocode.service");
+const quickbooksSync = require("../services/quickbooks/sync-queue.service");
+
+// Never let a QuickBooks sync hiccup break the customer API.
+async function enqueueQuickBooksSync(customerId) {
+  try {
+    await quickbooksSync.enqueueSync("customer", customerId);
+  } catch (err) {
+    console.error("quickbooks enqueueSync error:", err);
+  }
+}
 
 const list = async (req, res) => {
   try {
@@ -121,6 +131,7 @@ const create = async (req, res) => {
       include: { locations: true, contacts: true },
     });
 
+    await enqueueQuickBooksSync(customer.id);
     return res.status(201).json({ success: true, data: customer });
   } catch (err) {
     console.error("customers.create error:", err);
@@ -168,6 +179,7 @@ const update = async (req, res) => {
       where: { id: req.params.id },
       include: { locations: true, contacts: true },
     });
+    await enqueueQuickBooksSync(req.params.id);
     return res.json({ success: true, data: customer });
   } catch (err) {
     if (err.code === "P2025") {

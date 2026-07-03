@@ -470,6 +470,53 @@ export interface VehicleOption {
   stockLocation?: { id: string; name: string; code: string } | null;
 }
 
+export interface QuickBooksSettings {
+  id: string;
+  isEnabled: boolean;
+  companyFileName?: string;
+  webConnectorUsername: string;
+  hasPassword: boolean;
+  salesTaxItemName: string;
+  depositToAccountName?: string;
+  appId: string;
+  appName: string;
+  lastSyncStartedAt?: string;
+  lastSyncCompletedAt?: string;
+}
+
+export interface QuickBooksSyncQueueItem {
+  id: string;
+  entityType: string;
+  entityId: string;
+  entityLabel?: string | null;
+  operation: string;
+  status: string;
+  requestId?: string;
+  attempts: number;
+  lastError?: string;
+  lastAttemptAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuickBooksMappingRecord {
+  id: string;
+  entityType: string;
+  entityId: string;
+  quickbooksId: string;
+  editSequence?: string;
+  lastSyncedAt: string;
+}
+
+export interface QuickBooksItemMappingRecord {
+  id: string;
+  lineItemType?: string;
+  pricebookItemId?: string;
+  quickbooksItemName: string;
+  isActive: boolean;
+  pricebookItem?: { id: string; name: string; sku?: string };
+}
+
 export interface SerializedUnit {
   id: string;
   serialNumber: string;
@@ -622,7 +669,10 @@ export type LookupCategory =
   | "poLineStatus"
   | "receiptStatus"
   | "serializedUnitStatus"
-  | "costChangeSource";
+  | "costChangeSource"
+  | "quickbooksEntityType"
+  | "quickbooksSyncOperation"
+  | "quickbooksSyncStatus";
 
 export type Metadata = Partial<Record<LookupCategory, LookupOption[]>>;
 

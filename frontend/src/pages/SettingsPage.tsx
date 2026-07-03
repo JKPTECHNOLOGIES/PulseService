@@ -28,6 +28,7 @@ import { formatDateTime } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import { usePermissions } from "../hooks/usePermissions";
 import { useAuthStore } from "../store/authStore";
+import QuickBooksTab from "../components/settings/QuickBooksTab";
 
 interface BillingForm {
   taxRate?: number;
@@ -1224,6 +1225,9 @@ export default function SettingsPage() {
       : []),
     ...(can("audit.view")
       ? [{ label: "Activity Log", panel: <AuditTab /> }]
+      : []),
+    ...(can("quickbooks.manage")
+      ? [{ label: "QuickBooks", panel: <QuickBooksTab /> }]
       : []),
   ];
 

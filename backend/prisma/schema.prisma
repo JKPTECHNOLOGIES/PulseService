@@ -352,11 +352,95 @@ model PricebookItem {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  category       PricebookCategory? @relation(fields: [categoryId], references: [id])
-  inventoryItems InventoryItem[]
+  category           PricebookCategory?       @relation(fields: [categoryId], references: [id])
+  inventoryItems     InventoryItem[]
+  quickbooksMappings QuickBooksItemMapping[]
 }
 
-// ─── Inventory & Purchasing ──────────────────────────────────────────────────
+// ─── QuickBooks Desktop sync (Web Connector / qbXML) ────────────────────────
+// One-directional: PulseService is the system of record. QuickBooks Desktop has
+// no server of its own, so QuickBooks Web Connector (a small app that runs next
+// to QuickBooks Desktop) POLLS our SOAP endpoint on a timer and pulls down
+// whatever is queued, translated into qbXML. Nothing here is pushed by us.
+
+model QuickBooksSettings {
+  id                       String    @id @default(uuid())
+  isEnabled                Boolean   @default(false)
+  companyFileName          String?   // blank = whatever company file QB has open
+  webConnectorUsername     String    @default("pulseservice")
+  webConnectorPasswordHash String?
+  // Placeholder mapping data until the bookkeeper provides real QuickBooks Item
+  // names — editable from Settings → QuickBooks without any code change.
+  salesTaxItemName         String    @default("PLACEHOLDER - Sales Tax")
+  depositToAccountName     String?   // null = Undeposited Funds (QB default)
+  appId                    String    @default("PulseServiceQB")
+  appName                  String    @default("PulseService QuickBooks Sync")
+  // Stable GUIDs embedded in the generated .qwc connector file; generated once
+  // on first download and kept stable so re-downloading doesn't require the
+  // user to re-add the connector in Web Connector.
+  ownerId                  String?
+  qbwcFileId               String?
+  lastSyncStartedAt        DateTime?
+  lastSyncCompletedAt      DateTime?
+  updatedAt                DateTime  @updatedAt
+}
+
+// Identity map: which QuickBooks List/Txn ID a PulseService record became once
+// synced, plus the EditSequence QuickBooks requires for any subsequent update.
+model QuickBooksMapping {
+  id           String   @id @default(uuid())
+  entityType   String   // lookup: quickbooksEntityType
+  entityId     String
+  quickbooksId String   // ListID (Customer) or TxnID (Invoice/Payment)
+  editSequence String?
+  lastSyncedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([quickbooksId])
+}
+
+// Outbound work queue. Rows are enqueued the moment a record changes in
+// PulseService (real-time from our side); QuickBooks Web Connector drains them
+// at whatever interval it's configured to poll (a Desktop/Web-Connector
+// limitation, not ours — see docs/quickbooks-sync.md).
+model QuickBooksSyncQueue {
+  id            String    @id @default(uuid())
+  entityType    String    // lookup: quickbooksEntityType
+  entityId      String
+  operation     String    // lookup: quickbooksSyncOperation
+  status        String    @default("pending") // lookup: quickbooksSyncStatus
+  requestId     String?   // correlates to the qbXML requestID while in flight
+  attempts      Int       @default(0)
+  lastError     String?
+  lastAttemptAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status])
+  @@index([entityType, entityId])
+}
+
+// Maps a PulseService pricebook item (or a whole line-item category, as a
+// fallback) to the QuickBooks Item name that invoice lines should reference.
+// Seeded with obvious placeholders; Finance/the bookkeeper edit these in place.
+model QuickBooksItemMapping {
+  id                 String   @id @default(uuid())
+  lineItemType       String?  // fallback by category, e.g. "service" | "part"
+  pricebookItemId    String?  // specific-item override
+  quickbooksItemName String
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  pricebookItem PricebookItem? @relation(fields: [pricebookItemId], references: [id])
+
+  @@index([lineItemType])
+  @@index([pricebookItemId])
+}
+
+// ─── Inventory & Purchasing ────────────────────────────────────────────────────────────────
 // Multi-location model: stock lives in InventoryStock keyed by (item, location).
 // A StockLocation is either the main warehouse or a truck (a Vehicle assigned to
 // a technician). Costing is perpetual weighted-average, recomputed at receipt.
