@@ -1,0 +1,13 @@
+sku,name,unit,quantity,unitCost,reorderPoint,reorderQuantity,supplierName,locationCode,serialized
+TEST-CAP-35,Run Capacitor 35/5 MFD 440V,each,30,3.95,12,24,Acme HVAC Supply,WH,no
+TEST-CONT-30,Contactor 30A 2-Pole 24V,each,18,7.25,8,16,Acme HVAC Supply,WH,no
+TEST-FILT-1620,Air Filter MERV-13 16x20x1,each,75,2.80,24,48,Comfort Controls Inc,WH,no
+TEST-THERM-WIFI,WiFi Smart Thermostat,each,10,68.00,5,10,New Test Vendor Co,TRK101,no
+TEST-REF-410A,R-410A Refrigerant 25lb Cylinder,cylinder,6,92.50,3,4,CoolChem Distributors,WH,no
+TEST-COPPER-38,3/8 in Copper Line Set (25 ft),length,20,34.00,8,16,,WH,no
+TEST-IGNITER-HS,Hot Surface Igniter,each,15,17.50,6,12,Acme HVAC Supply,TRK102,no
+TEST-BLOWER-12,12 in Blower Wheel Assembly,each,4,58.00,2,4,New Test Vendor Co,,no
+TEST-CONDENSER-2T,2-Ton Condenser Unit,each,3,845.00,1,2,PlumbPro Wholesale,,yes
+TEST-COMP-3T,3-Ton Scroll Compressor,each,2,410.00,1,2,CoolChem Distributors,WH,yes
+TEST-DRAIN-PAN,Secondary Drain Pan 24x36,each,25,12.75,10,20,,,no
+TEST-WIRE-18-5,18/5 Thermostat Wire (250 ft),roll,12,44.90,4,8,Comfort Controls Inc,WH,no
