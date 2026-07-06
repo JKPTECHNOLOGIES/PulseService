@@ -24,6 +24,8 @@ import { LookupSelect } from "../components/ui/LookupSelect";
 import Modal from "../components/ui/Modal";
 import Pagination from "../components/ui/Pagination";
 import { PageSpinner } from "../components/ui/Spinner";
+import Switch from "../components/ui/Switch";
+import SearchInput from "../components/ui/SearchInput";
 import { formatDateTime } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import { usePermissions } from "../hooks/usePermissions";
@@ -821,6 +823,7 @@ function RolesTab() {
   const { getLabel: getRoleLabel } = useLookup("userRole");
   const [role, setRole] = useState("");
   const [draft, setDraft] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
 
   // Select a default role once data loads.
   useEffect(() => {
@@ -856,6 +859,33 @@ function RolesTab() {
     );
   };
 
+  const setGroup = (keys: string[], grant: boolean) => {
+    if (isSystem) return;
+    setDraft((d) => {
+      const rest = d.filter((k) => !keys.includes(k));
+      return grant ? [...rest, ...keys] : rest;
+    });
+  };
+
+  // Narrow to groups/permissions matching the search, keeping a whole group
+  // if its name matches, otherwise just the permissions within it that do.
+  const q = search.trim().toLowerCase();
+  const filteredGroups = (catalog ?? [])
+    .map((group) => {
+      if (!q || group.group.toLowerCase().includes(q)) return group;
+      const permissions = group.permissions.filter((p) =>
+        p.label.toLowerCase().includes(q),
+      );
+      return { ...group, permissions };
+    })
+    .filter((group) => group.permissions.length > 0);
+
+  const totalCount = (catalog ?? []).reduce(
+    (sum, g) => sum + g.permissions.length,
+    0,
+  );
+  const grantedCount = isSystem ? totalCount : draft.length;
+
   return (
     <Card
       title="Roles & Permissions"
@@ -872,26 +902,41 @@ function RolesTab() {
         </Button>
       }
     >
-      <div className="mb-5 max-w-xs">
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">
-          Role
-        </label>
-        <select
-          value={role}
-          onChange={(e) => {
-            const r = e.target.value;
-            setRole(r);
-            const found = roles?.find((x) => x.role === r);
-            setDraft(found ? found.permissions : []);
-          }}
-          className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        >
-          {(roles ?? []).map((r) => (
-            <option key={r.role} value={r.role}>
-              {getRoleLabel(r.role)}
-            </option>
-          ))}
-        </select>
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end">
+        <div className="max-w-xs flex-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Role
+          </label>
+          <select
+            value={role}
+            onChange={(e) => {
+              const r = e.target.value;
+              setRole(r);
+              const found = roles?.find((x) => x.role === r);
+              setDraft(found ? found.permissions : []);
+            }}
+            className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            {(roles ?? []).map((r) => (
+              <option key={r.role} value={r.role}>
+                {getRoleLabel(r.role)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Search permissions
+          </label>
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Find a permission or section..."
+          />
+        </div>
+        <p className="pb-2.5 text-xs text-gray-400 whitespace-nowrap">
+          {grantedCount} of {totalCount} granted
+        </p>
       </div>
 
       {isSystem && (
@@ -901,43 +946,59 @@ function RolesTab() {
         </p>
       )}
 
-      <div className="space-y-5">
-        {(catalog ?? []).map((group) => (
-          <div key={group.group}>
-            <h4 className="text-xs font-semibold uppercase text-gray-500 mb-2">
-              {group.group}
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {group.permissions.map((p) => {
-                const checked = isSystem || draft.includes(p.key);
-                return (
-                  <label
-                    key={p.key}
-                    className={clsx(
-                      "flex items-center gap-2.5 p-2.5 border rounded-lg text-sm",
-                      checked
-                        ? "border-primary-200 bg-primary-50"
-                        : "border-gray-200",
-                      isSystem ? "opacity-70" : "cursor-pointer",
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={isSystem}
-                      onChange={() => {
-                        toggle(p.key);
+      {filteredGroups.length === 0 ? (
+        <p className="py-8 text-center text-sm text-gray-400">
+          No permissions match &ldquo;{search}&rdquo;.
+        </p>
+      ) : (
+        <div className="divide-y divide-gray-100">
+          {filteredGroups.map((group) => {
+            const keys = group.permissions.map((p) => p.key);
+            const allChecked = isSystem || keys.every((k) => draft.includes(k));
+            return (
+              <div key={group.group} className="py-3.5 first:pt-0 last:pb-0">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    {group.group}
+                  </h4>
+                  {!isSystem && keys.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGroup(keys, !allChecked);
                       }}
-                      className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    />
-                    <span className="text-gray-700">{p.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
+                      className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                    >
+                      {allChecked ? "Clear all" : "Select all"}
+                    </button>
+                  )}
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {group.permissions.map((p) => {
+                    const checked = isSystem || draft.includes(p.key);
+                    return (
+                      <div
+                        key={p.key}
+                        className="flex items-center justify-between gap-4 py-2.5"
+                      >
+                        <span className="text-sm text-gray-700">{p.label}</span>
+                        <Switch
+                          checked={checked}
+                          disabled={isSystem}
+                          label={p.label}
+                          onChange={() => {
+                            toggle(p.key);
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 }
