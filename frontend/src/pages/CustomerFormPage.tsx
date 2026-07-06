@@ -19,7 +19,7 @@ const schema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
-  phone: z.string().min(1, "Phone is required"),
+  phone: z.string().optional(),
   mobilePhone: z.string().optional(),
   type: z.string().min(1),
   companyName: z.string().optional(),
@@ -98,6 +98,10 @@ export default function CustomerFormPage() {
     const { address, city, state, zip, ...customerFields } = data;
     const payload = {
       ...customerFields,
+      // Phone is a required column in the database, but not every customer
+      // has one on hand at intake time -- fall back to a clear placeholder
+      // instead of blocking the whole form on it.
+      phone: customerFields.phone?.trim() ? customerFields.phone.trim() : "N/A",
       type: customerFields.type as Customer["type"],
       // Prisma needs an explicit null to clear the relation, not "".
       pricingTierId:
@@ -217,11 +221,12 @@ export default function CustomerFormPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Phone <span className="text-red-500">*</span>
+                  Phone
                 </label>
                 <input
                   {...register("phone")}
                   type="tel"
+                  placeholder="Leave blank for N/A"
                   className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
                 {errors.phone && (
