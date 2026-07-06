@@ -4,7 +4,7 @@ import {
   PencilIcon,
   ChevronRightIcon,
   UserPlusIcon,
-  CheckCircleIcon,
+  CheckIcon,
   ClockIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
@@ -78,7 +78,7 @@ function TimelineStep({
     <div className="flex flex-col items-center gap-1">
       <div
         className={clsx(
-          "h-7 w-7 rounded-full border-2 flex items-center justify-center transition-colors",
+          "relative z-10 h-7 w-7 rounded-full border-2 flex items-center justify-center transition-colors",
           done
             ? "bg-primary-600 border-primary-600"
             : active
@@ -86,7 +86,7 @@ function TimelineStep({
               : "bg-white border-gray-200",
         )}
       >
-        {done && <CheckCircleIcon className="h-4 w-4 text-oncolor" />}
+        {done && <CheckIcon className="h-4 w-4 text-oncolor" />}
         {active && <div className="h-2.5 w-2.5 rounded-full bg-primary-600" />}
       </div>
       <span
@@ -211,7 +211,7 @@ export default function JobDetailPage() {
         {/* Timeline */}
         <div className="mt-6 pt-6 border-t border-gray-100">
           <div className="flex items-start justify-between relative">
-            <div className="absolute top-3.5 left-0 right-0 h-0.5 bg-gray-200 -z-0" />
+            <div className="absolute top-3.5 left-3.5 right-3.5 h-0.5 bg-gray-200" />
             {timelineSteps.map((step, idx) => (
               <TimelineStep
                 key={step}
