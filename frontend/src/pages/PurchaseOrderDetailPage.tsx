@@ -9,6 +9,7 @@ import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import { StatusBadge } from "../components/ui/Badge";
 import { PageSpinner } from "../components/ui/Spinner";
+import { NumberInput } from "../components/ui/NumberInput";
 import { Can } from "../components/ui/Can";
 import {
   formatCurrency,
@@ -361,14 +362,13 @@ function ReceiveModal({
                     <label className="block text-xs text-gray-500 mb-1">
                       Qty to receive
                     </label>
-                    <input
-                      type="number"
+                    <NumberInput
                       step="any"
                       max={remaining(l)}
                       value={row.quantityReceived}
-                      onChange={(e) => {
+                      onChange={(n) => {
                         update(l.id, {
-                          quantityReceived: Number(e.target.value),
+                          quantityReceived: n ?? 0,
                         });
                       }}
                       className={INPUT}

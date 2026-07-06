@@ -8,6 +8,7 @@ import {
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import EmptyState from "../components/ui/EmptyState";
+import { NumberInput } from "../components/ui/NumberInput";
 import { StatusBadge } from "../components/ui/Badge";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import { Can } from "../components/ui/Can";
@@ -457,12 +458,11 @@ function CreatePOModal({
                     <label className="block text-xs text-gray-500 mb-1">
                       Qty
                     </label>
-                    <input
-                      type="number"
+                    <NumberInput
                       step="any"
                       value={l.quantity}
-                      onChange={(e) => {
-                        updateLine(l.key, { quantity: Number(e.target.value) });
+                      onChange={(n) => {
+                        updateLine(l.key, { quantity: n ?? 0 });
                       }}
                       className={INPUT}
                     />
@@ -471,13 +471,12 @@ function CreatePOModal({
                     <label className="block text-xs text-gray-500 mb-1">
                       Unit price
                     </label>
-                    <input
-                      type="number"
+                    <NumberInput
                       step="any"
                       value={l.unitPrice}
-                      onChange={(e) => {
+                      onChange={(n) => {
                         updateLine(l.key, {
-                          unitPrice: Number(e.target.value),
+                          unitPrice: n ?? 0,
                         });
                       }}
                       className={INPUT}

@@ -37,6 +37,7 @@ import EmptyState from "../components/ui/EmptyState";
 import DataTable, { Column, SortState } from "../components/ui/DataTable";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import { Can } from "../components/ui/Can";
+import { NumberInput } from "../components/ui/NumberInput";
 import { formatCurrency, formatDateTime } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import type { InventoryItem } from "../types";
@@ -775,12 +776,11 @@ function AdjustModal({
           </select>
         </Field>
         <Field label="Quantity">
-          <input
-            type="number"
+          <NumberInput
             step="any"
             value={quantity}
-            onChange={(e) => {
-              setQuantity(Number(e.target.value));
+            onChange={(n) => {
+              setQuantity(n ?? 0);
             }}
             className={INPUT}
           />
@@ -901,12 +901,11 @@ function TransferModal({
           </select>
         </Field>
         <Field label="Quantity">
-          <input
-            type="number"
+          <NumberInput
             step="any"
             value={quantity}
-            onChange={(e) => {
-              setQuantity(Number(e.target.value));
+            onChange={(n) => {
+              setQuantity(n ?? 0);
             }}
             className={INPUT}
           />
@@ -1023,23 +1022,21 @@ function ItemFormModal({
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Reorder point">
-            <input
-              type="number"
+            <NumberInput
               step="any"
               value={reorderPoint}
-              onChange={(e) => {
-                setReorderPoint(Number(e.target.value));
+              onChange={(n) => {
+                setReorderPoint(n ?? 0);
               }}
               className={INPUT}
             />
           </Field>
           <Field label="Reorder qty">
-            <input
-              type="number"
+            <NumberInput
               step="any"
               value={reorderQuantity}
-              onChange={(e) => {
-                setReorderQuantity(Number(e.target.value));
+              onChange={(n) => {
+                setReorderQuantity(n ?? 0);
               }}
               className={INPUT}
             />

@@ -13,6 +13,7 @@ import Modal from "../components/ui/Modal";
 import EmptyState from "../components/ui/EmptyState";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { LookupSelect } from "../components/ui/LookupSelect";
+import { NumberInput } from "../components/ui/NumberInput";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import { Can } from "../components/ui/Can";
 import { formatCurrency } from "../utils/formatters";
@@ -279,13 +280,12 @@ function TierFormModal({
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               {discountType === "percentage" ? "Percent off" : "Amount off"}
             </label>
-            <input
-              type="number"
+            <NumberInput
               step="any"
               min={0}
               value={discountValue}
-              onChange={(e) => {
-                setDiscountValue(Number(e.target.value));
+              onChange={(n) => {
+                setDiscountValue(n ?? 0);
               }}
               className={INPUT}
             />
@@ -423,13 +423,12 @@ function OverridesModal({
           </div>
           <div className="col-span-2">
             <label className="block text-xs text-gray-500 mb-1">Value</label>
-            <input
-              type="number"
+            <NumberInput
               step="any"
               min={0}
               value={overrideValue}
-              onChange={(e) => {
-                setOverrideValue(Number(e.target.value));
+              onChange={(n) => {
+                setOverrideValue(n ?? 0);
               }}
               className={INPUT}
             />

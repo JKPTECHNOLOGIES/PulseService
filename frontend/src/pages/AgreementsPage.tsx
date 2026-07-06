@@ -11,6 +11,7 @@ import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import DataTable, { Column, SortState } from "../components/ui/DataTable";
 import { TableSkeleton } from "../components/ui/Skeleton";
+import { NumberInput } from "../components/ui/NumberInput";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import type { ServiceAgreement } from "../types";
@@ -343,13 +344,12 @@ export default function AgreementsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Amount
               </label>
-              <input
-                type="number"
+              <NumberInput
                 step="0.01"
                 className={inputClass}
                 value={form.amount}
-                onChange={(e) => {
-                  setForm({ ...form, amount: Number(e.target.value) });
+                onChange={(n) => {
+                  setForm({ ...form, amount: n ?? 0 });
                 }}
               />
             </div>

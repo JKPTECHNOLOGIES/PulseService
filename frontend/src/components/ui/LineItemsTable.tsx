@@ -4,6 +4,7 @@ import { formatCurrency } from "../../utils/formatters";
 import { useLookup } from "../../hooks/useMetadata";
 import { usePricebookItems } from "../../hooks/usePricebook";
 import Button from "./Button";
+import { NumberInput } from "./NumberInput";
 
 export interface LineItem {
   id?: string;
@@ -174,27 +175,25 @@ export default function LineItemsTable({
                 />
               </td>
               <td className="py-2 pr-2">
-                <input
-                  type="number"
+                <NumberInput
                   inputMode="numeric"
                   min="0"
                   step="1"
                   value={item.quantity}
-                  onChange={(e) => {
-                    updateItem(i, "quantity", parseFloat(e.target.value) || 0);
+                  onChange={(n) => {
+                    updateItem(i, "quantity", n ?? 0);
                   }}
                   className="w-full text-right text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 />
               </td>
               <td className="py-2 pr-2">
-                <input
-                  type="number"
+                <NumberInput
                   inputMode="decimal"
                   min="0"
                   step="0.01"
                   value={item.unitPrice}
-                  onChange={(e) => {
-                    updateItem(i, "unitPrice", parseFloat(e.target.value) || 0);
+                  onChange={(n) => {
+                    updateItem(i, "unitPrice", n ?? 0);
                   }}
                   className="w-full text-right text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 />

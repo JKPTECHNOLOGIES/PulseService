@@ -42,6 +42,7 @@ import {
 import Button from "../components/ui/Button";
 import Badge, { StatusBadge } from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
+import { NumberInput } from "../components/ui/NumberInput";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
 import SignatureCard from "../components/ui/SignatureCard";
@@ -959,13 +960,12 @@ function AddPartModal({
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Quantity
           </label>
-          <input
-            type="number"
+          <NumberInput
             min={0}
             step="any"
             value={quantity}
-            onChange={(e) => {
-              setQuantity(Number(e.target.value));
+            onChange={(n) => {
+              setQuantity(n ?? 0);
             }}
             className={inputClass}
           />

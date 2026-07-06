@@ -17,6 +17,7 @@ import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
 import { PageSpinner } from "../components/ui/Spinner";
+import { NumberInput } from "../components/ui/NumberInput";
 import { formatCurrency, formatDate } from "../utils/formatters";
 
 interface EditForm {
@@ -389,13 +390,12 @@ export default function AgreementDetailPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Amount
               </label>
-              <input
-                type="number"
+              <NumberInput
                 step="0.01"
                 className={inputClass}
                 value={form.amount}
-                onChange={(e) => {
-                  setForm({ ...form, amount: Number(e.target.value) });
+                onChange={(n) => {
+                  setForm({ ...form, amount: n ?? 0 });
                 }}
               />
             </div>
