@@ -9,11 +9,19 @@ const {
 } = require("../controllers/auth.controller");
 
 // Throttle credential endpoints to blunt brute-force / credential-stuffing.
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: "Too many login attempts. Please try again in a few minutes.",
-});
+// Escape hatch for local dev/testing (e.g. repeatedly re-seeding and logging
+// back in): set DISABLE_LOGIN_RATE_LIMIT=true in the environment to bypass
+// it entirely. Defaults to enforced -- this must never be set in production.
+const loginLimiter =
+  process.env.DISABLE_LOGIN_RATE_LIMIT === "true"
+    ? (req, res, next) => {
+        next();
+      }
+    : rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 10,
+        message: "Too many login attempts. Please try again in a few minutes.",
+      });
 const passwordLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 
 router.post("/login", loginLimiter, login);
