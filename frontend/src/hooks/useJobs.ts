@@ -11,6 +11,8 @@ interface JobsParams {
   status?: string;
   type?: string;
   date?: string;
+  /** "true" = only archived, "all" = both, omitted = active only (default). */
+  archived?: string;
 }
 
 export function useJobs(params: JobsParams = {}) {
@@ -98,6 +100,8 @@ export function useUpdateJobStatus() {
   });
 }
 
+// Permanent removal -- kept for genuine data cleanup, but the UI leads with
+// useArchiveJob below instead, which is reversible.
 export function useDeleteJob() {
   const qc = useQueryClient();
   return useMutation({
@@ -109,6 +113,40 @@ export function useDeleteJob() {
     },
     onError: (err: unknown) => {
       toast.error(getErrorMessage(err, "Failed to delete job"));
+    },
+  });
+}
+
+export function useArchiveJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post<ApiResponse<Job>>(`/jobs/${id}/archive`),
+    onSuccess: (_data, id) => {
+      void qc.invalidateQueries({ queryKey: ["jobs"] });
+      void qc.invalidateQueries({ queryKey: ["job", id] });
+      void qc.invalidateQueries({ queryKey: ["dispatch"] });
+      toast.success("Job archived");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to archive job"));
+    },
+  });
+}
+
+export function useUnarchiveJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post<ApiResponse<Job>>(`/jobs/${id}/unarchive`),
+    onSuccess: (_data, id) => {
+      void qc.invalidateQueries({ queryKey: ["jobs"] });
+      void qc.invalidateQueries({ queryKey: ["job", id] });
+      void qc.invalidateQueries({ queryKey: ["dispatch"] });
+      toast.success("Job restored");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to restore job"));
     },
   });
 }

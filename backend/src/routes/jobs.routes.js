@@ -24,6 +24,10 @@ router.post(
 router.get("/:id", c.get);
 router.put("/:id", requirePermission("jobs.edit"), validateJob, c.update);
 router.delete("/:id", requirePermission("jobs.delete"), c["delete"]);
+// Archive/unarchive reuse the same permission tier as delete -- they're the
+// safe, reversible alternative to it, not a separate looser action.
+router.post("/:id/archive", requirePermission("jobs.delete"), c.archive);
+router.post("/:id/unarchive", requirePermission("jobs.delete"), c.unarchive);
 router.patch(
   "/:id/status",
   requirePermission("jobs.status"),

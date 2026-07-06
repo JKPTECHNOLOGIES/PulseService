@@ -33,12 +33,18 @@ const list = async (req, res) => {
       dateFrom,
       dateTo,
       technicianId,
+      archived,
     } = req.query;
     const { skip, take } = paginate(page, limit);
 
     const where = {};
     if (status) where.status = status;
     if (type) where.type = type;
+    // Archived jobs are hidden by default so they stop cluttering active
+    // lists/boards without ever being destroyed; ?archived=true shows only
+    // archived ones, ?archived=all shows everything.
+    if (archived === "true") where.isArchived = true;
+    else if (archived !== "all") where.isArchived = false;
     if (technicianId) {
       where.technicians = { some: { technicianId } };
     }
@@ -492,6 +498,55 @@ const deleteJob = async (req, res) => {
   }
 };
 
+// Archiving is the safe, reversible alternative to deleteJob above: it just
+// hides the job from the default lists/board instead of destroying it and
+// detaching its records.
+const archiveJob = async (req, res) => {
+  try {
+    const job = await prisma.job.update({
+      where: { id: req.params.id },
+      data: { isArchived: true, archivedAt: new Date() },
+    });
+
+    const io = req.app.get("io");
+    if (io && job.scheduledStart) {
+      const date = new Date(job.scheduledStart).toISOString().split("T")[0];
+      io.to(`dispatch:${date}`).emit("job:archived", { id: job.id });
+    }
+
+    return res.json({ success: true, data: job });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ success: false, error: "Job not found" });
+    }
+    console.error("jobs.archive error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+const unarchiveJob = async (req, res) => {
+  try {
+    const job = await prisma.job.update({
+      where: { id: req.params.id },
+      data: { isArchived: false, archivedAt: null },
+    });
+
+    const io = req.app.get("io");
+    if (io && job.scheduledStart) {
+      const date = new Date(job.scheduledStart).toISOString().split("T")[0];
+      io.to(`dispatch:${date}`).emit("job:updated", job);
+    }
+
+    return res.json({ success: true, data: job });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ success: false, error: "Job not found" });
+    }
+    console.error("jobs.unarchive error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
 module.exports = {
   list,
   get,
@@ -501,4 +556,6 @@ module.exports = {
   assignTechnician,
   removeTechnician,
   delete: deleteJob,
+  archive: archiveJob,
+  unarchive: unarchiveJob,
 };

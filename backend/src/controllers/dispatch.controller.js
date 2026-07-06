@@ -18,6 +18,7 @@ const getBoard = async (req, res) => {
         where: {
           scheduledStart: { gte: startOfDay, lte: endOfDay },
           status: { notIn: ["cancelled"] },
+          isArchived: false,
         },
         include: {
           customer: {
@@ -81,6 +82,7 @@ const getBoard = async (req, res) => {
         where: {
           scheduledStart: null,
           status: { notIn: ["cancelled", "completed"] },
+          isArchived: false,
         },
         include: {
           customer: {

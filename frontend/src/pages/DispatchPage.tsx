@@ -23,7 +23,7 @@ import {
   CalendarDaysIcon,
   XMarkIcon,
   PlusIcon,
-  TrashIcon,
+  ArchiveBoxIcon,
   MapPinIcon,
   UserIcon,
 } from "@heroicons/react/24/outline";
@@ -47,11 +47,12 @@ import {
   useUnscheduleJob,
   useDispatchRealtime,
 } from "../hooks/useDispatch";
-import { useJobs, useDeleteJob, useUpdateJobStatus } from "../hooks/useJobs";
+import { useJobs, useArchiveJob, useUpdateJobStatus } from "../hooks/useJobs";
 import { useTechnicians } from "../hooks/useTechnicians";
 import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
+import { Can } from "../components/ui/Can";
 import { useLookup } from "../hooks/useMetadata";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { PageSpinner } from "../components/ui/Spinner";
@@ -851,7 +852,7 @@ export default function DispatchPage() {
   const reassign = useReassignDispatch();
   const reschedule = useRescheduleJob();
   const unschedule = useUnscheduleJob();
-  const deleteJob = useDeleteJob();
+  const archiveJob = useArchiveJob();
   const updateStatus = useUpdateJobStatus();
   const { options: statusOptions } = useLookup("jobStatus");
 
@@ -1528,16 +1529,18 @@ export default function DispatchPage() {
                 >
                   Open job
                 </Button>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  icon={<TrashIcon className="h-4 w-4" />}
-                  onClick={() => {
-                    setConfirmDelete(true);
-                  }}
-                >
-                  Delete job
-                </Button>
+                <Can permission="jobs.delete">
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={<ArchiveBoxIcon className="h-4 w-4" />}
+                    onClick={() => {
+                      setConfirmDelete(true);
+                    }}
+                  >
+                    Archive job
+                  </Button>
+                </Can>
               </div>
             </dl>
           </Modal>
@@ -1548,17 +1551,17 @@ export default function DispatchPage() {
               setConfirmDelete(false);
             }}
             onConfirm={() => {
-              deleteJob.mutate(selectedJob.id, {
+              archiveJob.mutate(selectedJob.id, {
                 onSuccess: () => {
                   setConfirmDelete(false);
                   setSelectedJobId(null);
                 },
               });
             }}
-            title="Delete job"
-            message={`Delete job #${selectedJob.jobNumber}? It will be removed from the schedule. Linked invoices and estimates are kept but detached from the job.`}
-            confirmLabel="Delete"
-            loading={deleteJob.isPending}
+            title="Archive job"
+            message={`Archive job #${selectedJob.jobNumber}? It's hidden from the schedule and active lists, but nothing is deleted -- you can restore it anytime from the Jobs list.`}
+            confirmLabel="Archive"
+            loading={archiveJob.isPending}
           />
         </>
       )}

@@ -1,15 +1,22 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PlusIcon, PencilIcon } from "@heroicons/react/24/outline";
+import {
+  PlusIcon,
+  PencilIcon,
+  ArchiveBoxIcon,
+  ArrowUturnLeftIcon,
+} from "@heroicons/react/24/outline";
 import clsx from "clsx";
-import { useJobs } from "../hooks/useJobs";
+import { useJobs, useArchiveJob, useUnarchiveJob } from "../hooks/useJobs";
 import { useLookup } from "../hooks/useMetadata";
+import { usePermissions } from "../hooks/usePermissions";
 import Button from "../components/ui/Button";
 import IconButton from "../components/ui/IconButton";
 import SearchInput from "../components/ui/SearchInput";
 import Pagination from "../components/ui/Pagination";
-import { StatusBadge } from "../components/ui/Badge";
+import Badge, { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import DataTable, { Column, SortState } from "../components/ui/DataTable";
 import SavedViewsMenu from "../components/ui/SavedViewsMenu";
 import { TableSkeleton } from "../components/ui/Skeleton";
@@ -46,11 +53,16 @@ export default function JobsPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState<SortState | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archiveConfirm, setArchiveConfirm] = useState<Job | null>(null);
 
   const { options: statusOptions, getLabel: getStatusLabel } =
     useLookup("jobStatus");
   const { getLabel: getPriorityLabel, getColor: getPriorityColor } =
     useLookup("jobPriority");
+  const { can } = usePermissions();
+  const archiveJob = useArchiveJob();
+  const unarchiveJob = useUnarchiveJob();
   const statusTabs = ["all", ...statusOptions.map((o) => o.value)];
 
   const { data, isLoading } = useJobs({
@@ -58,6 +70,7 @@ export default function JobsPage() {
     limit: 20,
     search: search || undefined,
     status: status !== "all" ? status : undefined,
+    archived: showArchived ? "true" : undefined,
   });
 
   const jobs = data?.data ?? [];
@@ -112,7 +125,14 @@ export default function JobsPage() {
       header: "Status",
       sortValue: (j) => j.status,
       exportValue: (j) => getStatusLabel(j.status),
-      render: (j) => <StatusBadge status={j.status} type="job" />,
+      render: (j) => (
+        <span className="inline-flex items-center gap-1.5">
+          <StatusBadge status={j.status} type="job" />
+          {j.isArchived && (
+            <Badge className="bg-gray-100 text-gray-500">Archived</Badge>
+          )}
+        </span>
+      ),
     },
     {
       key: "priority",
@@ -211,7 +231,7 @@ export default function JobsPage() {
       </div>
 
       {/* Search + saved views */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
         <SearchInput
           value={search}
           onChange={(v) => {
@@ -221,6 +241,18 @@ export default function JobsPage() {
           placeholder="Search jobs..."
           className="w-full sm:w-72"
         />
+        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => {
+              setShowArchived(e.target.checked);
+              resetPage();
+            }}
+            className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+          Show archived
+        </label>
         <div className="sm:ml-auto">
           <SavedViewsMenu<JobsView>
             tableId="jobs"
@@ -293,15 +325,56 @@ export default function JobsPage() {
                 </div>
               )}
               rowActions={(j) => (
-                <IconButton
-                  label="Edit job"
-                  onClick={() => {
-                    navigate(`/jobs/${j.id}/edit`);
-                  }}
-                >
-                  <PencilIcon className="h-4 w-4" />
-                </IconButton>
+                <>
+                  <IconButton
+                    label="Edit job"
+                    onClick={() => {
+                      navigate(`/jobs/${j.id}/edit`);
+                    }}
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                  </IconButton>
+                  {can("jobs.delete") &&
+                    (j.isArchived ? (
+                      <IconButton
+                        label="Restore job"
+                        onClick={() => {
+                          unarchiveJob.mutate(j.id);
+                        }}
+                      >
+                        <ArrowUturnLeftIcon className="h-4 w-4" />
+                      </IconButton>
+                    ) : (
+                      <IconButton
+                        label="Archive job"
+                        onClick={() => {
+                          setArchiveConfirm(j);
+                        }}
+                      >
+                        <ArchiveBoxIcon className="h-4 w-4" />
+                      </IconButton>
+                    ))}
+                </>
               )}
+            />
+
+            <ConfirmDialog
+              isOpen={!!archiveConfirm}
+              onClose={() => {
+                setArchiveConfirm(null);
+              }}
+              onConfirm={() => {
+                if (!archiveConfirm) return;
+                archiveJob.mutate(archiveConfirm.id, {
+                  onSuccess: () => {
+                    setArchiveConfirm(null);
+                  },
+                });
+              }}
+              title="Archive job"
+              message={`Archive job #${archiveConfirm?.jobNumber ?? ""}? It's hidden from active lists and the dispatch board, but nothing is deleted -- you can restore it anytime.`}
+              confirmLabel="Archive"
+              loading={archiveJob.isPending}
             />
             {pagination && (
               <div className="px-5 py-4 border-t border-gray-100">

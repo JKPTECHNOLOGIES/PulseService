@@ -117,6 +117,8 @@ export interface Job {
   notes?: string;
   techNotes?: string;
   totalAmount: number;
+  isArchived: boolean;
+  archivedAt?: string;
   createdAt: string;
   updatedAt: string;
   customer?: Customer;

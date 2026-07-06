@@ -7,10 +7,17 @@ import {
   CheckIcon,
   ClockIcon,
   TrashIcon,
+  ArchiveBoxIcon,
+  ArrowUturnLeftIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { useJob } from "../hooks/useJobs";
-import { useUpdateJobStatus, useAssignTechnician } from "../hooks/useJobs";
+import {
+  useUpdateJobStatus,
+  useAssignTechnician,
+  useArchiveJob,
+  useUnarchiveJob,
+} from "../hooks/useJobs";
 import { useTechnicians } from "../hooks/useTechnicians";
 import { useAuthStore } from "../store/authStore";
 import {
@@ -33,8 +40,9 @@ import {
   useStockLocations,
 } from "../hooks/useInventory";
 import Button from "../components/ui/Button";
-import { StatusBadge } from "../components/ui/Badge";
+import Badge, { StatusBadge } from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
 import SignatureCard from "../components/ui/SignatureCard";
 import InstallSerialModal from "../components/ui/InstallSerialModal";
@@ -106,6 +114,7 @@ export default function JobDetailPage() {
   const navigate = useNavigate();
   const [statusModal, setStatusModal] = useState(false);
   const [assignModal, setAssignModal] = useState(false);
+  const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [newStatus, setNewStatus] = useState("");
   const [selectedTech, setSelectedTech] = useState("");
 
@@ -117,6 +126,8 @@ export default function JobDetailPage() {
   const clockOut = useClockOut();
   const updateStatus = useUpdateJobStatus();
   const assignTech = useAssignTechnician();
+  const archiveJob = useArchiveJob();
+  const unarchiveJob = useUnarchiveJob();
   const { options: jobStatusOptions } = useLookup("jobStatus");
 
   if (isLoading) return <PageSpinner />;
@@ -171,6 +182,9 @@ export default function JobDetailPage() {
                 Job #{job.jobNumber}
               </h2>
               <StatusBadge status={job.status} type="job" />
+              {job.isArchived && (
+                <Badge className="bg-gray-100 text-gray-500">Archived</Badge>
+              )}
               <span
                 className={clsx(
                   "text-sm capitalize",
@@ -205,6 +219,34 @@ export default function JobDetailPage() {
             >
               Edit
             </Button>
+            <Can permission="jobs.delete">
+              {job.isArchived ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  icon={<ArrowUturnLeftIcon className="h-4 w-4" />}
+                  loading={unarchiveJob.isPending}
+                  onClick={() => {
+                    unarchiveJob.mutate(id ?? "");
+                  }}
+                >
+                  Restore
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  icon={<ArchiveBoxIcon className="h-4 w-4" />}
+                  onClick={() => {
+                    setArchiveConfirm(true);
+                  }}
+                >
+                  Archive
+                </Button>
+              )}
+            </Can>
           </div>
         </div>
 
@@ -602,6 +644,24 @@ export default function JobDetailPage() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={archiveConfirm}
+        onClose={() => {
+          setArchiveConfirm(false);
+        }}
+        onConfirm={() => {
+          archiveJob.mutate(id ?? "", {
+            onSuccess: () => {
+              setArchiveConfirm(false);
+            },
+          });
+        }}
+        title="Archive job"
+        message={`Archive job #${job.jobNumber}? It's hidden from active lists and the dispatch board, but nothing is deleted -- you can restore it anytime.`}
+        confirmLabel="Archive"
+        loading={archiveJob.isPending}
+      />
     </div>
   );
 }
