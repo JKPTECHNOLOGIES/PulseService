@@ -8,6 +8,19 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { queryClient, persister } from "./lib/queryClient";
 import "./index.css";
 
+// When a code-split chunk fails to load after a redeploy (its hashed filename no
+// longer exists on the server), Vite emits `vite:preloadError`. Reload once to
+// pull the fresh index.html + chunks instead of showing the error screen. The
+// time-guard prevents an infinite reload loop if the failure is persistent.
+window.addEventListener("vite:preloadError", () => {
+  const key = "vitePreloadReloadAt";
+  const last = Number(sessionStorage.getItem(key) ?? "0");
+  if (Date.now() - last > 10_000) {
+    sessionStorage.setItem(key, String(Date.now()));
+    window.location.reload();
+  }
+});
+
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("root element not found");
 
