@@ -13,6 +13,10 @@ build/
 .env.*.local
 **/.env
 
+# Local-only handoff credentials (NEVER commit — repo is public)
+HANDOFF-CREDENTIALS.local.md
+*.local.md
+
 # Databases
 *.db
 *.db-journal
