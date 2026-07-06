@@ -34,31 +34,85 @@ import { useLookup } from "../../hooks/useMetadata";
 import { usePermissions } from "../../hooks/usePermissions";
 
 // `perm` (optional) hides the item unless the user holds one of the listed
-// permissions. Items without `perm` are visible to every authenticated user.
+// permissions -- the same rule the page's own actions are gated by, so a role
+// only sees a tab it can actually do something with. `roles` (optional) is
+// for the couple of items that aren't about a specific permission at all, but
+// about which role the item even makes sense for (My Day is a technician's
+// own agenda; Dashboard is the office landing page technicians never land on
+// per HomeRedirect). Items with neither are universal (Settings' own tabs
+// already self-filter by permission internally).
+const FIELD_OPS = [
+  "jobs.create",
+  "jobs.edit",
+  "jobs.status",
+  "dispatch.manage",
+];
+const INVENTORY_FIELD = ["inventory.manage", "inventory.issueToJob"];
+
 const navItems = [
-  { to: "/dashboard", label: "Dashboard", icon: HomeIcon },
-  { to: "/my-day", label: "My Day", icon: CalendarDaysIcon },
-  { to: "/customers", label: "Customers", icon: UsersIcon },
-  { to: "/jobs", label: "Jobs", icon: BriefcaseIcon },
+  {
+    to: "/dashboard",
+    label: "Dashboard",
+    icon: HomeIcon,
+    roles: ["admin", "manager", "dispatcher", "csr", "exec"],
+  },
+  {
+    to: "/my-day",
+    label: "My Day",
+    icon: CalendarDaysIcon,
+    roles: ["technician"],
+  },
+  {
+    to: "/customers",
+    label: "Customers",
+    icon: UsersIcon,
+    perm: ["customers.create", "customers.edit", "customers.delete"],
+  },
+  { to: "/jobs", label: "Jobs", icon: BriefcaseIcon, perm: FIELD_OPS },
   {
     to: "/recurring",
     label: "Recurring",
     icon: ArrowPathIcon,
     perm: ["jobs.create"],
   },
-  { to: "/dispatch", label: "Dispatch", icon: MapIcon },
-  { to: "/map", label: "Map", icon: GlobeAltIcon },
-  { to: "/estimates", label: "Estimates", icon: DocumentTextIcon },
-  { to: "/invoices", label: "Invoices", icon: DocumentDuplicateIcon },
+  { to: "/dispatch", label: "Dispatch", icon: MapIcon, perm: FIELD_OPS },
+  { to: "/map", label: "Map", icon: GlobeAltIcon, perm: FIELD_OPS },
+  {
+    to: "/estimates",
+    label: "Estimates",
+    icon: DocumentTextIcon,
+    perm: ["estimates.manage"],
+  },
+  {
+    to: "/invoices",
+    label: "Invoices",
+    icon: DocumentDuplicateIcon,
+    perm: ["invoices.manage"],
+  },
   {
     to: "/payments",
     label: "Payments",
     icon: CreditCardIcon,
     perm: ["payments.view"],
   },
-  { to: "/technicians", label: "Technicians", icon: WrenchScrewdriverIcon },
-  { to: "/pricebook", label: "Pricebook", icon: BookOpenIcon },
-  { to: "/inventory", label: "Inventory", icon: ArchiveBoxIcon },
+  {
+    to: "/technicians",
+    label: "Technicians",
+    icon: WrenchScrewdriverIcon,
+    perm: ["dispatch.manage", "jobs.assign"],
+  },
+  {
+    to: "/pricebook",
+    label: "Pricebook",
+    icon: BookOpenIcon,
+    perm: ["pricebook.manage"],
+  },
+  {
+    to: "/inventory",
+    label: "Inventory",
+    icon: ArchiveBoxIcon,
+    perm: INVENTORY_FIELD,
+  },
   {
     to: "/purchasing",
     label: "Purchase Orders",
@@ -75,11 +129,22 @@ const navItems = [
     to: "/serials",
     label: "Serialized Units",
     icon: QrCodeIcon,
+    perm: INVENTORY_FIELD,
   },
   // Equipment tab hidden for now (route/page kept intact):
   // { to: "/equipment", label: "Equipment", icon: CpuChipIcon },
-  { to: "/agreements", label: "Agreements", icon: ClipboardDocumentCheckIcon },
-  { to: "/marketing", label: "Marketing", icon: MegaphoneIcon },
+  {
+    to: "/agreements",
+    label: "Agreements",
+    icon: ClipboardDocumentCheckIcon,
+    perm: ["agreements.manage", "agreements.visits"],
+  },
+  {
+    to: "/marketing",
+    label: "Marketing",
+    icon: MegaphoneIcon,
+    perm: ["calls.manage"],
+  },
   {
     to: "/reports",
     label: "Reports",
@@ -101,9 +166,11 @@ export default function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const { getLabel: getRoleLabel } = useLookup("userRole");
   const { canAny } = usePermissions();
 
-  const visibleNavItems = navItems.filter(
-    (item) => !item.perm || canAny(...item.perm),
-  );
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.perm && !canAny(...item.perm)) return false;
+    if (item.roles && !item.roles.includes(user?.role ?? "")) return false;
+    return true;
+  });
 
   const handleLogout = () => {
     logout();
