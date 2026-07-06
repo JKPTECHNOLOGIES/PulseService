@@ -1,4 +1,5 @@
 const prisma = require("../config/database");
+const permissionsService = require("../services/permissions.service");
 const {
   paginate,
   paginatedResponse,
@@ -485,6 +486,30 @@ const getJobParts = async (req, res) => {
  */
 const reverseTransaction = async (req, res) => {
   try {
+    // Techs hold the narrower inventory.issueToJob permission, not the full
+    // inventory.manage -- they may only undo a part they personally issued to
+    // one of their own jobs (mirroring the "Add part" action), never an
+    // arbitrary adjustment, transfer, or PO receipt elsewhere in the system.
+    const granted = await permissionsService.getForRole(req.user.role);
+    const hasFullManage = granted.includes("inventory.manage");
+
+    if (!hasFullManage) {
+      const check = await prisma.inventoryTransaction.findUnique({
+        where: { id: req.params.id },
+      });
+      if (!check) {
+        return res
+          .status(404)
+          .json({ success: false, error: "Transaction not found" });
+      }
+      if (check.type !== "issue" || !check.jobId) {
+        return res.status(403).json({
+          success: false,
+          error: "You can only reverse a part you issued to a job.",
+        });
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const original = await tx.inventoryTransaction.findUnique({
         where: { id: req.params.id },

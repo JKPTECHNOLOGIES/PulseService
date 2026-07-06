@@ -677,7 +677,9 @@ function JobMaterialsCard({
                     <span className="text-gray-600">
                       {formatCurrency(p.total)}
                     </span>
-                    <Can permission="inventory.manage">
+                    <Can
+                      permission={["inventory.manage", "inventory.issueToJob"]}
+                    >
                       <button
                         onClick={() => {
                           reverseTxn.mutate({
@@ -685,7 +687,8 @@ function JobMaterialsCard({
                             reason: "Removed from job",
                           });
                         }}
-                        className="p-1 text-gray-300 hover:text-red-500"
+                        disabled={reverseTxn.isPending}
+                        className="p-1 text-gray-300 hover:text-red-500 disabled:opacity-50"
                         aria-label="Remove part"
                         title="Remove (returns stock to the location)"
                       >

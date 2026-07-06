@@ -51,9 +51,11 @@ router.post(
   c.issueToJob,
 );
 router.get("/jobs/:jobId/parts", c.getJobParts);
+// Scoped to job-parts issuances only for the inventory.issueToJob tier --
+// see the controller for the ownership/type check that enforces this.
 router.post(
   "/transactions/:id/reverse",
-  requirePermission("inventory.manage"),
+  requirePermission("inventory.manage", "inventory.issueToJob"),
   c.reverseTransaction,
 );
 
