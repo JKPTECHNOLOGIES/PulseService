@@ -931,12 +931,19 @@ export default function DispatchPage() {
     }
 
     // Week view: dropped on a (technician, day) cell -> assign that
-    // technician and move the job to that day (keeping its time-of-day).
+    // technician and move the job to that day (keeping its time-of-day). Only
+    // reassign if the technician actually changed -- otherwise a same-row,
+    // different-day drag fires a redundant reassign call that requires
+    // dispatch.manage, so a dispatcher/CSR with jobs.edit but not
+    // dispatch.manage would see a spurious "access denied" toast even though
+    // the (permitted) date change already went through.
     if (target.startsWith("week:")) {
       const [, techId, day] = target.split(":");
       if (job && day) {
         reschedule.mutate({ jobId, ...moveToDay(job, day), date: dateStr });
-        reassign.mutate({ jobId, toTechnicianId: techId, date: dateStr });
+        if (techId !== findCurrentTech(jobId)) {
+          reassign.mutate({ jobId, toTechnicianId: techId, date: dateStr });
+        }
       }
       return;
     }
