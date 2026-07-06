@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
+import clsx from "clsx";
 import {
   ChevronRightIcon,
   PaperAirplaneIcon,
@@ -8,12 +9,14 @@ import {
   NoSymbolIcon,
   PencilIcon,
   ArrowDownTrayIcon,
+  ArrowUturnLeftIcon,
 } from "@heroicons/react/24/outline";
 import {
   useInvoice,
   useSendInvoice,
   useRecordPayment,
   useVoidInvoice,
+  useReversePayment,
 } from "../hooks/useInvoices";
 import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
@@ -44,11 +47,13 @@ export default function InvoiceDetailPage() {
   const navigate = useNavigate();
   const [paymentModal, setPaymentModal] = useState(false);
   const [voidConfirm, setVoidConfirm] = useState(false);
+  const [reverseConfirm, setReverseConfirm] = useState<string | null>(null);
 
   const { data: invoice, isLoading } = useInvoice(id ?? "");
   const sendMutation = useSendInvoice();
   const paymentMutation = useRecordPayment();
   const voidMutation = useVoidInvoice();
+  const reverseMutation = useReversePayment();
   const { getLabel: getPaymentMethodLabel } = useLookup("paymentMethod");
   const { can } = usePermissions();
 
@@ -298,9 +303,13 @@ export default function InvoiceDetailPage() {
                 <th className="text-left py-2 font-medium text-gray-500 text-xs">
                   REFERENCE
                 </th>
+                <th className="text-left py-2 font-medium text-gray-500 text-xs">
+                  STATUS
+                </th>
                 <th className="text-right py-2 font-medium text-gray-500 text-xs">
                   AMOUNT
                 </th>
+                {can("invoices.void") && <th className="py-2" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -315,9 +324,37 @@ export default function InvoiceDetailPage() {
                   <td className="py-2.5 text-gray-500">
                     {p.referenceNumber ?? "-"}
                   </td>
-                  <td className="py-2.5 text-right font-medium text-green-600">
+                  <td className="py-2.5">
+                    <StatusBadge status={p.status} category="paymentStatus" />
+                  </td>
+                  <td
+                    className={clsx(
+                      "py-2.5 text-right font-medium",
+                      p.status === "refunded"
+                        ? "text-gray-400 line-through"
+                        : "text-green-600",
+                    )}
+                  >
                     {formatCurrency(p.amount)}
                   </td>
+                  {can("invoices.void") && (
+                    <td className="py-2.5 text-right">
+                      {p.status === "completed" &&
+                        invoice.status !== "void" && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReverseConfirm(p.id);
+                            }}
+                            className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-600"
+                            title="Reverse this payment"
+                          >
+                            <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
+                            Reverse
+                          </button>
+                        )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -414,6 +451,25 @@ export default function InvoiceDetailPage() {
         message="Are you sure you want to void this invoice? This action cannot be undone."
         confirmLabel="Void Invoice"
         loading={voidMutation.isPending}
+      />
+
+      <ConfirmDialog
+        isOpen={!!reverseConfirm}
+        onClose={() => {
+          setReverseConfirm(null);
+        }}
+        onConfirm={() => {
+          if (!reverseConfirm) return;
+          void reverseMutation
+            .mutateAsync({ paymentId: reverseConfirm, invoiceId: id ?? "" })
+            .then(() => {
+              setReverseConfirm(null);
+            });
+        }}
+        title="Reverse Payment"
+        message="Are you sure you want to reverse this payment? The invoice's balance will be restored, and this cannot be undone. Use this if the invoice needs to be voided or the payment was recorded in error."
+        confirmLabel="Reverse Payment"
+        loading={reverseMutation.isPending}
       />
     </div>
   );

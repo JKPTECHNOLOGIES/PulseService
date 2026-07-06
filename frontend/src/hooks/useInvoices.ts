@@ -127,8 +127,11 @@ export function useRecordPayment() {
 export function useVoidInvoice() {
   const qc = useQueryClient();
   return useMutation({
+    // NB: the backend route is POST (matching /send and /payments in the same
+    // file), not PATCH -- this used to be a PATCH call, which silently 404'd
+    // against the real route no matter who called it.
     mutationFn: (id: string) =>
-      api.patch<ApiResponse<Invoice>>(`/invoices/${id}/void`),
+      api.post<ApiResponse<Invoice>>(`/invoices/${id}/void`),
     onSuccess: (_data, id) => {
       void qc.invalidateQueries({ queryKey: ["invoice", id] });
       void qc.invalidateQueries({ queryKey: ["invoices"] });
@@ -136,6 +139,25 @@ export function useVoidInvoice() {
     },
     onError: (err: unknown) => {
       toast.error(getErrorMessage(err, "Failed to void invoice"));
+    },
+  });
+}
+
+export function useReversePayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ paymentId }: { paymentId: string; invoiceId: string }) =>
+      api.post<ApiResponse<{ payment: unknown; invoice: Invoice }>>(
+        `/payments/${paymentId}/reverse`,
+      ),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ["invoice", vars.invoiceId] });
+      void qc.invalidateQueries({ queryKey: ["invoices"] });
+      void qc.invalidateQueries({ queryKey: ["payments"] });
+      toast.success("Payment reversed");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to reverse payment"));
     },
   });
 }

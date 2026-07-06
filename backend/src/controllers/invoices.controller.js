@@ -451,6 +451,26 @@ const recordPayment = async (req, res) => {
 const voidInvoice = async (req, res) => {
   try {
     const { voidReason } = req.body;
+    const existing = await prisma.invoice.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Invoice not found" });
+    }
+    // A paid (or partially paid) invoice can't be voided out from under its
+    // payment history -- that would leave real, collected money pointing at a
+    // void document. Reverse the payment(s) first (POST /payments/:id/reverse),
+    // which naturally moves the invoice out of "paid" and clears amountPaid.
+    if (existing.amountPaid > 0) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "This invoice has payments recorded against it. Reverse the payment(s) before voiding.",
+      });
+    }
+
     const invoice = await prisma.invoice.update({
       where: { id: req.params.id },
       data: { status: "void", voidedAt: new Date(), voidReason },
