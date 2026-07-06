@@ -13,6 +13,7 @@ import { TableSkeleton } from "../components/ui/Skeleton";
 import { Can } from "../components/ui/Can";
 import { LookupSelect } from "../components/ui/LookupSelect";
 import { formatCurrency, formatDate } from "../utils/formatters";
+import { generateId } from "../utils/id";
 import {
   usePurchaseOrders,
   useCreatePurchaseOrder,
@@ -315,7 +316,7 @@ function CreatePOModal({
     setLines((ls) => [
       ...ls,
       {
-        key: crypto.randomUUID(),
+        key: generateId(),
         lineType: "inventory",
         description: "",
         quantity: 1,

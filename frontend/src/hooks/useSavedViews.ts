@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { generateId } from "../utils/id";
 
 export interface SavedView<T> {
   id: string;
@@ -42,11 +43,7 @@ export function useSavedViews<T>(tableId: string) {
 
   const saveView = useCallback(
     (name: string, state: T) => {
-      const id =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : String(Date.now());
-      persist([...views, { id, name, state }]);
+      persist([...views, { id: generateId(), name, state }]);
     },
     [views, persist],
   );
