@@ -1,0 +1,9 @@
+sku,name,unit,quantity,unitCost,reorderPoint,reorderQuantity,supplierName,locationCode,serialized
+IMP-CAP-45,Dual Run Capacitor 45/5 MFD,each,25,4.75,10,20,Acme HVAC Supply,WH,no
+IMP-CONT-40,Contactor 40A 2-Pole,each,12,9.50,6,12,Acme HVAC Supply,WH,no
+IMP-FILT-2025,Air Filter MERV-13 20x25x1,each,60,3.10,24,48,Acme HVAC Supply,WH,no
+IMP-THERM-PRO,Programmable Thermostat (5-2 day),each,8,42.00,4,8,Comfort Controls Inc,TRK101,no
+IMP-REF-410A,R-410A Refrigerant 25lb Cylinder,cylinder,5,88.00,3,4,CoolChem Distributors,WH,no
+IMP-PVC-075,3/4 in PVC Pipe (10 ft),length,40,2.25,15,30,,WH,no
+IMP-IGNITER,Hot Surface Igniter,each,10,18.00,5,10,Acme HVAC Supply,TRK102,no
+IMP-WH-50G,50-Gal Gas Water Heater,each,4,520.00,2,4,PlumbPro Wholesale,,no
