@@ -45,6 +45,21 @@ export function useUpdateSerializedUnit() {
   });
 }
 
+export function useUninstallSerializedUnit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post<ApiResponse<SerializedUnit>>(`/serials/${id}/uninstall`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["serials"] });
+      toast.success("Unit removed from job");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to remove unit"));
+    },
+  });
+}
+
 export function useInstallSerializedUnit() {
   const qc = useQueryClient();
   return useMutation({

@@ -27,5 +27,11 @@ router.post(
   requirePermission("inventory.manage", "inventory.issueToJob"),
   c.install,
 );
+// Reverse an install (return the unit to stock / remove it from a job).
+router.post(
+  "/:id/uninstall",
+  requirePermission("inventory.manage", "inventory.issueToJob"),
+  c.uninstall,
+);
 
 module.exports = router;

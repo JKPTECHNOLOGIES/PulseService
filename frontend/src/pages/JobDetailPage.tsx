@@ -20,7 +20,10 @@ import {
   useClockOut,
 } from "../hooks/useTime";
 import { useLookup } from "../hooks/useMetadata";
-import { useSerializedUnits } from "../hooks/useSerials";
+import {
+  useSerializedUnits,
+  useUninstallSerializedUnit,
+} from "../hooks/useSerials";
 import { usePurchaseOrders } from "../hooks/usePurchasing";
 import {
   useJobParts,
@@ -616,6 +619,7 @@ function JobMaterialsCard({
   const { data: pos } = usePurchaseOrders({ jobId, limit: 50 });
   const { data: parts } = useJobParts(jobId);
   const reverseTxn = useReverseTransaction();
+  const uninstall = useUninstallSerializedUnit();
   const [installOpen, setInstallOpen] = useState(false);
   const [addPartOpen, setAddPartOpen] = useState(false);
 
@@ -712,18 +716,34 @@ function JobMaterialsCard({
               {units.map((u) => (
                 <li
                   key={u.id}
-                  className="flex items-center justify-between text-sm"
+                  className="flex items-center justify-between gap-2 text-sm"
                 >
-                  <span className="text-gray-700">
+                  <span className="text-gray-700 min-w-0">
                     {u.inventoryItem?.name ?? "Unit"}{" "}
                     <span className="font-mono text-xs text-gray-400">
                       {u.serialNumber}
                     </span>
                   </span>
-                  <StatusBadge
-                    status={u.status}
-                    category="serializedUnitStatus"
-                  />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <StatusBadge
+                      status={u.status}
+                      category="serializedUnitStatus"
+                    />
+                    <Can
+                      permission={["inventory.manage", "inventory.issueToJob"]}
+                    >
+                      <button
+                        onClick={() => {
+                          uninstall.mutate(u.id);
+                        }}
+                        disabled={uninstall.isPending}
+                        title="Remove from job (return to stock)"
+                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </Can>
+                  </div>
                 </li>
               ))}
             </ul>

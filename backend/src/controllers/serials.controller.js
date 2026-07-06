@@ -189,4 +189,30 @@ const install = async (req, res) => {
   }
 };
 
-module.exports = { list, get, create, update, install };
+// Reverse an install: return the unit to stock and clear its job/customer
+// links. Non-destructive (the physical asset record is kept).
+const uninstall = async (req, res) => {
+  try {
+    const unit = await prisma.serializedUnit.update({
+      where: { id: req.params.id },
+      data: {
+        status: "in_stock",
+        installedCustomerId: null,
+        installedLocationId: null,
+        installedJobId: null,
+        equipmentId: null,
+        installedAt: null,
+      },
+    });
+    return res.json({ success: true, data: unit });
+  } catch (err) {
+    if (err.code === "P2025")
+      return res
+        .status(404)
+        .json({ success: false, error: "Serialized unit not found" });
+    console.error("serials.uninstall error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+module.exports = { list, get, create, update, install, uninstall };
