@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
 import {

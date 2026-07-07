@@ -1,4 +1,5 @@
 const prisma = require("../config/database");
+const { respondError } = require("../utils/apiError");
 const {
   paginate,
   paginatedResponse,
@@ -188,8 +189,7 @@ const create = async (req, res) => {
     await enqueueQuickBooksInvoiceSync(invoice.id);
     return res.status(201).json({ success: true, data: invoice });
   } catch (err) {
-    console.error("invoices.create error:", err);
-    return res.status(500).json({ success: false, error: "Server error" });
+    return respondError(res, err, "invoice");
   }
 };
 
@@ -273,12 +273,7 @@ const update = async (req, res) => {
     await enqueueQuickBooksInvoiceSync(invoice.id);
     return res.json({ success: true, data: invoice });
   } catch (err) {
-    if (err.code === "P2025")
-      return res
-        .status(404)
-        .json({ success: false, error: "Invoice not found" });
-    console.error("invoices.update error:", err);
-    return res.status(500).json({ success: false, error: "Server error" });
+    return respondError(res, err, "invoice");
   }
 };
 

@@ -11,7 +11,7 @@ import api from "../lib/api";
 import { socket } from "../lib/socket";
 import { getErrorMessage } from "../lib/errors";
 import type { ApiResponse, Technician, Job, JobTechnician } from "../types";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 
 /**
  * Subscribes the open dispatch board to live updates. The backend emits

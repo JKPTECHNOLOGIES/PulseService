@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
 import type { ApiResponse, Campaign } from "../types";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 
 interface CampaignsParams {
   status?: string;

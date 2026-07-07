@@ -1,4 +1,5 @@
 const prisma = require("../config/database");
+const { respondError } = require("../utils/apiError");
 const {
   paginate,
   paginatedResponse,
@@ -153,8 +154,7 @@ const create = async (req, res) => {
 
     return res.status(201).json({ success: true, data: estimate });
   } catch (err) {
-    console.error("estimates.create error:", err);
-    return res.status(500).json({ success: false, error: "Server error" });
+    return respondError(res, err, "estimate");
   }
 };
 
@@ -223,8 +223,7 @@ const update = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, error: "Estimate not found" });
-    console.error("estimates.update error:", err);
-    return res.status(500).json({ success: false, error: "Server error" });
+    return respondError(res, err, "estimate");
   }
 };
 

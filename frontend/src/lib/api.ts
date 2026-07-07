@@ -1,5 +1,6 @@
 import axios from "axios";
 import type { AxiosRequestConfig, AxiosResponse } from "axios";
+import { recordApiError } from "./apiErrorStore";
 
 const instance = axios.create({
   baseURL: "/api/v1",
@@ -19,23 +20,42 @@ instance.interceptors.request.use((config) => {
 instance.interceptors.response.use(
   (response: AxiosResponse): AxiosResponse => response.data as AxiosResponse,
   (error: unknown) => {
-    const response = (
-      error as { response?: { status?: number; data?: unknown } }
-    ).response;
-    if (response?.status === 401) {
+    const e = error as {
+      response?: { status?: number; data?: unknown };
+      config?: { method?: string; url?: string };
+    };
+    const response = e.response;
+    const status = response?.status;
+    if (status === 401) {
       localStorage.removeItem("token");
       window.location.href = "/login";
     }
-    // Reject with an Error whose message is the server's error text (read by
-    // getErrorMessage in lib/errors.ts), so the rejection reason is always an Error.
     const body = response?.data;
-    const message =
+    const serverMessage =
       typeof body === "object" &&
       body !== null &&
       "error" in body &&
       typeof (body as { error?: unknown }).error === "string"
         ? (body as { error: string }).error
-        : "Request failed";
+        : undefined;
+    // Prefer the server's message; otherwise give a clearer default than a bare
+    // "Request failed" that tells the user (and us) what kind of failure it was.
+    const message =
+      serverMessage ??
+      (status === undefined
+        ? "Couldn't reach the server. Check your connection and try again."
+        : status >= 500
+          ? `Something went wrong on the server (${String(status)}).`
+          : `Request failed (${String(status)}).`);
+
+    // Stash request diagnostics for the error toast's copy-to-clipboard.
+    recordApiError({
+      method: e.config?.method?.toUpperCase(),
+      url: e.config?.url,
+      status,
+      serverMessage: message,
+    });
+
     return Promise.reject(new Error(message));
   },
 );

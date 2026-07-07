@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
 import type { ApiResponse, Attachment, AttachmentEntityType } from "../types";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 
 const key = (entityType: AttachmentEntityType, entityId: string) =>
   ["attachments", entityType, entityId] as const;

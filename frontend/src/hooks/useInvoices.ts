@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
 import type { ApiResponse, Invoice, PaginatedResponse } from "../types";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 
 interface InvoicesParams {
   page?: number;

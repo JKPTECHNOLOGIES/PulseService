@@ -1,4 +1,4 @@
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 import { formatPhone } from "./formatters";
 
 export function isApplePlatform(): boolean {

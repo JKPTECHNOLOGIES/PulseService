@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import type { QueryKey } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowUpTrayIcon, DocumentArrowDownIcon } from "@heroicons/react/24/outline";
-import toast from "react-hot-toast";
+import toast from "../../lib/toast";
 import api from "../../lib/api";
 import { getErrorMessage } from "../../lib/errors";
 import { parseCsv } from "../../utils/csvImport";

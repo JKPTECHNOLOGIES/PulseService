@@ -1,4 +1,5 @@
 const prisma = require("../config/database");
+const { respondError } = require("../utils/apiError");
 const {
   paginate,
   paginatedResponse,
@@ -238,8 +239,7 @@ const create = async (req, res) => {
 
     return res.status(201).json({ success: true, data: job });
   } catch (err) {
-    console.error("jobs.create error:", err);
-    return res.status(500).json({ success: false, error: "Server error" });
+    return respondError(res, err, "job");
   }
 };
 
@@ -324,11 +324,7 @@ const update = async (req, res) => {
 
     return res.json({ success: true, data: job });
   } catch (err) {
-    if (err.code === "P2025") {
-      return res.status(404).json({ success: false, error: "Job not found" });
-    }
-    console.error("jobs.update error:", err);
-    return res.status(500).json({ success: false, error: "Server error" });
+    return respondError(res, err, "job");
   }
 };
 

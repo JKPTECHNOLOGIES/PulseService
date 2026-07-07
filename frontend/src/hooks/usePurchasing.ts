@@ -7,7 +7,7 @@ import type {
   PurchaseOrder,
   ReorderSuggestionGroup,
 } from "../types";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 
 export interface POLineInput {
   inventoryItemId?: string;

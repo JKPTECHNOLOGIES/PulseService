@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { BoltIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
 import Button from "../components/ui/Button";

@@ -5,7 +5,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 import { useDispatchBoard } from "../hooks/useDispatch";
 import { useTechnicians } from "../hooks/useTechnicians";
 import { useTheme } from "../hooks/useTheme";

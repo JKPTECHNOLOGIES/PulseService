@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import toast from "react-hot-toast";
+import toast from "./toast";
 import api from "./api";
 import { getErrorMessage } from "./errors";
 import type { ApiResponse } from "../types";

@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import toast, { Toaster } from "react-hot-toast";
+import toast, { Toaster } from "./lib/toast";
 import { registerSW } from "virtual:pwa-register";
 import App from "./App";
 import ErrorBoundary from "./components/ErrorBoundary";

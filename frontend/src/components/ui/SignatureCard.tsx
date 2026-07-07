@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { PencilSquareIcon, CheckBadgeIcon } from "@heroicons/react/24/outline";
-import toast from "react-hot-toast";
+import toast from "../../lib/toast";
 import {
   useAttachments,
   useUploadAttachment,

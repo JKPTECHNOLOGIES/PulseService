@@ -3,7 +3,7 @@ import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
 import { OFFLINE_MK, type ClockInVars } from "../lib/offlineMutations";
 import type { ApiResponse } from "../types";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 
 export interface TimeEntry {
   id: string;

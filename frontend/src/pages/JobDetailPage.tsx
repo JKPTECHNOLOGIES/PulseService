@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 import {
   PencilIcon,
   ChevronRightIcon,

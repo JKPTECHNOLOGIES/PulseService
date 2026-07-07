@@ -7,7 +7,7 @@ import type {
   AgreementVisit,
   PaginatedResponse,
 } from "../types";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 
 interface AgreementsParams {
   page?: number;

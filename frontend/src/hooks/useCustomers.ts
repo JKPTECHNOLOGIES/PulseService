@@ -7,7 +7,7 @@ import type {
   Location,
   PaginatedResponse,
 } from "../types";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 
 /** Write payload for creating/updating a customer. `locations` uses a create
  * shape (no id/customerId yet), so it's kept separate from the read model. */

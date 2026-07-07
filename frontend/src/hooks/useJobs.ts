@@ -3,7 +3,7 @@ import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
 import { OFFLINE_MK } from "../lib/offlineMutations";
 import type { ApiResponse, Job, PaginatedResponse } from "../types";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 
 interface JobsParams {
   page?: number;

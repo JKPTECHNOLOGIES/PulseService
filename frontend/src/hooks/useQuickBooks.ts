@@ -9,7 +9,7 @@ import type {
   QuickBooksMappingRecord,
   QuickBooksItemMappingRecord,
 } from "../types";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 
 export function useQuickBooksSettings() {
   return useQuery({

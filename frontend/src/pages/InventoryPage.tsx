@@ -17,7 +17,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Menu } from "@headlessui/react";
 import clsx from "clsx";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 import {
   useInventoryItems,
   useInventoryItem,

@@ -10,7 +10,7 @@ import type {
   StockLocation,
   VehicleOption,
 } from "../types";
-import toast from "react-hot-toast";
+import toast from "../lib/toast";
 
 // ─── Stock locations (warehouse + trucks) ────────────────────────────────────
 
