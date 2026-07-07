@@ -49,6 +49,7 @@ import AttachmentGallery from "../components/ui/AttachmentGallery";
 import SignatureCard from "../components/ui/SignatureCard";
 import InstallSerialModal from "../components/ui/InstallSerialModal";
 import { Can } from "../components/ui/Can";
+import IconButton from "../components/ui/IconButton";
 import { PageSpinner } from "../components/ui/Spinner";
 import { directionsUrl } from "../lib/maps";
 import {
@@ -210,17 +211,19 @@ export default function JobDetailPage() {
             >
               Update Status
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="w-full sm:w-auto"
-              icon={<PencilIcon className="h-4 w-4" />}
-              onClick={() => {
-                navigate(`/jobs/${id ?? ""}/edit`);
-              }}
-            >
-              Edit
-            </Button>
+            <Can permission="jobs.edit">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full sm:w-auto"
+                icon={<PencilIcon className="h-4 w-4" />}
+                onClick={() => {
+                  navigate(`/jobs/${id ?? ""}/edit`);
+                }}
+              >
+                Edit
+              </Button>
+            </Can>
             <Can permission="jobs.delete">
               {job.isArchived ? (
                 <Button
@@ -708,7 +711,7 @@ function JobMaterialsCard({
               onClick={() => {
                 setAddPartOpen(true);
               }}
-              className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+              className="inline-flex items-center min-h-[44px] sm:min-h-0 px-1 text-sm sm:text-xs text-primary-600 hover:text-primary-700 font-medium"
             >
               Add part
             </button>
@@ -716,7 +719,7 @@ function JobMaterialsCard({
               onClick={() => {
                 setInstallOpen(true);
               }}
-              className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+              className="inline-flex items-center min-h-[44px] sm:min-h-0 px-1 text-sm sm:text-xs text-primary-600 hover:text-primary-700 font-medium"
             >
               Install unit
             </button>
@@ -748,7 +751,9 @@ function JobMaterialsCard({
                     <Can
                       permission={["inventory.manage", "inventory.issueToJob"]}
                     >
-                      <button
+                      <IconButton
+                        label="Remove part (returns stock to the location)"
+                        variant="danger"
                         onClick={() => {
                           reverseTxn.mutate({
                             id: p.transactionId,
@@ -756,12 +761,9 @@ function JobMaterialsCard({
                           });
                         }}
                         disabled={reverseTxn.isPending}
-                        className="p-1 text-gray-300 hover:text-red-500 disabled:opacity-50"
-                        aria-label="Remove part"
-                        title="Remove (returns stock to the location)"
                       >
-                        <TrashIcon className="h-3.5 w-3.5" />
-                      </button>
+                        <TrashIcon className="h-4 w-4" />
+                      </IconButton>
                     </Can>
                   </span>
                 </div>
@@ -803,16 +805,16 @@ function JobMaterialsCard({
                     <Can
                       permission={["inventory.manage", "inventory.issueToJob"]}
                     >
-                      <button
+                      <IconButton
+                        label="Remove unit from job (return to stock)"
+                        variant="danger"
                         onClick={() => {
                           uninstall.mutate(u.id);
                         }}
                         disabled={uninstall.isPending}
-                        title="Remove from job (return to stock)"
-                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
                       >
                         <TrashIcon className="h-4 w-4" />
-                      </button>
+                      </IconButton>
                     </Can>
                   </div>
                 </li>

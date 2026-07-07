@@ -73,9 +73,23 @@ export default function App() {
           <Route path="customers/:id" element={<CustomerDetailPage />} />
           <Route path="customers/:id/edit" element={<CustomerFormPage />} />
           <Route path="jobs" element={<JobsPage />} />
-          <Route path="jobs/new" element={<JobFormPage />} />
+          <Route
+            path="jobs/new"
+            element={
+              <RequirePermission perm={["jobs.create"]}>
+                <JobFormPage />
+              </RequirePermission>
+            }
+          />
           <Route path="jobs/:id" element={<JobDetailPage />} />
-          <Route path="jobs/:id/edit" element={<JobFormPage />} />
+          <Route
+            path="jobs/:id/edit"
+            element={
+              <RequirePermission perm={["jobs.edit"]}>
+                <JobFormPage />
+              </RequirePermission>
+            }
+          />
           <Route path="recurring" element={<RecurringPage />} />
           <Route path="dispatch" element={<DispatchPage />} />
           <Route path="map" element={<MapPage />} />

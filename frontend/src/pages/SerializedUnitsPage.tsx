@@ -145,28 +145,44 @@ export default function SerializedUnitsPage() {
                   </td>
                   <td className="py-3 px-4">
                     <Can
-                      permission="inventory.manage"
+                      permission={["inventory.manage", "inventory.issueToJob"]}
                       fallback={
                         <span className="text-gray-300 text-xs">—</span>
                       }
                     >
                       <div className="flex items-center gap-2">
-                        <select
-                          value={u.status}
-                          onChange={(e) => {
-                            updateUnit.mutate({
-                              id: u.id,
-                              status: e.target.value,
-                            });
-                          }}
-                          className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
-                        >
-                          {statusOptions.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
+                        {/* Changing status arbitrarily is a manage-only action;
+                            issuing a unit to a job (Install) is available to
+                            inventory.issueToJob too. */}
+                        <Can permission="inventory.manage">
+                          <select
+                            value={u.status}
+                            onChange={(e) => {
+                              updateUnit.mutate({
+                                id: u.id,
+                                status: e.target.value,
+                              });
+                            }}
+                            className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                          >
+                            {/* "Installed" is set only via the dedicated Install
+                              action below (it needs a customer/job link this
+                              dropdown can't collect) -- keep it selectable
+                              here only when it's already the unit's status,
+                              so the control still displays correctly. */}
+                            {statusOptions
+                              .filter(
+                                (o) =>
+                                  o.value !== "installed" ||
+                                  u.status === "installed",
+                              )
+                              .map((o) => (
+                                <option key={o.value} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                          </select>
+                        </Can>
                         {(u.status === "in_stock" ||
                           u.status === "reserved") && (
                           <Button
@@ -420,11 +436,18 @@ function SerializedUnitFormModal({
               }}
               className={INPUT}
             >
-              {statusOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
+              {/* "Installed" needs a customer/job link this form doesn't
+                  collect -- use the dedicated Install action instead. Kept
+                  selectable here only when it's already the unit's status. */}
+              {statusOptions
+                .filter(
+                  (o) => o.value !== "installed" || unit.status === "installed",
+                )
+                .map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
             </select>
           </Field>
           <Field label="Location">
