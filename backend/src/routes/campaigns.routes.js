@@ -25,5 +25,11 @@ router.put(
   c.update,
 );
 router.delete("/:id", requirePermission("campaigns.manage"), c["delete"]);
+router.post("/:id/archive", requirePermission("campaigns.manage"), c.archive);
+router.post(
+  "/:id/unarchive",
+  requirePermission("campaigns.manage"),
+  c.unarchive,
+);
 
 module.exports = router;

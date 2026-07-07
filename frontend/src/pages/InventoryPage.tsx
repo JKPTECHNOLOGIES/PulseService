@@ -116,7 +116,9 @@ export default function InventoryPage() {
         <span
           className={clsx(
             "font-semibold",
-            i.isLowStock ? "text-yellow-700" : "text-gray-900",
+            i.isLowStock
+              ? "text-yellow-700 dark:text-yellow-400"
+              : "text-gray-900",
           )}
         >
           {num(i.totalOnHand)}
@@ -286,9 +288,9 @@ export default function InventoryPage() {
 
       {/* Low stock alert */}
       {lowStockItems.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-5 py-3 flex items-center gap-3">
-          <ExclamationTriangleIcon className="h-5 w-5 text-yellow-600 shrink-0" />
-          <p className="text-sm text-yellow-800">
+        <div className="bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-900/50 rounded-xl px-5 py-3 flex items-center gap-3">
+          <ExclamationTriangleIcon className="h-5 w-5 text-yellow-600 dark:text-yellow-500 shrink-0" />
+          <p className="text-sm text-yellow-800 dark:text-yellow-200">
             <span className="font-semibold">
               {lowStockItems.length} item(s)
             </span>{" "}
@@ -313,7 +315,9 @@ export default function InventoryPage() {
             csvFilename="inventory"
             rowActions={itemActions}
             rowClassName={(i) =>
-              i.isLowStock ? "bg-yellow-50 hover:bg-yellow-100" : undefined
+              i.isLowStock
+                ? "bg-yellow-50 hover:bg-yellow-100 dark:bg-yellow-950/30 dark:hover:bg-yellow-900/40"
+                : undefined
             }
             renderMobileCard={(i) => (
               <div>
@@ -322,7 +326,9 @@ export default function InventoryPage() {
                   <span
                     className={clsx(
                       "font-semibold text-sm shrink-0",
-                      i.isLowStock ? "text-yellow-700" : "text-gray-900",
+                      i.isLowStock
+                        ? "text-yellow-700 dark:text-yellow-400"
+                        : "text-gray-900",
                     )}
                   >
                     {num(i.totalOnHand)} on hand

@@ -215,4 +215,35 @@ const uninstall = async (req, res) => {
   }
 };
 
-module.exports = { list, get, create, update, install, uninstall };
+// Permanently remove a manually-tracked serial record. Installed units must
+// be uninstalled first so we don't silently orphan a job/customer/equipment
+// link with no trace of what used to be there.
+const remove = async (req, res) => {
+  try {
+    const existing = await prisma.serializedUnit.findUnique({
+      where: { id: req.params.id },
+      select: { status: true },
+    });
+    if (!existing)
+      return res
+        .status(404)
+        .json({ success: false, error: "Serialized unit not found" });
+    if (existing.status === "installed")
+      return res.status(409).json({
+        success: false,
+        error: "Uninstall this unit before deleting it",
+      });
+
+    await prisma.serializedUnit.delete({ where: { id: req.params.id } });
+    return res.json({ success: true, data: { id: req.params.id } });
+  } catch (err) {
+    if (err.code === "P2025")
+      return res
+        .status(404)
+        .json({ success: false, error: "Serialized unit not found" });
+    console.error("serials.remove error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+module.exports = { list, get, create, update, install, uninstall, remove };

@@ -1,8 +1,9 @@
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   BellIcon,
   ChevronDownIcon,
+  InformationCircleIcon,
   MagnifyingGlassIcon,
   SunIcon,
   MoonIcon,
@@ -12,7 +13,10 @@ import clsx from "clsx";
 import { useAuthStore } from "../../store/authStore";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useTheme } from "../../hooks/useTheme";
+import { usePageHelpSeen } from "../../hooks/usePageHelpSeen";
+import { getPageHelp } from "../../content/pageHelp";
 import { MOD_KEY } from "../../lib/keys";
+import PageHelpModal from "./PageHelpModal";
 
 const routeTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -31,6 +35,7 @@ const routeTitles: Record<string, string> = {
   "/reports": "Reports",
   "/settings": "Settings",
   "/notifications": "Notifications",
+  "/help": "Help Center",
 };
 
 function getTitle(pathname: string): string {
@@ -52,6 +57,20 @@ export default function Header() {
   const { data: notifData } = useNotifications();
   const notifCount = notifData?.unreadCount ?? 0;
 
+  const helpContent = getPageHelp(location.pathname);
+  const { hasSeen, markSeen } = usePageHelpSeen();
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  // Auto-open the help modal the first time this browser ever visits a page
+  // that has help content, then remember not to do it again.
+  useEffect(() => {
+    if (!helpContent) return;
+    if (!hasSeen(helpContent.key)) {
+      setHelpOpen(true);
+      markSeen(helpContent.key);
+    }
+  }, [helpContent, hasSeen, markSeen]);
+
   const title = getTitle(location.pathname);
   const initials = user
     ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`
@@ -68,6 +87,18 @@ export default function Header() {
         <h1 className="text-lg md:text-xl font-semibold text-gray-900 truncate">
           {title}
         </h1>
+        {helpContent && (
+          <button
+            onClick={() => {
+              setHelpOpen(true);
+            }}
+            title="Help for this page"
+            aria-label="Help for this page"
+            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+          >
+            <InformationCircleIcon className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
@@ -178,6 +209,16 @@ export default function Header() {
           </Transition>
         </Menu>
       </div>
+
+      {helpContent && (
+        <PageHelpModal
+          isOpen={helpOpen}
+          onClose={() => {
+            setHelpOpen(false);
+          }}
+          content={helpContent}
+        />
+      )}
     </header>
   );
 }

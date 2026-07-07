@@ -13,34 +13,34 @@ Network open to catch errors/500s.
 
 ## 1. Account provisioning (as admin)
 
-- [ ] Log in as `admin@pulseservice.com` / `admin123`
-- [ ] Settings → Users → **Invite User** → create `manager@pulseservice.com` (Manager); copy the one-time temp password
-- [ ] Invite `exec@pulseservice.com` (Executive); copy temp password
-- [ ] Invited user shows in the Users list with the correct role + Active status
-- [ ] Log in as the new manager; Settings → Account → **Change Password** succeeds
-- [ ] Log back in with the new password (old temp password no longer works)
-- [ ] As admin, **Reset Password** for a user → returns a new one-time password
-- [ ] As admin, **Edit** a user's role and Active status → saved
-- [ ] Last-admin guard: as admin, try to demote/deactivate **yourself** → blocked with an error
+- [x] Log in as `admin@pulseservice.com` / `admin123`
+- [x] Settings → Users → **Invite User** → create `manager@pulseservice.com` (Manager); copy the one-time temp password
+- [x] Invite `exec@pulseservice.com` (exec11) temp password
+- [x] Invited user shows in the Users list with the correct role + Active status
+- [x] Log in as the new manager; Settings → Account → **Change Password** succeeds
+- [x] Log back in with the new password (old temp password no longer works)
+- [x] As admin, **Reset Password** for a user → returns a new one-time password
+- [x] As admin, **Edit** a user's role and Active status → saved
+- [x] Last-admin guard: as admin, try to demote/deactivate **yourself** → blocked with an error
 
 ## 2. Role access matrix (log in as each role and confirm)
 
 Expected landing / sidebar / settings visibility:
 
-- [ ] **admin** — lands on Dashboard; sees Payments + Reports; Settings has Account/Company/Billing/Users/Roles/Business Units/Activity Log/QuickBooks
-- [ ] **exec** — Dashboard; sees Payments + Reports; Settings shows Account + Activity Log only
-- [ ] **manager** — Dashboard; Payments + Reports; Settings shows Account/Company/Billing/Business Units/Activity Log/QuickBooks (no Users/Roles)
-- [ ] **dispatcher** — Dashboard; Payments + Reports; Settings shows Account only
-- [ ] **csr** — Dashboard; Payments visible, **Reports hidden**; Settings shows Account only
-- [ ] **technician** — lands on **My Day**; **Payments + Reports hidden**; Settings shows Account only
+- [x] **admin** — lands on Dashboard; sees Payments + Reports; Settings has Account/Company/Billing/Users/Roles/Business Units/Activity Log/QuickBooks
+- [x] **exec** — Dashboard; sees Payments + Reports; Settings shows Account + Activity Log only
+- [x] **manager** — Dashboard; Payments + Reports; Settings shows Account/Company/Billing/Business Units/Activity Log/QuickBooks (no Users/Roles)
+- [x] **dispatcher** — Dashboard; Payments + Reports; Settings shows Account only
+- [x] **csr** — Dashboard; Payments visible, **Reports hidden**; Settings shows Account only
+- [x] **technician** — lands on **My Day**; **Payments + Reports hidden**; Settings shows Account only
 
 Permission enforcement (should SUCCEED ✅ / be BLOCKED ⛔ with a 403 toast):
 
-- [ ] technician clicks "New Customer" and saves → ⛔ 403 (server-enforced even though the button shows)
-- [ ] csr creates a customer → ✅
-- [ ] csr tries to delete a customer → ⛔ (no delete for csr)
-- [ ] dispatcher reassigns a job on the dispatch board → ✅
-- [ ] csr reassigns on the dispatch board → ⛔
+- [x] technician clicks "New Customer" and saves → ⛔ 403 (server-enforced even though the button shows)
+- [x] csr creates a customer → ✅
+- [x] csr tries to delete a customer → ⛔ (no delete for csr)
+- [x] dispatcher reassigns a job on the dispatch board → ✅
+- [x] csr reassigns on the dispatch board → ⛔
 - [ ] manager voids an invoice → ✅; dispatcher voids an invoice → ⛔
 - [ ] exec opens Reports (revenue) → ✅; dispatcher opens revenue report → ⛔ (ops reports only)
 - [ ] non-admin cannot reach Users/Roles (tabs hidden; direct API call 403)

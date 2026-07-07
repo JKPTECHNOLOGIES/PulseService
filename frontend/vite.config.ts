@@ -7,6 +7,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      // We register the service worker ourselves (see main.tsx) so we can
+      // prompt the user to reload when a new version is available, instead
+      // of silently leaving an old cached bundle running until they happen
+      // to close every tab. Disable the plugin's own auto-injected script.
+      injectRegister: null,
       // Generates the icon set (192/512/maskable/apple-touch/favicon) from the
       // source SVG and injects the icon + theme-color tags into index.html.
       pwaAssets: { image: "public/logo.svg" },
@@ -28,6 +33,7 @@ export default defineConfig({
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api/, /^\/socket\.io/],
         cleanupOutdatedCaches: true,
+        skipWaiting: true,
         clientsClaim: true,
         runtimeCaching: [
           // Attachment images rarely change — cache aggressively for offline

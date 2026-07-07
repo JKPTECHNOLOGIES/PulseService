@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 
@@ -17,26 +17,32 @@ export default function SearchInput({
 }: SearchInputProps) {
   const [localValue, setLocalValue] = useState(externalValue);
 
-  const debouncedOnChange = useCallback(
-    (val: string) => {
-      const timer = setTimeout(() => {
-        onChange(val);
-      }, 300);
-      return () => {
-        clearTimeout(timer);
-      };
-    },
-    [onChange],
-  );
-
+  // Keep the latest onChange in a ref so the debounce effect doesn't re-run
+  // (and re-fire onChange) just because the parent passed a new callback
+  // identity on re-render. Otherwise any parent re-render would emit the search
+  // value again — e.g. wiping row selections via a resetPage handler.
+  const onChangeRef = useRef(onChange);
   useEffect(() => {
-    const cleanup = debouncedOnChange(localValue);
-    return cleanup;
-  }, [localValue, debouncedOnChange]);
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
+  // Sync an externally-controlled value down into the local input (e.g. when a
+  // saved view or a Clear action resets the search from the parent).
   useEffect(() => {
     setLocalValue(externalValue);
   }, [externalValue]);
+
+  // Debounce local -> parent, but only when the local value actually differs
+  // from the external one (i.e. the user typed), never on unrelated re-renders.
+  useEffect(() => {
+    if (localValue === externalValue) return;
+    const timer = setTimeout(() => {
+      onChangeRef.current(localValue);
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [localValue, externalValue]);
 
   return (
     <div className={clsx("relative", className)}>

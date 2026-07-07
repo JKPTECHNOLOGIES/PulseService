@@ -7,6 +7,7 @@ const {
   get,
   create,
   update,
+  remove,
 } = require("../controllers/calls.controller");
 
 router.use(auth);
@@ -20,5 +21,6 @@ router.get("/", list);
 router.post("/", requirePermission("calls.manage"), validateCall, create);
 router.get("/:id", get);
 router.put("/:id", requirePermission("calls.manage"), validateCall, update);
+router.delete("/:id", requirePermission("calls.manage"), remove);
 
 module.exports = router;

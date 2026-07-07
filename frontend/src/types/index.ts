@@ -605,6 +605,8 @@ export interface Campaign {
   endDate?: string;
   trackingNumber?: string;
   notes?: string;
+  isArchived?: boolean;
+  archivedAt?: string;
 }
 
 export interface Call {

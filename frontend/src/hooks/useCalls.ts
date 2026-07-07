@@ -33,3 +33,17 @@ export function useLogCall() {
     },
   });
 }
+
+export function useDeleteCall() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/calls/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["calls"] });
+      toast.success("Call log removed");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to remove call log"));
+    },
+  });
+}

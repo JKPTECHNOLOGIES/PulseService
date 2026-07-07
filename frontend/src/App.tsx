@@ -42,6 +42,7 @@ const MarketingPage = lazy(() => import("./pages/MarketingPage"));
 const ReportsPage = lazy(() => import("./pages/ReportsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
+const HelpCenterPage = lazy(() => import("./pages/HelpCenterPage"));
 const EquipmentPage = lazy(() => import("./pages/EquipmentPage"));
 const RecurringPage = lazy(() => import("./pages/RecurringPage"));
 const MapPage = lazy(() => import("./pages/MapPage"));
@@ -106,6 +107,7 @@ export default function App() {
           <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="help" element={<HelpCenterPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

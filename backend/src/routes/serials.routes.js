@@ -33,5 +33,6 @@ router.post(
   requirePermission("inventory.manage", "inventory.issueToJob"),
   c.uninstall,
 );
+router.delete("/:id", requirePermission("inventory.manage"), c.remove);
 
 module.exports = router;

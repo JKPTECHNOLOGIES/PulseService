@@ -11,23 +11,35 @@ import {
   ChatBubbleLeftRightIcon,
   ArrowUpCircleIcon,
   ArrowDownCircleIcon,
+  ArchiveBoxIcon,
+  ArrowUturnLeftIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import type { Call, Campaign, CustomerMessage } from "../types";
-import { useCalls, useLogCall } from "../hooks/useCalls";
-import { useMessages, useLogMessage } from "../hooks/useMessages";
+import { useCalls, useLogCall, useDeleteCall } from "../hooks/useCalls";
+import {
+  useMessages,
+  useLogMessage,
+  useDeleteMessage,
+} from "../hooks/useMessages";
 import {
   useCampaigns,
   useCreateCampaign,
   useUpdateCampaign,
+  useDeleteCampaign,
+  useArchiveCampaign,
+  useUnarchiveCampaign,
 } from "../hooks/useCampaigns";
 import { useCustomers } from "../hooks/useCustomers";
 import { useLookup } from "../hooks/useMetadata";
 import Button from "../components/ui/Button";
+import IconButton from "../components/ui/IconButton";
 import Modal from "../components/ui/Modal";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import Input from "../components/ui/Input";
 import { LookupSelect } from "../components/ui/LookupSelect";
-import { StatusBadge } from "../components/ui/Badge";
+import Badge, { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import DataTable, { Column, SortState } from "../components/ui/DataTable";
 import { TableSkeleton } from "../components/ui/Skeleton";
@@ -207,8 +219,16 @@ function CampaignsTab() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<Campaign | null>(null);
   const [sort, setSort] = useState<SortState | null>(null);
-  const { data, isLoading } = useCampaigns();
+  const [showArchived, setShowArchived] = useState(false);
+  const [archiveConfirm, setArchiveConfirm] = useState<Campaign | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Campaign | null>(null);
+  const { data, isLoading } = useCampaigns({
+    archived: showArchived ? "true" : undefined,
+  });
   const { getLabel: getCampaignTypeLabel } = useLookup("campaignType");
+  const archiveCampaign = useArchiveCampaign();
+  const unarchiveCampaign = useUnarchiveCampaign();
+  const deleteCampaign = useDeleteCampaign();
   const campaigns = data ?? [];
 
   const openNew = () => {
@@ -228,7 +248,12 @@ function CampaignsTab() {
       exportValue: (c) => c.name,
       render: (c) => (
         <div>
-          <p className="font-medium text-gray-900">{c.name}</p>
+          <span className="inline-flex items-center gap-1.5">
+            <p className="font-medium text-gray-900">{c.name}</p>
+            {c.isArchived && (
+              <Badge className="bg-gray-100 text-gray-500">Archived</Badge>
+            )}
+          </span>
           {c.notes ? (
             <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[260px]">
               {c.notes}
@@ -297,8 +322,21 @@ function CampaignsTab() {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900">Campaigns</h3>
+      <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-4">
+          <h3 className="text-sm font-semibold text-gray-900">Campaigns</h3>
+          <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => {
+                setShowArchived(e.target.checked);
+              }}
+              className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            Show archived
+          </label>
+        </div>
         <Button
           size="sm"
           icon={<PlusIcon className="h-4 w-4" />}
@@ -347,6 +385,38 @@ function CampaignsTab() {
               )}
             </div>
           )}
+          rowActions={(c) =>
+            c.isArchived ? (
+              <IconButton
+                label="Restore campaign"
+                onClick={() => {
+                  unarchiveCampaign.mutate(c.id);
+                }}
+              >
+                <ArrowUturnLeftIcon className="h-4 w-4" />
+              </IconButton>
+            ) : (
+              <>
+                <IconButton
+                  label="Archive campaign"
+                  onClick={() => {
+                    setArchiveConfirm(c);
+                  }}
+                >
+                  <ArchiveBoxIcon className="h-4 w-4" />
+                </IconButton>
+                <IconButton
+                  label="Delete campaign"
+                  variant="danger"
+                  onClick={() => {
+                    setDeleteConfirm(c);
+                  }}
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </IconButton>
+              </>
+            )
+          }
         />
       )}
 
@@ -357,6 +427,44 @@ function CampaignsTab() {
         onClose={() => {
           setIsModalOpen(false);
         }}
+      />
+
+      <ConfirmDialog
+        isOpen={!!archiveConfirm}
+        onClose={() => {
+          setArchiveConfirm(null);
+        }}
+        onConfirm={() => {
+          if (!archiveConfirm) return;
+          archiveCampaign.mutate(archiveConfirm.id, {
+            onSuccess: () => {
+              setArchiveConfirm(null);
+            },
+          });
+        }}
+        title="Archive campaign?"
+        message={`Archive "${archiveConfirm?.name ?? ""}"? It's hidden from the active list, but nothing is deleted \u2014 you can restore it anytime.`}
+        confirmLabel="Archive"
+        loading={archiveCampaign.isPending}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deleteConfirm}
+        onClose={() => {
+          setDeleteConfirm(null);
+        }}
+        onConfirm={() => {
+          if (!deleteConfirm) return;
+          deleteCampaign.mutate(deleteConfirm.id, {
+            onSuccess: () => {
+              setDeleteConfirm(null);
+            },
+          });
+        }}
+        title="Delete campaign?"
+        message={`"${deleteConfirm?.name ?? ""}" will be permanently deleted. This can't be undone. Calls already logged against it are kept, just no longer linked to a campaign.`}
+        confirmLabel="Delete"
+        loading={deleteCampaign.isPending}
       />
     </div>
   );
@@ -537,7 +645,9 @@ function LogCallModal({
 function CallsTab() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sort, setSort] = useState<SortState | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Call | null>(null);
   const { data, isLoading } = useCalls({ limit: 50 });
+  const deleteCall = useDeleteCall();
   const calls = data?.data ?? [];
 
   const callNumber = (call: Call) =>
@@ -685,6 +795,17 @@ function CallsTab() {
               </p>
             </div>
           )}
+          rowActions={(call) => (
+            <IconButton
+              label="Delete call log"
+              variant="danger"
+              onClick={() => {
+                setDeleteConfirm(call);
+              }}
+            >
+              <TrashIcon className="h-4 w-4" />
+            </IconButton>
+          )}
         />
       )}
 
@@ -693,6 +814,25 @@ function CallsTab() {
         onClose={() => {
           setIsModalOpen(false);
         }}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deleteConfirm}
+        onClose={() => {
+          setDeleteConfirm(null);
+        }}
+        onConfirm={() => {
+          if (!deleteConfirm) return;
+          deleteCall.mutate(deleteConfirm.id, {
+            onSuccess: () => {
+              setDeleteConfirm(null);
+            },
+          });
+        }}
+        title="Delete call log?"
+        message="This call record will be permanently deleted. This can't be undone."
+        confirmLabel="Delete"
+        loading={deleteCall.isPending}
       />
     </div>
   );
@@ -828,7 +968,11 @@ function LogMessageModal({
 function MessagesTab() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sort, setSort] = useState<SortState | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<CustomerMessage | null>(
+    null,
+  );
   const { data, isLoading } = useMessages({ limit: 50 });
+  const deleteMessage = useDeleteMessage();
   const messages = data?.data ?? [];
 
   const messageCustomer = (msg: CustomerMessage) =>
@@ -966,6 +1110,17 @@ function MessagesTab() {
               </p>
             </div>
           )}
+          rowActions={(msg) => (
+            <IconButton
+              label="Delete message log"
+              variant="danger"
+              onClick={() => {
+                setDeleteConfirm(msg);
+              }}
+            >
+              <TrashIcon className="h-4 w-4" />
+            </IconButton>
+          )}
         />
       )}
 
@@ -974,6 +1129,25 @@ function MessagesTab() {
         onClose={() => {
           setIsModalOpen(false);
         }}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deleteConfirm}
+        onClose={() => {
+          setDeleteConfirm(null);
+        }}
+        onConfirm={() => {
+          if (!deleteConfirm) return;
+          deleteMessage.mutate(deleteConfirm.id, {
+            onSuccess: () => {
+              setDeleteConfirm(null);
+            },
+          });
+        }}
+        title="Delete message log?"
+        message="This message record will be permanently deleted. This can't be undone."
+        confirmLabel="Delete"
+        loading={deleteMessage.isPending}
       />
     </div>
   );

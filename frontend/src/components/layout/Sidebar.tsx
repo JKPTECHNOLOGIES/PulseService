@@ -22,6 +22,7 @@ import {
   MegaphoneIcon,
   ChartBarIcon,
   Cog6ToothIcon,
+  QuestionMarkCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ArrowRightStartOnRectangleIcon,
@@ -152,6 +153,7 @@ const navItems = [
     perm: ["reports.operational", "reports.financial"],
   },
   { to: "/settings", label: "Settings", icon: Cog6ToothIcon },
+  { to: "/help", label: "Help", icon: QuestionMarkCircleIcon },
 ];
 
 interface SidebarProps {

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import DataTable, { type Column } from "./DataTable";
@@ -92,5 +93,73 @@ describe("DataTable", () => {
     );
     fireEvent.click(screen.getByText("Name"));
     expect(onSortChange).toHaveBeenCalledWith({ key: "name", dir: "desc" });
+  });
+
+  it("reports the newly-selected id when a row checkbox is clicked", () => {
+    const onSelectionChange = vi.fn();
+    render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        getRowId={(r) => r.id}
+        sort={null}
+        onSortChange={() => undefined}
+        selectable
+        selectedIds={[]}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+    const checkboxes = screen.getAllByRole("checkbox");
+    // checkboxes[0] is the header "select all" checkbox.
+    fireEvent.click(checkboxes[1]);
+    expect(onSelectionChange).toHaveBeenCalledTimes(1);
+    expect(onSelectionChange).toHaveBeenCalledWith(["1"]);
+  });
+
+  it("keeps a row checked (controlled by the parent's state) after clicking it, instead of reverting", () => {
+    function StatefulWrapper() {
+      const [selectedIds, setSelectedIds] = useState<string[]>([]);
+      return (
+        <DataTable
+          columns={columns}
+          rows={rows}
+          getRowId={(r) => r.id}
+          sort={null}
+          onSortChange={() => undefined}
+          selectable
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
+        />
+      );
+    }
+    render(<StatefulWrapper />);
+    const checkboxes = screen.getAllByRole<HTMLInputElement>("checkbox");
+    fireEvent.click(checkboxes[1]);
+    expect(checkboxes[1].checked).toBe(true);
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+  });
+
+  it("selects every row when the header checkbox is clicked, and stays checked", () => {
+    function StatefulWrapper() {
+      const [selectedIds, setSelectedIds] = useState<string[]>([]);
+      return (
+        <DataTable
+          columns={columns}
+          rows={rows}
+          getRowId={(r) => r.id}
+          sort={null}
+          onSortChange={() => undefined}
+          selectable
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
+        />
+      );
+    }
+    render(<StatefulWrapper />);
+    const headerCheckbox = screen.getAllByRole<HTMLInputElement>("checkbox")[0];
+    fireEvent.click(headerCheckbox);
+    const checkboxes = screen.getAllByRole<HTMLInputElement>("checkbox");
+    expect(checkboxes.every((c) => c.checked)).toBe(true);
+    expect(screen.getByText("3 selected")).toBeInTheDocument();
   });
 });

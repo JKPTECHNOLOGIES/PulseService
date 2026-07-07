@@ -4,10 +4,16 @@ import { getErrorMessage } from "../lib/errors";
 import type { ApiResponse, Campaign } from "../types";
 import toast from "react-hot-toast";
 
-export function useCampaigns() {
+interface CampaignsParams {
+  status?: string;
+  /** "true" = only archived, "all" = both, omitted/false = active only. */
+  archived?: string;
+}
+
+export function useCampaigns(params: CampaignsParams = {}) {
   return useQuery({
-    queryKey: ["campaigns"],
-    queryFn: () => api.get<ApiResponse<Campaign[]>>("/campaigns"),
+    queryKey: ["campaigns", params],
+    queryFn: () => api.get<ApiResponse<Campaign[]>>("/campaigns", { params }),
     select: (res) => res.data,
   });
 }
@@ -38,6 +44,50 @@ export function useUpdateCampaign() {
     },
     onError: (err: unknown) => {
       toast.error(getErrorMessage(err, "Failed to update campaign"));
+    },
+  });
+}
+
+export function useDeleteCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/campaigns/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["campaigns"] });
+      toast.success("Campaign deleted");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to delete campaign"));
+    },
+  });
+}
+
+export function useArchiveCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post<ApiResponse<Campaign>>(`/campaigns/${id}/archive`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["campaigns"] });
+      toast.success("Campaign archived");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to archive campaign"));
+    },
+  });
+}
+
+export function useUnarchiveCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post<ApiResponse<Campaign>>(`/campaigns/${id}/unarchive`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["campaigns"] });
+      toast.success("Campaign restored");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to restore campaign"));
     },
   });
 }

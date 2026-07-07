@@ -2,7 +2,8 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { Toaster } from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
+import { registerSW } from "virtual:pwa-register";
 import App from "./App";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { queryClient, persister } from "./lib/queryClient";
@@ -19,6 +20,34 @@ window.addEventListener("vite:preloadError", () => {
     sessionStorage.setItem(key, String(Date.now()));
     window.location.reload();
   }
+});
+
+// Registering the service worker ourselves (rather than the plugin's
+// auto-injected script) lets us prompt the user to reload when a new build
+// has been deployed. Without this, a browser tab can keep running an old
+// cached bundle indefinitely — which looks like random, unreproducible bugs
+// (stale JS handling new API responses, fixes that "don't take", etc.) until
+// the user happens to fully close and reopen the app.
+const updateSW = registerSW({
+  onNeedRefresh() {
+    toast(
+      (t) => (
+        <span className="flex items-center gap-3">
+          <span>An update is available.</span>
+          <button
+            onClick={() => {
+              toast.dismiss(t.id);
+              void updateSW(true);
+            }}
+            className="font-semibold text-primary-600 underline underline-offset-2"
+          >
+            Reload
+          </button>
+        </span>
+      ),
+      { duration: Infinity, id: "sw-update" },
+    );
+  },
 });
 
 const rootElement = document.getElementById("root");

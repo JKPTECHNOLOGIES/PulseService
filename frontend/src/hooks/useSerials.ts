@@ -27,6 +27,28 @@ export function useSerializedUnits(
   });
 }
 
+export function useCreateSerializedUnit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      serialNumber: string;
+      inventoryItemId: string;
+      status?: string;
+      stockLocationId?: string;
+      purchaseCost?: number;
+      warrantyMonths?: number;
+      notes?: string;
+    }) => api.post<ApiResponse<SerializedUnit>>("/serials", payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["serials"] });
+      toast.success("Serialized unit added");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to add unit"));
+    },
+  });
+}
+
 export function useUpdateSerializedUnit() {
   const qc = useQueryClient();
   return useMutation({
@@ -41,6 +63,20 @@ export function useUpdateSerializedUnit() {
     },
     onError: (err: unknown) => {
       toast.error(getErrorMessage(err, "Failed to update unit"));
+    },
+  });
+}
+
+export function useDeleteSerializedUnit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/serials/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["serials"] });
+      toast.success("Serialized unit deleted");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to delete unit"));
     },
   });
 }

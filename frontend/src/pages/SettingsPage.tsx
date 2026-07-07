@@ -29,6 +29,7 @@ import SearchInput from "../components/ui/SearchInput";
 import { formatDateTime } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import { usePermissions } from "../hooks/usePermissions";
+import { resetAllPageHelpSeen } from "../hooks/usePageHelpSeen";
 import { useAuthStore } from "../store/authStore";
 import QuickBooksTab from "../components/settings/QuickBooksTab";
 
@@ -1258,6 +1259,26 @@ function AccountTab() {
             </Button>
           </div>
         </form>
+      </Card>
+
+      <Card title="Help & Onboarding">
+        <p className="text-sm text-gray-600 mb-4">
+          The first time you visit each page, a short guide pops up explaining
+          what it does. If you've dismissed those and want to see them again
+          (for yourself, or because you're training someone else on this
+          device), you can bring them all back.
+        </p>
+        <Button
+          variant="outline"
+          onClick={() => {
+            resetAllPageHelpSeen();
+            toast.success(
+              "Page tours reset \u2014 they'll pop up again as you visit each page.",
+            );
+          }}
+        >
+          Show page tours again
+        </Button>
       </Card>
     </div>
   );
