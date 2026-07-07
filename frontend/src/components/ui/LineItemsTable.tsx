@@ -64,7 +64,29 @@ export default function LineItemsTable({
   if (readonly) {
     return (
       <div>
-        <table className="w-full text-sm">
+        {/* Mobile: stacked cards (the table overflows a phone width) */}
+        <div className="md:hidden space-y-2">
+          {items.map((item, i) => (
+            <div key={i} className="rounded-lg border border-gray-100 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <p className="font-medium text-gray-900">{item.name}</p>
+                <p className="font-medium text-gray-900 shrink-0">
+                  {formatCurrency(item.total)}
+                </p>
+              </div>
+              {item.description && (
+                <p className="text-gray-500 text-xs mt-0.5">
+                  {item.description}
+                </p>
+              )}
+              <p className="text-gray-500 text-xs mt-1">
+                {item.quantity} × {formatCurrency(item.unitPrice)}
+              </p>
+            </div>
+          ))}
+        </div>
+        {/* Desktop: table */}
+        <table className="hidden md:table w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200">
               <th className="text-left py-2 font-medium text-gray-600 w-1/2">
@@ -115,7 +137,98 @@ export default function LineItemsTable({
           onChange([...items, item]);
         }}
       />
-      <table className="w-full text-sm">
+      {/* Mobile: stacked editable cards (the 6-column table is unusable on a
+          phone). Desktop keeps the table below. */}
+      <div className="md:hidden space-y-3">
+        {items.map((item, i) => (
+          <div
+            key={i}
+            className="rounded-lg border border-gray-200 p-3 space-y-2"
+          >
+            <div className="flex items-center gap-2">
+              <select
+                value={item.type}
+                onChange={(e) => {
+                  updateItem(i, "type", e.target.value);
+                }}
+                className="flex-1 text-sm border border-gray-300 rounded-md px-2 py-2 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white"
+              >
+                {lineItemTypes.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  removeItem(i);
+                }}
+                aria-label="Remove line item"
+                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] shrink-0 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+            </div>
+            <input
+              type="text"
+              value={item.name}
+              onChange={(e) => {
+                updateItem(i, "name", e.target.value);
+              }}
+              placeholder="Item name"
+              className="w-full text-sm border border-gray-300 rounded-md px-2 py-2 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+            <input
+              type="text"
+              value={item.description ?? ""}
+              onChange={(e) => {
+                updateItem(i, "description", e.target.value);
+              }}
+              placeholder="Description (optional)"
+              className="w-full text-sm border border-gray-200 rounded-md px-2 py-2 focus:outline-none focus:ring-1 focus:ring-primary-500 text-gray-500"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Qty</label>
+                <NumberInput
+                  inputMode="numeric"
+                  min="0"
+                  step="1"
+                  value={item.quantity}
+                  onChange={(n) => {
+                    updateItem(i, "quantity", n ?? 0);
+                  }}
+                  className="w-full text-right text-sm border border-gray-300 rounded-md px-2 py-2 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">
+                  Unit Price
+                </label>
+                <NumberInput
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  value={item.unitPrice}
+                  onChange={(n) => {
+                    updateItem(i, "unitPrice", n ?? 0);
+                  }}
+                  className="w-full text-right text-sm border border-gray-300 rounded-md px-2 py-2 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-between text-sm pt-1 border-t border-gray-100">
+              <span className="text-gray-500">Total</span>
+              <span className="font-medium text-gray-900">
+                {formatCurrency(item.total)}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <table className="hidden md:table w-full text-sm">
         <thead>
           <tr className="border-b border-gray-200">
             <th className="text-left py-2 font-medium text-gray-600 w-24">
