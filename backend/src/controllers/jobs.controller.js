@@ -5,7 +5,7 @@ const {
   paginatedResponse,
   generateNumber,
 } = require("../utils/helpers");
-const push = require("../services/push.service");
+const notify = require("../services/notification.service");
 
 // Status rules:
 //  - scheduled / dispatched / in_progress / on_hold interchange freely.
@@ -237,6 +237,9 @@ const create = async (req, res) => {
       io.to(`dispatch:${date}`).emit("job:created", job);
     }
 
+    // Notify any technicians assigned at creation time.
+    await notify.notifyJobAssigned(technicianIds, job);
+
     return res.status(201).json({ success: true, data: job });
   } catch (err) {
     return respondError(res, err, "job");
@@ -284,7 +287,16 @@ const update = async (req, res) => {
     // technicianIds isn't a Job column -- it maps to JobTechnician join rows.
     // Replace the assignments here (and keep it out of the scalar update data,
     // which otherwise breaks Prisma's input typing and 500s the whole save).
+    let newlyAssigned = [];
     if (Array.isArray(technicianIds)) {
+      const existingAssignments = await prisma.jobTechnician.findMany({
+        where: { jobId: req.params.id },
+        select: { technicianId: true },
+      });
+      const existingIds = new Set(
+        existingAssignments.map((a) => a.technicianId),
+      );
+      newlyAssigned = technicianIds.filter((tid) => !existingIds.has(tid));
       await prisma.jobTechnician.deleteMany({
         where: { jobId: req.params.id },
       });
@@ -321,6 +333,9 @@ const update = async (req, res) => {
       const date = new Date(job.scheduledStart).toISOString().split("T")[0];
       io.to(`dispatch:${date}`).emit("job:updated", job);
     }
+
+    // Notify only technicians newly added by this edit (not existing ones).
+    await notify.notifyJobAssigned(newlyAssigned, job);
 
     return res.json({ success: true, data: job });
   } catch (err) {
@@ -411,20 +426,10 @@ const assignTechnician = async (req, res) => {
       });
     }
 
-    // Push the newly-assigned technician (parity with the dispatch board).
+    // Notify the newly-assigned technician (in-app + web push). Skip if they
+    // were already on the job (e.g. a lead toggle).
     if (!existing && job) {
-      const tech = await prisma.technician.findUnique({
-        where: { id: technicianId },
-      });
-      if (tech?.userId) {
-        void push.sendToUser(tech.userId, {
-          title: "New job assigned",
-          body: job.summary
-            ? `#${job.jobNumber}: ${job.summary}`
-            : `Job #${job.jobNumber} was assigned to you`,
-          url: `/jobs/${job.id}`,
-        });
-      }
+      await notify.notifyJobAssigned([technicianId], job);
     }
 
     return res.json({ success: true, data: assignment });
