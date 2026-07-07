@@ -40,6 +40,28 @@
     --c-gray-950: 248 250 252;
 }
 
+/* Recharts dark-mode theming. The charts hardcode light grid/tick colors as SVG
+   presentation attributes; CSS properties override those, so this re-themes
+   every chart at once without touching each chart's props. */
+.dark .recharts-cartesian-grid line {
+    stroke: #334155;
+}
+
+.dark .recharts-text,
+.dark .recharts-cartesian-axis-tick-value {
+    fill: #94a3b8;
+}
+
+.dark .recharts-default-tooltip {
+    background-color: #1a2332 !important;
+    border-color: #334155 !important;
+}
+
+.dark .recharts-default-tooltip .recharts-tooltip-label,
+.dark .recharts-default-tooltip .recharts-tooltip-item {
+    color: #e2e8f0 !important;
+}
+
 @layer base {
     html {
         /* Prevent iOS from auto-inflating text in landscape. */
