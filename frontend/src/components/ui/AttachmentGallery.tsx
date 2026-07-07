@@ -172,9 +172,10 @@ export default function AttachmentGallery({
                   setToDelete(att);
                 }}
                 title="Delete photo"
-                className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-oncolor opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+                aria-label="Delete photo"
+                className="absolute right-1 top-1 rounded-full bg-black/50 p-2 text-oncolor transition-opacity opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
               >
-                <TrashIcon className="h-3.5 w-3.5" />
+                <TrashIcon className="h-4 w-4" />
               </button>
             </div>
           ))}

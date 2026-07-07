@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ChevronLeftIcon,
@@ -10,6 +10,7 @@ import {
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import { useMyDay } from "../hooks/useMyDay";
+import { useCurrentTimeEntry, useClockOut } from "../hooks/useTime";
 import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import { TableSkeleton } from "../components/ui/Skeleton";
@@ -55,6 +56,73 @@ function customerName(job: Job): string {
   if (!job.customer) return "Customer";
   const { firstName, lastName, companyName } = job.customer;
   return companyName ?? `${firstName} ${lastName}`;
+}
+
+// A live "you're on the clock" chip so a tech always knows what their timer is
+// running against, with a one-tap clock-out — right on the agenda they live in.
+function ClockChip() {
+  const navigate = useNavigate();
+  const { data: entry } = useCurrentTimeEntry();
+  const clockOut = useClockOut();
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!entry) return;
+    // Re-render each minute so the elapsed label stays current.
+    const id = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 30000);
+    return () => {
+      clearInterval(id);
+    };
+  }, [entry]);
+
+  if (!entry) return null;
+
+  const mins = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(entry.startTime).getTime()) / 60000),
+  );
+  const elapsed =
+    mins >= 60
+      ? `${String(Math.floor(mins / 60))}h ${String(mins % 60)}m`
+      : `${String(mins)}m`;
+  const job = entry.job;
+
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+      <span className="relative flex h-2.5 w-2.5 shrink-0">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-600" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-green-800">
+          On the clock · {elapsed}
+        </p>
+        {job ? (
+          <button
+            onClick={() => {
+              navigate(`/jobs/${job.id}`);
+            }}
+            className="block max-w-full truncate text-left text-xs text-green-700 underline"
+          >
+            Job #{job.jobNumber} — {job.summary}
+          </button>
+        ) : (
+          <p className="text-xs text-green-700">No job selected</p>
+        )}
+      </div>
+      <button
+        onClick={() => {
+          clockOut.mutate();
+        }}
+        disabled={clockOut.isPending}
+        className="shrink-0 inline-flex items-center min-h-[44px] px-3 rounded-lg text-sm font-medium bg-green-600 text-oncolor hover:bg-green-700 disabled:opacity-50"
+      >
+        Clock out
+      </button>
+    </div>
+  );
 }
 
 export default function MyDayPage() {
@@ -117,6 +185,8 @@ export default function MyDayPage() {
           </button>
         </div>
       </div>
+
+      <ClockChip />
 
       {isLoading ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

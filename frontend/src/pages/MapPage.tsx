@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useDispatchBoard } from "../hooks/useDispatch";
 import { useTechnicians } from "../hooks/useTechnicians";
+import { useTheme } from "../hooks/useTheme";
 import { useAuthStore } from "../store/authStore";
 import api from "../lib/api";
 import { directionsUrl } from "../lib/maps";
@@ -39,6 +40,7 @@ export default function MapPage() {
   const { data: techsData } = useTechnicians();
   const isTech = role === "technician";
   const myTechId = techsData?.data.find((t) => t.userId === userId)?.id;
+  const { isDark } = useTheme();
 
   const points = useMemo(() => {
     const all: Job[] = !board
@@ -114,9 +116,20 @@ export default function MapPage() {
           zoom={11}
           style={{ height: "100%", width: "100%" }}
         >
+          {/* A dark basemap under .dark so the map panel doesn't glow white at
+             night; keyed so the layer swaps when the theme changes. */}
           <TileLayer
-            attribution="&copy; OpenStreetMap contributors"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            key={isDark ? "dark" : "light"}
+            attribution={
+              isDark
+                ? "&copy; OpenStreetMap contributors &copy; CARTO"
+                : "&copy; OpenStreetMap contributors"
+            }
+            url={
+              isDark
+                ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            }
           />
           {points.map((p) => (
             <Marker key={p.job.id} position={[p.lat, p.lng]} icon={jobPin}>

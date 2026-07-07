@@ -100,7 +100,7 @@ export default function Header() {
             }}
             title="Help for this page"
             aria-label="Help for this page"
-            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+            className="inline-flex items-center justify-center h-11 w-11 sm:h-9 sm:w-9 shrink-0 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <InformationCircleIcon className="h-5 w-5" />
           </button>
@@ -128,7 +128,7 @@ export default function Header() {
           onClick={toggleTheme}
           title={isDark ? "Switch to light mode" : "Switch to dark mode"}
           aria-label="Toggle dark mode"
-          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          className="inline-flex items-center justify-center h-11 w-11 sm:h-9 sm:w-9 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
         >
           {isDark ? (
             <SunIcon className="h-5 w-5" />
@@ -143,7 +143,7 @@ export default function Header() {
             navigate("/notifications");
           }}
           title="Notifications"
-          className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          className="relative inline-flex items-center justify-center h-11 w-11 sm:h-9 sm:w-9 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
         >
           <BellIcon className="h-5 w-5" />
           {notifCount > 0 && (
