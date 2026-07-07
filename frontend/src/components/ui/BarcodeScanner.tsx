@@ -21,6 +21,7 @@ export default function BarcodeScanner({
 }: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
+  const [manual, setManual] = useState("");
 
   // Keep the latest callbacks in refs so the camera-init effect can depend only
   // on `isOpen`. Otherwise a parent re-render (new onDetected/onClose refs)
@@ -68,6 +69,13 @@ export default function BarcodeScanner({
     };
   }, [isOpen]);
 
+  const submitManual = () => {
+    const code = manual.trim();
+    if (!code) return;
+    onDetected(code);
+    onClose();
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Scan Barcode">
       {error ? (
@@ -85,6 +93,39 @@ export default function BarcodeScanner({
           </p>
         </>
       )}
+
+      {/* Manual entry: always available, so the lookup still works when the
+          camera can't open (plain-HTTP LAN access, denied permission, no
+          camera) or a label is too damaged to scan. */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          submitManual();
+        }}
+        className="mt-4 border-t border-gray-100 pt-4"
+      >
+        <label className="block text-xs font-medium text-gray-500 mb-1.5">
+          {error ? "Enter the code" : "…or enter it manually"}
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            value={manual}
+            onChange={(e) => {
+              setManual(e.target.value);
+            }}
+            placeholder="SKU or barcode"
+            autoComplete="off"
+            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+          />
+          <button
+            type="submit"
+            disabled={!manual.trim()}
+            className="shrink-0 inline-flex items-center justify-center min-h-[44px] px-4 rounded-lg text-sm font-medium bg-primary-600 text-oncolor hover:bg-primary-700 disabled:opacity-50"
+          >
+            Use
+          </button>
+        </div>
+      </form>
     </Modal>
   );
 }
