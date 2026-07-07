@@ -375,15 +375,17 @@ function OverridesModal({
                         : `${formatCurrency(o.overrideValue)} off`}
                   </td>
                   <td className="py-2.5 text-right">
-                    <button
-                      onClick={() => {
-                        removeOverride.mutate({ tierId, overrideId: o.id });
-                      }}
-                      className="p-1 text-gray-400 hover:text-red-500"
-                      aria-label="Remove override"
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
+                    <Can permission="pricebook.manage">
+                      <button
+                        onClick={() => {
+                          removeOverride.mutate({ tierId, overrideId: o.id });
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-500"
+                        aria-label="Remove override"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </Can>
                   </td>
                 </tr>
               ))}
@@ -393,70 +395,72 @@ function OverridesModal({
           <p className="text-sm text-gray-400">No item overrides yet.</p>
         )}
 
-        <div className="border-t border-gray-100 pt-4 grid grid-cols-12 gap-2 items-end">
-          <div className="col-span-5">
-            <label className="block text-xs text-gray-500 mb-1">Item</label>
-            <select
-              value={pricebookItemId}
-              onChange={(e) => {
-                setPricebookItemId(e.target.value);
-              }}
-              className={INPUT}
-            >
-              <option value="">Select item...</option>
-              {addableItems.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.name}
-                </option>
-              ))}
-            </select>
+        <Can permission="pricebook.manage">
+          <div className="border-t border-gray-100 pt-4 grid grid-cols-12 gap-2 items-end">
+            <div className="col-span-5">
+              <label className="block text-xs text-gray-500 mb-1">Item</label>
+              <select
+                value={pricebookItemId}
+                onChange={(e) => {
+                  setPricebookItemId(e.target.value);
+                }}
+                className={INPUT}
+              >
+                <option value="">Select item...</option>
+                {addableItems.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-3">
+              <label className="block text-xs text-gray-500 mb-1">Type</label>
+              <LookupSelect
+                category="pricingOverrideType"
+                value={overrideType}
+                onChange={(e) => {
+                  setOverrideType(e.target.value);
+                }}
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-500 mb-1">Value</label>
+              <NumberInput
+                step="any"
+                min={0}
+                value={overrideValue}
+                onChange={(n) => {
+                  setOverrideValue(n ?? 0);
+                }}
+                className={INPUT}
+              />
+            </div>
+            <div className="col-span-2">
+              <Button
+                size="sm"
+                className="w-full"
+                loading={addOverride.isPending}
+                disabled={!pricebookItemId}
+                onClick={() => {
+                  void addOverride
+                    .mutateAsync({
+                      tierId,
+                      pricebookItemId,
+                      overrideType,
+                      overrideValue,
+                    })
+                    .then(() => {
+                      setPricebookItemId("");
+                      setOverrideValue(0);
+                    });
+                }}
+              >
+                Add
+              </Button>
+            </div>
           </div>
-          <div className="col-span-3">
-            <label className="block text-xs text-gray-500 mb-1">Type</label>
-            <LookupSelect
-              category="pricingOverrideType"
-              value={overrideType}
-              onChange={(e) => {
-                setOverrideType(e.target.value);
-              }}
-            />
-          </div>
-          <div className="col-span-2">
-            <label className="block text-xs text-gray-500 mb-1">Value</label>
-            <NumberInput
-              step="any"
-              min={0}
-              value={overrideValue}
-              onChange={(n) => {
-                setOverrideValue(n ?? 0);
-              }}
-              className={INPUT}
-            />
-          </div>
-          <div className="col-span-2">
-            <Button
-              size="sm"
-              className="w-full"
-              loading={addOverride.isPending}
-              disabled={!pricebookItemId}
-              onClick={() => {
-                void addOverride
-                  .mutateAsync({
-                    tierId,
-                    pricebookItemId,
-                    overrideType,
-                    overrideValue,
-                  })
-                  .then(() => {
-                    setPricebookItemId("");
-                    setOverrideValue(0);
-                  });
-              }}
-            >
-              Add
-            </Button>
-          </div>
-        </div>
+        </Can>
 
         <div className="flex justify-end">
           <Button variant="outline" onClick={onClose}>

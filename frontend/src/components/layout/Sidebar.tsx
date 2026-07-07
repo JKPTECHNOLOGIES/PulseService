@@ -17,6 +17,7 @@ import {
   TruckIcon,
   ShoppingCartIcon,
   QrCodeIcon,
+  TagIcon,
   // CpuChipIcon, // Equipment tab hidden for now
   ClipboardDocumentCheckIcon,
   MegaphoneIcon,
@@ -107,6 +108,12 @@ const navItems = [
     label: "Pricebook",
     icon: BookOpenIcon,
     perm: ["pricebook.manage"],
+  },
+  {
+    to: "/pricebook/pricing-tiers",
+    label: "Pricing Tiers",
+    icon: TagIcon,
+    roles: ["admin", "manager", "dispatcher", "csr"],
   },
   {
     to: "/inventory",
