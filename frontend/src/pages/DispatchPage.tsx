@@ -638,7 +638,7 @@ interface WeekGridProps {
 
 function WeekGrid({ techRows, days, onJobClick }: WeekGridProps) {
   return (
-    <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto">
+    <div className="flex-1 min-w-0 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto">
       <div className="flex sticky top-0 z-10 bg-white border-b border-gray-200">
         <div
           className="shrink-0 border-r border-gray-200 flex items-center px-4 py-3"
@@ -783,7 +783,7 @@ interface MonthGridProps {
 function MonthGrid({ days, jobs, currentMonth, onJobClick }: MonthGridProps) {
   const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   return (
-    <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto flex flex-col">
+    <div className="flex-1 min-w-0 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto flex flex-col">
       <div className="grid grid-cols-7 border-b border-gray-200">
         {labels.map((l) => (
           <div
@@ -1164,10 +1164,10 @@ export default function DispatchPage() {
             {/* Board area. On mobile it gets an explicit height so the calendar
                 is visible and scrolls internally (the fixed-width side panels
                 otherwise crowded it off screen); on desktop it fills the row. */}
-            <div className="flex h-[65vh] lg:h-auto lg:flex-1 min-h-0">
+            <div className="flex h-[65vh] lg:h-auto lg:flex-1 min-h-0 min-w-0">
               {/* Day view: technician rows x hourly columns */}
               {viewMode === "day" && (
-                <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto">
+                <div className="flex-1 min-w-0 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto">
                   {/* Header row: Technician label + time slots */}
                   <div className="flex sticky top-0 z-10 bg-white border-b border-gray-200">
                     <div
