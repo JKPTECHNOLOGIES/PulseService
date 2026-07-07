@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { MutableRefObject } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import Modal from "./Modal";
 
@@ -21,6 +22,18 @@ export default function BarcodeScanner({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
 
+  // Keep the latest callbacks in refs so the camera-init effect can depend only
+  // on `isOpen`. Otherwise a parent re-render (new onDetected/onClose refs)
+  // would tear down and restart the camera stream -- flicker and, on some
+  // devices, a repeated permission prompt.
+  const onDetectedRef: MutableRefObject<(code: string) => void> =
+    useRef(onDetected);
+  const onCloseRef: MutableRefObject<() => void> = useRef(onClose);
+  useEffect(() => {
+    onDetectedRef.current = onDetected;
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     if (!isOpen) return;
     const video = videoRef.current;
@@ -36,8 +49,8 @@ export default function BarcodeScanner({
         if (result && !done) {
           done = true;
           ctrl.stop();
-          onDetected(result.getText());
-          onClose();
+          onDetectedRef.current(result.getText());
+          onCloseRef.current();
         }
       })
       .then((c) => {
@@ -53,7 +66,7 @@ export default function BarcodeScanner({
       done = true;
       controls?.stop();
     };
-  }, [isOpen, onDetected, onClose]);
+  }, [isOpen]);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Scan Barcode">
