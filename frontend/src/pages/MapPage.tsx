@@ -123,12 +123,18 @@ export default function MapPage() {
                     </p>
                   )}
                   <a
-                    href={directionsUrl([
-                      p.job.location?.address,
-                      p.job.location?.city,
-                      p.job.location?.state,
-                      p.job.location?.zip,
-                    ])}
+                    href={
+                      directionsUrl({
+                        lat: p.job.location?.lat,
+                        lng: p.job.location?.lng,
+                        address: [
+                          p.job.location?.address,
+                          p.job.location?.city,
+                          p.job.location?.state,
+                          p.job.location?.zip,
+                        ],
+                      }) ?? undefined
+                    }
                     target="_blank"
                     rel="noreferrer"
                     className="text-primary-600 underline"

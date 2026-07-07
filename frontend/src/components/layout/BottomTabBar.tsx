@@ -11,13 +11,15 @@ import {
 import { useAuthStore } from "../../store/authStore";
 
 // Thumb-reach nav. Technicians get their field-first set (My Day / Jobs /
-// Dispatch); office roles get the back-office set (Home / Jobs / Invoices).
-// The "More" button opens the full, permission-filtered drawer for everything
-// else. All destinations here are readable by every role.
+// Map); office roles get the back-office set (Home / Jobs / Invoices). The
+// tech's third slot is the job Map (locations + one-tap directions) rather
+// than the Dispatch board, which a technician can only view (reassigning needs
+// dispatch.manage) -- a dead end in the thumb zone. The "More" button opens
+// the full, permission-filtered drawer for everything else.
 const techTabs = [
   { to: "/my-day", label: "My Day", icon: CalendarDaysIcon },
   { to: "/jobs", label: "Jobs", icon: BriefcaseIcon },
-  { to: "/dispatch", label: "Dispatch", icon: MapIcon },
+  { to: "/map", label: "Map", icon: MapIcon },
 ];
 
 const officeTabs = [

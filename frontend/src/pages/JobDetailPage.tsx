@@ -302,12 +302,18 @@ export default function JobDetailPage() {
                         {job.location.address}, {job.location.city}
                       </span>
                       <a
-                        href={directionsUrl([
-                          job.location.address,
-                          job.location.city,
-                          job.location.state,
-                          job.location.zip,
-                        ])}
+                        href={
+                          directionsUrl({
+                            lat: job.location.lat,
+                            lng: job.location.lng,
+                            address: [
+                              job.location.address,
+                              job.location.city,
+                              job.location.state,
+                              job.location.zip,
+                            ],
+                          }) ?? undefined
+                        }
                         target="_blank"
                         rel="noreferrer"
                         className="text-primary-600 hover:text-primary-700 text-xs font-medium"

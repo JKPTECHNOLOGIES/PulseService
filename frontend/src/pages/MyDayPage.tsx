@@ -13,7 +13,8 @@ import { useMyDay } from "../hooks/useMyDay";
 import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import { TableSkeleton } from "../components/ui/Skeleton";
-import { dialOrCopyPhone, isApplePlatform } from "../utils/phone";
+import { dialOrCopyPhone } from "../utils/phone";
+import { directionsUrl } from "../lib/maps";
 import type { Job, Location } from "../types";
 
 function toDateStr(d: Date): string {
@@ -42,16 +43,12 @@ function addressLine(loc: Location | undefined): string {
 
 function mapsUrl(loc: Location | undefined): string | null {
   if (!loc) return null;
-  const dest =
-    loc.lat != null && loc.lng != null
-      ? `${String(loc.lat)},${String(loc.lng)}`
-      : addressLine(loc);
-  if (!dest) return null;
-  const d = encodeURIComponent(dest);
-  // Apple Maps on iOS/macOS (opens the native app), Google Maps elsewhere.
-  return isApplePlatform()
-    ? `https://maps.apple.com/?daddr=${d}`
-    : `https://www.google.com/maps/dir/?api=1&destination=${d}`;
+  // Delegates to the shared, platform-aware helper (see lib/maps.ts).
+  return directionsUrl({
+    lat: loc.lat,
+    lng: loc.lng,
+    address: [loc.address, loc.city, loc.state, loc.zip],
+  });
 }
 
 function customerName(job: Job): string {
