@@ -142,6 +142,16 @@ const LOOKUPS = {
       label: "Refunded",
       color: "bg-gray-100 text-gray-800",
     },
+    {
+      // Distinct from an actual processor refund: this is a bookkeeping
+      // correction (recorded in error, or unwound to void the invoice) where
+      // no money necessarily moved. Kept separate so "Refunded" on a Payments
+      // list / bank reconciliation always means money genuinely went back to
+      // the customer.
+      value: "reversed",
+      label: "Reversed",
+      color: "bg-gray-100 text-gray-600",
+    },
   ],
   userRole: [
     { value: "admin", label: "Administrator" },

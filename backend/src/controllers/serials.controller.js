@@ -141,7 +141,12 @@ const create = async (req, res) => {
   }
 };
 
-// General update: status, location move, warranty, notes.
+// General update: status, location move, warranty, notes. Setting status to
+// "installed" here (rather than through the dedicated /install action) would
+// otherwise let a unit read "Installed" everywhere while linked to no
+// customer/job -- invisible on that customer's equipment/asset history, e.g.
+// during a warranty claim. Require the link to already exist (via /install)
+// or be supplied in the same request before allowing that transition.
 const update = async (req, res) => {
   try {
     const {
@@ -152,6 +157,28 @@ const update = async (req, res) => {
       updatedAt: _ua,
       ...data
     } = req.body;
+
+    if (data.status === "installed") {
+      const existing = await prisma.serializedUnit.findUnique({
+        where: { id: req.params.id },
+        select: { installedCustomerId: true },
+      });
+      if (!existing) {
+        return res
+          .status(404)
+          .json({ success: false, error: "Serialized unit not found" });
+      }
+      const willHaveCustomer =
+        data.installedCustomerId ?? existing.installedCustomerId;
+      if (!willHaveCustomer) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Use the Install action to mark a unit installed -- it needs a customer/job link that this form doesn't collect.",
+        });
+      }
+    }
+
     const unit = await prisma.serializedUnit.update({
       where: { id: req.params.id },
       data,

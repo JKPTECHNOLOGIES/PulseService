@@ -51,10 +51,11 @@ const list = async (req, res) => {
 
 // Undoes a previously recorded payment (e.g. it bounced, was recorded in
 // error, or the invoice needs to be voided and the money returned). The
-// payment row is kept for audit history but flagged 'refunded' and excluded
-// from the invoice's amountPaid/balance, which unwinds the invoice's status
-// back out of 'paid' -- this is the only way to get a fully-paid invoice back
-// into a voidable state.
+// payment row is kept for audit history but flagged 'reversed' -- distinct
+// from an actual processor 'refunded' status, since no money necessarily
+// moved -- and excluded from the invoice's amountPaid/balance, which unwinds
+// the invoice's status back out of 'paid'. This is the only way to get a
+// fully-paid invoice back into a voidable state.
 const reversePayment = async (req, res) => {
   try {
     const payment = await prisma.payment.findUnique({
@@ -65,13 +66,11 @@ const reversePayment = async (req, res) => {
         .status(404)
         .json({ success: false, error: "Payment not found" });
     }
-    if (payment.status === "refunded") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "This payment has already been reversed",
-        });
+    if (payment.status === "reversed" || payment.status === "refunded") {
+      return res.status(400).json({
+        success: false,
+        error: "This payment has already been reversed",
+      });
     }
 
     const invoice = await prisma.invoice.findUnique({
@@ -103,7 +102,7 @@ const reversePayment = async (req, res) => {
     const [updatedPayment, updatedInvoice] = await prisma.$transaction([
       prisma.payment.update({
         where: { id: payment.id },
-        data: { status: "refunded" },
+        data: { status: "reversed" },
       }),
       prisma.invoice.update({
         where: { id: invoice.id },

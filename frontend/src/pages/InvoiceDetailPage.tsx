@@ -188,7 +188,7 @@ export default function InvoiceDetailPage() {
               )}
             {can("invoices.void") &&
               invoice.status !== "void" &&
-              invoice.status !== "paid" && (
+              invoice.amountPaid === 0 && (
                 <Button
                   variant="danger"
                   size="sm"
@@ -313,7 +313,7 @@ export default function InvoiceDetailPage() {
                     <span
                       className={clsx(
                         "text-sm font-medium",
-                        p.status === "refunded"
+                        p.status === "refunded" || p.status === "reversed"
                           ? "text-gray-400 line-through"
                           : "text-green-600",
                       )}
@@ -378,7 +378,7 @@ export default function InvoiceDetailPage() {
                     <td
                       className={clsx(
                         "py-2.5 text-right font-medium",
-                        p.status === "refunded"
+                        p.status === "refunded" || p.status === "reversed"
                           ? "text-gray-400 line-through"
                           : "text-green-600",
                       )}
@@ -497,7 +497,7 @@ export default function InvoiceDetailPage() {
           });
         }}
         title="Void Invoice"
-        message="Are you sure you want to void this invoice? This action cannot be undone."
+        message="This invoice will be marked void and can no longer be edited, sent, or paid. This cannot be undone."
         confirmLabel="Void Invoice"
         loading={voidMutation.isPending}
       />

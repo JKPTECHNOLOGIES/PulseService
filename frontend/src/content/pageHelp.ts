@@ -465,7 +465,7 @@ const paymentsHelp: PageHelpContent = {
       items: [
         "Each row shows the date, customer, related invoice number, payment method, reference number, status, and amount.",
         "Click an invoice number to jump straight to that invoice.",
-        "Payment status shows whether a payment is completed, pending, or refunded.",
+        "Payment status shows whether a payment is completed, pending, failed, reversed (a bookkeeping correction -- no money necessarily moved), or refunded (an actual refund to the customer).",
       ],
     },
   ],
