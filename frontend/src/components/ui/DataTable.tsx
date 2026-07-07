@@ -54,6 +54,13 @@ interface DataTableProps<T> {
   rowActions?: (row: T) => ReactNode;
 
   /**
+   * Actions to show on the mobile card instead of `rowActions` (e.g. a compact
+   * overflow menu in place of a row of icon buttons). Falls back to
+   * `rowActions` when omitted.
+   */
+  renderMobileActions?: (row: T) => ReactNode;
+
+  /**
    * When provided, small screens (< sm) render a stacked card list using this
    * renderer instead of the sideways-scrolling table. The table is shown at
    * the sm breakpoint and up.
@@ -69,6 +76,7 @@ export default function DataTable<T>({
   rows,
   getRowId,
   onRowClick,
+  renderMobileActions,
   sort,
   onSortChange,
   selectable,
@@ -285,9 +293,9 @@ export default function DataTable<T>({
                 >
                   {renderMobileCard?.(row)}
                 </div>
-                {rowActions && (
+                {(renderMobileActions ?? rowActions) && (
                   <div className="shrink-0 flex items-center gap-1">
-                    {rowActions(row)}
+                    {(renderMobileActions ?? rowActions)?.(row)}
                   </div>
                 )}
               </li>

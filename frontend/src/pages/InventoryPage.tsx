@@ -13,7 +13,9 @@ import {
   BuildingStorefrontIcon,
   ClipboardDocumentListIcon,
   TrashIcon,
+  EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
+import { Menu } from "@headlessui/react";
 import clsx from "clsx";
 import toast from "react-hot-toast";
 import {
@@ -35,14 +37,46 @@ import Modal from "../components/ui/Modal";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
 import EmptyState from "../components/ui/EmptyState";
 import DataTable, { Column, SortState } from "../components/ui/DataTable";
+import { useIsMobile } from "../hooks/useIsMobile";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import { Can } from "../components/ui/Can";
 import { NumberInput } from "../components/ui/NumberInput";
 import { formatCurrency, formatDateTime } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
+import { usePermissions } from "../hooks/usePermissions";
 import type { InventoryItem } from "../types";
 
 const BarcodeScanner = lazy(() => import("../components/ui/BarcodeScanner"));
+
+// One row in the mobile overflow menu. stopPropagation so tapping an action
+// doesn't also fire the card's row-click (which opens Edit).
+function MenuAction({
+  label,
+  onSelect,
+}: {
+  label: string;
+  onSelect: () => void;
+}) {
+  return (
+    <Menu.Item>
+      {({ active }) => (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect();
+          }}
+          className={clsx(
+            "w-full text-left px-4 py-2.5 text-sm",
+            active ? "bg-gray-50 text-gray-900" : "text-gray-700",
+          )}
+        >
+          {label}
+        </button>
+      )}
+    </Menu.Item>
+  );
+}
 
 const num = (v: unknown) => Number(v ?? 0);
 
@@ -65,6 +99,9 @@ export default function InventoryPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [sort, setSort] = useState<SortState | null>(null);
+  const { can } = usePermissions();
+  const canManage = can("inventory.manage");
+  const isMobile = useIsMobile();
 
   const { getLabel: getTxTypeLabel } = useLookup("inventoryTransactionType");
   const { data: transactions } = useInventoryTransactions(txItem?.id ?? "");
@@ -214,6 +251,64 @@ export default function InventoryPage() {
     </>
   );
 
+  // Mobile: a single overflow menu instead of a cluttered row of icons. The
+  // card itself opens Edit (for managers); everything else lives here.
+  const itemMenu = (item: InventoryItem) => (
+    <Menu as="div" className="relative">
+      <Menu.Button
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
+        aria-label="Item actions"
+        className="inline-flex items-center justify-center h-11 w-11 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+      >
+        <EllipsisVerticalIcon className="h-5 w-5" />
+      </Menu.Button>
+      <Menu.Items className="absolute right-0 z-20 mt-1 w-48 origin-top-right rounded-xl bg-white shadow-lg ring-1 ring-black/5 focus:outline-none py-1">
+        {canManage && (
+          <>
+            <MenuAction
+              label="Edit item"
+              onSelect={() => {
+                setFormItem(item);
+              }}
+            />
+            <MenuAction
+              label="Adjust stock"
+              onSelect={() => {
+                setAdjustItem(item);
+              }}
+            />
+            <MenuAction
+              label="Transfer"
+              onSelect={() => {
+                setTransferItem(item);
+              }}
+            />
+            <MenuAction
+              label="Supplier pricing"
+              onSelect={() => {
+                setSupplierItem(item);
+              }}
+            />
+          </>
+        )}
+        <MenuAction
+          label="Photos"
+          onSelect={() => {
+            setPhotoItem(item);
+          }}
+        />
+        <MenuAction
+          label="Stock activity"
+          onSelect={() => {
+            setTxItem(item);
+          }}
+        />
+      </Menu.Items>
+    </Menu>
+  );
+
   if (isLoading) return <TableSkeleton rows={8} />;
 
   return (
@@ -299,7 +394,9 @@ export default function InventoryPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* overflow-visible on mobile so the card overflow menu isn't clipped;
+         the desktop table keeps its rounded, clipped frame. */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible sm:overflow-hidden">
         {!items || items.length === 0 ? (
           <EmptyState
             title="No inventory items"
@@ -314,6 +411,14 @@ export default function InventoryPage() {
             onSortChange={setSort}
             csvFilename="inventory"
             rowActions={itemActions}
+            renderMobileActions={itemMenu}
+            onRowClick={
+              canManage && isMobile
+                ? (i) => {
+                    setFormItem(i);
+                  }
+                : undefined
+            }
             rowClassName={(i) =>
               i.isLowStock
                 ? "bg-yellow-50 hover:bg-yellow-100 dark:bg-yellow-950/30 dark:hover:bg-yellow-900/40"
@@ -321,24 +426,22 @@ export default function InventoryPage() {
             }
             renderMobileCard={(i) => (
               <div>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium text-gray-900 truncate">{i.name}</p>
+                <p className="font-medium text-gray-900 truncate">{i.name}</p>
+                <p className="font-mono text-xs text-gray-500 mt-0.5">
+                  {i.sku}
+                </p>
+                <div className="mt-1 text-xs text-gray-500">
                   <span
                     className={clsx(
-                      "font-semibold text-sm shrink-0",
+                      "font-semibold",
                       i.isLowStock
                         ? "text-yellow-700 dark:text-yellow-400"
-                        : "text-gray-900",
+                        : "text-gray-700",
                     )}
                   >
                     {num(i.totalOnHand)} on hand
                   </span>
-                </div>
-                <p className="font-mono text-xs text-gray-500 mt-0.5">
-                  {i.sku}
-                </p>
-                <div className="mt-0.5 text-xs text-gray-500">
-                  Reorder at {num(i.reorderPoint)} ·{" "}
+                  {" · "}Reorder at {num(i.reorderPoint)} ·{" "}
                   {formatCurrency(num(i.unitCost))} avg
                 </div>
               </div>
