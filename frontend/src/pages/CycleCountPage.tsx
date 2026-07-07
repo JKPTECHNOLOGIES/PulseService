@@ -130,7 +130,7 @@ export default function CycleCountPage() {
               description="This location has no stocked items to count."
             />
           ) : (
-            <table className="w-full text-sm">
+            <table className="hidden md:table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
                   <th className="py-2.5 px-4 font-medium">Item</th>
@@ -198,6 +198,64 @@ export default function CycleCountPage() {
               </tbody>
             </table>
           )}
+          {!itemsLoading && rows.length > 0 && (
+            <div className="md:hidden divide-y divide-gray-50">
+              {rows.map(({ item, expected }) => {
+                const value = counts[item.id] ?? "";
+                const variance = value === "" ? null : Number(value) - expected;
+                return (
+                  <div key={item.id} className="px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate">
+                          {item.name}
+                        </p>
+                        <p className="font-mono text-xs text-gray-400">
+                          {item.sku}
+                        </p>
+                      </div>
+                      <span
+                        className={clsx(
+                          "text-sm font-medium shrink-0",
+                          variance === null || variance === 0
+                            ? "text-gray-400"
+                            : variance > 0
+                              ? "text-green-700"
+                              : "text-red-600",
+                        )}
+                      >
+                        {variance === null
+                          ? "—"
+                          : `${variance > 0 ? "+" : ""}${String(variance)}`}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-3">
+                      <span className="text-xs text-gray-500">
+                        Expected{" "}
+                        <span className="font-medium text-gray-700">
+                          {expected}
+                        </span>
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={value}
+                        onChange={(e) => {
+                          setCounts((c) => ({
+                            ...c,
+                            [item.id]: e.target.value,
+                          }));
+                        }}
+                        placeholder="Count"
+                        className="ml-auto w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div className="px-5 py-3 border-t border-gray-100 flex justify-end">
             <Button
               loading={cycleCount.isPending}
@@ -221,7 +279,7 @@ export default function CycleCountPage() {
             </p>
           </div>
           {result.variances > 0 && (
-            <table className="w-full text-sm">
+            <table className="hidden md:table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
                   <th className="py-2 font-medium">Item</th>
@@ -262,6 +320,39 @@ export default function CycleCountPage() {
                   })}
               </tbody>
             </table>
+          )}
+          {result.variances > 0 && (
+            <div className="md:hidden divide-y divide-gray-50">
+              {result.results
+                .filter((r) => r.variance !== 0)
+                .map((r) => {
+                  const item = (items ?? []).find(
+                    (i) => i.id === r.inventoryItemId,
+                  );
+                  return (
+                    <div
+                      key={r.inventoryItemId}
+                      className="py-2 flex items-center justify-between gap-3"
+                    >
+                      <span className="text-gray-700 min-w-0 truncate">
+                        {item?.name ?? r.inventoryItemId}
+                      </span>
+                      <span className="text-xs text-gray-500 shrink-0">
+                        {r.expected} → {r.counted}{" "}
+                        <span
+                          className={clsx(
+                            "font-medium",
+                            r.variance > 0 ? "text-green-700" : "text-red-600",
+                          )}
+                        >
+                          ({r.variance > 0 ? "+" : ""}
+                          {r.variance})
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })}
+            </div>
           )}
           <div className="flex gap-3">
             <Button
