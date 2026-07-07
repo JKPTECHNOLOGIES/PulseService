@@ -13,6 +13,7 @@ import { useMyDay } from "../hooks/useMyDay";
 import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import { TableSkeleton } from "../components/ui/Skeleton";
+import { dialOrCopyPhone, isApplePlatform } from "../utils/phone";
 import type { Job, Location } from "../types";
 
 function toDateStr(d: Date): string {
@@ -37,11 +38,6 @@ function timeLabel(iso: string | undefined): string {
 function addressLine(loc: Location | undefined): string {
   if (!loc) return "";
   return [loc.address, loc.city, loc.state, loc.zip].filter(Boolean).join(", ");
-}
-
-function isApplePlatform(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
 }
 
 function mapsUrl(loc: Location | undefined): string | null {
@@ -223,13 +219,16 @@ export default function MyDayPage() {
                     )}
                     {url && phone && <div className="w-px bg-gray-100" />}
                     {phone && (
-                      <a
-                        href={`tel:${phone}`}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void dialOrCopyPhone(phone);
+                        }}
                         className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         <PhoneIcon className="h-4 w-4" />
                         Call
-                      </a>
+                      </button>
                     )}
                   </div>
                 )}
