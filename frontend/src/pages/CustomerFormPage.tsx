@@ -14,6 +14,7 @@ import type { Customer } from "../types";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import { PageSpinner } from "../components/ui/Spinner";
+import { useFormDraft } from "../hooks/useFormDraft";
 
 const schema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -33,6 +34,11 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+
+// See EstimateFormPage: autosave a New Customer draft so navigating away or a
+// reload doesn't lose it. Cleared once the customer is created.
+const DRAFT_KEY = "draft:customer:new";
+const DEFAULT_VALUES: Partial<FormData> = { type: "residential" };
 
 const SOURCES = [
   "website",
@@ -63,10 +69,31 @@ export default function CustomerFormPage() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { type: "residential" },
+    defaultValues: DEFAULT_VALUES,
   });
 
   const customerType = watch("type");
+
+  const { restored: draftRestored, clearDraft } = useFormDraft<FormData>({
+    key: DRAFT_KEY,
+    enabled: !isEditing,
+    value: watch(),
+    hasContent: (v) =>
+      Boolean(v.firstName) ||
+      Boolean(v.lastName) ||
+      Boolean(v.companyName) ||
+      Boolean(v.email) ||
+      Boolean(v.phone) ||
+      Boolean(v.address),
+    onRestore: (v) => {
+      reset({ ...DEFAULT_VALUES, ...v });
+    },
+  });
+
+  const discardDraft = () => {
+    reset(DEFAULT_VALUES);
+    clearDraft();
+  };
 
   useEffect(() => {
     if (customer && isEditing) {
@@ -131,6 +158,7 @@ export default function CustomerFormPage() {
         ...payload,
         locations,
       });
+      clearDraft();
       const newId = result.data.id;
       navigate(newId ? `/customers/${newId}` : "/customers");
     }
@@ -140,6 +168,18 @@ export default function CustomerFormPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-5">
+      {draftRestored && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm">
+          <span className="text-primary-800">Restored your unsaved draft.</span>
+          <button
+            type="button"
+            onClick={discardDraft}
+            className="shrink-0 font-medium text-primary-700 underline underline-offset-2"
+          >
+            Start fresh
+          </button>
+        </div>
+      )}
       <form
         onSubmit={(e) => void handleSubmit(onSubmit)(e)}
         className="space-y-5"

@@ -10,6 +10,7 @@ import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import { PageSpinner } from "../components/ui/Spinner";
 import { LookupSelect } from "../components/ui/LookupSelect";
+import { useFormDraft } from "../hooks/useFormDraft";
 
 // Enum values are validated server-side against the DB-driven lookups; the form
 // only requires that a value is present so we never duplicate the enum here.
@@ -27,6 +28,16 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+
+// See EstimateFormPage: autosave a New Job draft so navigating away or a reload
+// doesn't lose it. Cleared once the job is created.
+const DRAFT_KEY = "draft:job:new";
+const DEFAULT_VALUES: Partial<FormData> = {
+  type: "service",
+  priority: "normal",
+  status: "new",
+  technicianIds: [],
+};
 
 export default function JobFormPage() {
   const { id } = useParams<{ id: string }>();
@@ -55,13 +66,7 @@ export default function JobFormPage() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      type: "service",
-      priority: "normal",
-      status: "new",
-      customerId: prefillCustomerId,
-      technicianIds: [],
-    },
+    defaultValues: { ...DEFAULT_VALUES, customerId: prefillCustomerId },
   });
 
   useEffect(() => {
@@ -82,6 +87,22 @@ export default function JobFormPage() {
       });
     }
   }, [job, isEditing, reset]);
+
+  const { restored: draftRestored, clearDraft } = useFormDraft<FormData>({
+    key: DRAFT_KEY,
+    enabled: !isEditing,
+    value: watch(),
+    hasContent: (v) =>
+      Boolean(v.customerId) || Boolean(v.summary) || Boolean(v.description),
+    onRestore: (v) => {
+      reset({ ...DEFAULT_VALUES, ...v });
+    },
+  });
+
+  const discardDraft = () => {
+    reset({ ...DEFAULT_VALUES, customerId: prefillCustomerId });
+    clearDraft();
+  };
 
   const technicianIds = watch("technicianIds") ?? [];
 
@@ -123,6 +144,7 @@ export default function JobFormPage() {
         data?: { id?: string };
         id?: string;
       };
+      clearDraft();
       const newId = result.data?.id ?? result.id;
       navigate(newId ? `/jobs/${newId}` : "/jobs");
     }
@@ -132,6 +154,18 @@ export default function JobFormPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-5">
+      {draftRestored && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm">
+          <span className="text-primary-800">Restored your unsaved draft.</span>
+          <button
+            type="button"
+            onClick={discardDraft}
+            className="shrink-0 font-medium text-primary-700 underline underline-offset-2"
+          >
+            Start fresh
+          </button>
+        </div>
+      )}
       <form
         onSubmit={(e) => void handleSubmit(onSubmit)(e)}
         className="space-y-5"

@@ -11,6 +11,7 @@ import {
 import { useCustomers } from "../hooks/useCustomers";
 import { useJobs } from "../hooks/useJobs";
 import { useLookup } from "../hooks/useMetadata";
+import { useFormDraft } from "../hooks/useFormDraft";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import LineItemsTable, { LineItem } from "../components/ui/LineItemsTable";
@@ -71,8 +72,6 @@ export default function EstimateFormPage() {
     defaultValues: DEFAULT_VALUES,
   });
 
-  const [draftRestored, setDraftRestored] = useState(false);
-
   const customerId = watch("customerId");
   const discountType = watch("discountType");
   const discountValue = watch("discountValue") ?? 0;
@@ -111,46 +110,24 @@ export default function EstimateFormPage() {
     }
   }, [estimate, isEditing, reset]);
 
-  // Restore a saved draft when opening a fresh New Estimate (run once).
-  useEffect(() => {
-    if (isEditing) return;
-    const raw = localStorage.getItem(DRAFT_KEY);
-    if (!raw) return;
-    try {
-      const draft = JSON.parse(raw) as EstimateDraft;
-      if (draft.form) reset({ ...DEFAULT_VALUES, ...draft.form });
-      if (draft.lineItems) setLineItems(draft.lineItems);
-      setDraftRestored(true);
-    } catch {
-      localStorage.removeItem(DRAFT_KEY);
-    }
-  }, [isEditing, reset]);
-
-  // Autosave the draft as the form changes (debounced), but only once there's
-  // something worth keeping so we don't persist an empty form.
-  const allValues = watch();
-  useEffect(() => {
-    if (isEditing) return;
-    const hasContent = Boolean(
-      allValues.customerId || allValues.title || lineItems.length,
-    );
-    if (!hasContent) return;
-    const t = setTimeout(() => {
-      localStorage.setItem(
-        DRAFT_KEY,
-        JSON.stringify({ form: allValues, lineItems }),
-      );
-    }, 500);
-    return () => {
-      clearTimeout(t);
-    };
-  }, [allValues, lineItems, isEditing]);
+  const { restored: draftRestored, clearDraft } = useFormDraft<EstimateDraft>({
+    key: DRAFT_KEY,
+    enabled: !isEditing,
+    value: { form: watch(), lineItems },
+    hasContent: (v) =>
+      Boolean(v.form?.customerId) ||
+      Boolean(v.form?.title) ||
+      Boolean(v.lineItems?.length),
+    onRestore: (v) => {
+      if (v.form) reset({ ...DEFAULT_VALUES, ...v.form });
+      if (v.lineItems) setLineItems(v.lineItems);
+    },
+  });
 
   const discardDraft = () => {
-    localStorage.removeItem(DRAFT_KEY);
     reset(DEFAULT_VALUES);
     setLineItems([]);
-    setDraftRestored(false);
+    clearDraft();
   };
 
   const subtotal = lineItems.reduce((sum, li) => sum + li.total, 0);
@@ -176,7 +153,7 @@ export default function EstimateFormPage() {
       navigate(`/estimates/${id}`);
     } else {
       const result = await createMutation.mutateAsync(payload);
-      localStorage.removeItem(DRAFT_KEY);
+      clearDraft();
       const newId = result.data.id;
       navigate(newId ? `/estimates/${newId}` : "/estimates");
     }

@@ -17,6 +17,7 @@ import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import { useJobParts } from "../hooks/useInventory";
+import { useFormDraft } from "../hooks/useFormDraft";
 
 // Enum values are validated server-side against the DB-driven lookups; the form
 // only needs a present value so we never duplicate the enum here.
@@ -32,6 +33,20 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+
+// See EstimateFormPage: autosave a New Invoice draft so navigating away or a
+// reload doesn't lose it. Cleared once the invoice is created.
+const DRAFT_KEY = "draft:invoice:new";
+const DEFAULT_VALUES: Partial<FormData> = {
+  taxRate: 8.25,
+  discountType: "fixed",
+  discountValue: 0,
+};
+
+interface InvoiceDraft {
+  form?: Partial<FormData>;
+  lineItems?: LineItem[];
+}
 
 export default function InvoiceFormPage() {
   const { id } = useParams<{ id: string }>();
@@ -55,7 +70,7 @@ export default function InvoiceFormPage() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { taxRate: 8.25, discountType: "fixed", discountValue: 0 },
+    defaultValues: DEFAULT_VALUES,
   });
 
   const customerId = watch("customerId");
@@ -123,6 +138,24 @@ export default function InvoiceFormPage() {
     }
   }, [invoice, isEditing, reset]);
 
+  const { restored: draftRestored, clearDraft } = useFormDraft<InvoiceDraft>({
+    key: DRAFT_KEY,
+    enabled: !isEditing,
+    value: { form: watch(), lineItems },
+    hasContent: (v) =>
+      Boolean(v.form?.customerId) || Boolean(v.lineItems?.length),
+    onRestore: (v) => {
+      if (v.form) reset({ ...DEFAULT_VALUES, ...v.form });
+      if (v.lineItems) setLineItems(v.lineItems);
+    },
+  });
+
+  const discardDraft = () => {
+    reset(DEFAULT_VALUES);
+    setLineItems([]);
+    clearDraft();
+  };
+
   const subtotal = lineItems.reduce((sum, li) => sum + li.total, 0);
   const discountAmt =
     discountType === "percentage"
@@ -149,6 +182,7 @@ export default function InvoiceFormPage() {
         data?: { id?: string };
         id?: string;
       };
+      clearDraft();
       const newId = result.data?.id ?? result.id;
       navigate(newId ? `/invoices/${newId}` : "/invoices");
     }
@@ -158,6 +192,18 @@ export default function InvoiceFormPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-5">
+      {draftRestored && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm">
+          <span className="text-primary-800">Restored your unsaved draft.</span>
+          <button
+            type="button"
+            onClick={discardDraft}
+            className="shrink-0 font-medium text-primary-700 underline underline-offset-2"
+          >
+            Start fresh
+          </button>
+        </div>
+      )}
       <form
         onSubmit={(e) => void handleSubmit(onSubmit)(e)}
         className="space-y-5"
