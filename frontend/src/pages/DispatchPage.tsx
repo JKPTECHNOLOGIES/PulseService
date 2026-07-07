@@ -54,6 +54,7 @@ import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
 import { Can } from "../components/ui/Can";
 import { useLookup } from "../hooks/useMetadata";
+import { useDragScroll } from "../hooks/useDragScroll";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency } from "../utils/formatters";
@@ -871,6 +872,9 @@ export default function DispatchPage() {
     }),
   );
 
+  // Grab-to-pan the day timeline (drag empty space to scroll the hours).
+  const boardRef = useDragScroll<HTMLDivElement>();
+
   const board = boardData;
   const allTechs = techsData?.data ?? [];
   const unassignedJobs =
@@ -1167,7 +1171,10 @@ export default function DispatchPage() {
             <div className="flex h-[65vh] lg:h-auto lg:flex-1 min-h-0 min-w-0">
               {/* Day view: technician rows x hourly columns */}
               {viewMode === "day" && (
-                <div className="flex-1 min-w-0 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto">
+                <div
+                  ref={boardRef}
+                  className="flex-1 min-w-0 bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto cursor-grab"
+                >
                   {/* Header row: Technician label + time slots */}
                   <div className="flex sticky top-0 z-10 bg-white border-b border-gray-200">
                     <div
