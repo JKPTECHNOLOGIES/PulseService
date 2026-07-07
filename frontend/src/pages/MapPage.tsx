@@ -7,6 +7,8 @@ import { useMutation } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useDispatchBoard } from "../hooks/useDispatch";
+import { useTechnicians } from "../hooks/useTechnicians";
+import { useAuthStore } from "../store/authStore";
 import api from "../lib/api";
 import { directionsUrl } from "../lib/maps";
 import { getErrorMessage } from "../lib/errors";
@@ -31,14 +33,23 @@ export default function MapPage() {
   const to = format(addDays(new Date(), 14), "yyyy-MM-dd");
   const { data: board, isLoading, refetch } = useDispatchBoard(from, to);
 
+  // Technicians see only their own route; office roles see the whole board.
+  const role = useAuthStore((s) => s.user?.role);
+  const userId = useAuthStore((s) => s.user?.id);
+  const { data: techsData } = useTechnicians();
+  const isTech = role === "technician";
+  const myTechId = techsData?.data.find((t) => t.userId === userId)?.id;
+
   const points = useMemo(() => {
-    const all: Job[] = board
-      ? [
-          ...board.technicians.flatMap((t) => t.jobs),
-          ...board.unassigned,
-          ...board.undated,
-        ]
-      : [];
+    const all: Job[] = !board
+      ? []
+      : isTech
+        ? (board.technicians.find((t) => t.id === myTechId)?.jobs ?? [])
+        : [
+            ...board.technicians.flatMap((t) => t.jobs),
+            ...board.unassigned,
+            ...board.undated,
+          ];
     const out: { job: Job; lat: number; lng: number }[] = [];
     for (const j of all) {
       const lat = j.location?.lat;
@@ -48,7 +59,7 @@ export default function MapPage() {
       }
     }
     return out;
-  }, [board]);
+  }, [board, isTech, myTechId]);
 
   const geocodeMutation = useMutation({
     mutationFn: () =>
@@ -74,8 +85,8 @@ export default function MapPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-gray-500">
-          {points.length} mapped job{points.length === 1 ? "" : "s"} (next 14
-          days)
+          {points.length} {isTech ? "of your" : "mapped"} job
+          {points.length === 1 ? "" : "s"} (next 14 days)
         </p>
         {/* Backfilling coordinates writes to customer locations, so only offer
             it to users who can edit customers (techs land here via the Map tab
