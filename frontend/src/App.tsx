@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "./components/layout/AppLayout";
+import RequirePermission from "./components/layout/RequirePermission";
 import { PageSpinner } from "./components/ui/Spinner";
 import { useAuthStore } from "./store/authStore";
 
@@ -94,11 +95,51 @@ export default function App() {
             element={<PricingTiersPage />}
           />
           <Route path="inventory" element={<InventoryPage />} />
-          <Route path="inventory/locations" element={<StockLocationsPage />} />
+          <Route
+            path="inventory/locations"
+            element={
+              <RequirePermission
+                perm={[
+                  "inventory.manage",
+                  "inventory.issueToJob",
+                  "purchasing.manage",
+                  "purchasing.receive",
+                  "suppliers.manage",
+                ]}
+              >
+                <StockLocationsPage />
+              </RequirePermission>
+            }
+          />
           <Route path="inventory/cycle-count" element={<CycleCountPage />} />
-          <Route path="suppliers" element={<SuppliersPage />} />
-          <Route path="purchasing" element={<PurchaseOrdersPage />} />
-          <Route path="purchasing/:id" element={<PurchaseOrderDetailPage />} />
+          <Route
+            path="suppliers"
+            element={
+              <RequirePermission perm={["suppliers.manage"]}>
+                <SuppliersPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="purchasing"
+            element={
+              <RequirePermission
+                perm={["purchasing.manage", "purchasing.receive"]}
+              >
+                <PurchaseOrdersPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="purchasing/:id"
+            element={
+              <RequirePermission
+                perm={["purchasing.manage", "purchasing.receive"]}
+              >
+                <PurchaseOrderDetailPage />
+              </RequirePermission>
+            }
+          />
           <Route path="serials" element={<SerializedUnitsPage />} />
           <Route path="equipment" element={<EquipmentPage />} />
           <Route path="agreements" element={<AgreementsPage />} />

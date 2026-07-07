@@ -123,45 +123,6 @@ const get = async (req, res) => {
   }
 };
 
-const updateLocation = async (req, res) => {
-  try {
-    const { lat, lng } = req.body;
-    if (lat === undefined || lng === undefined) {
-      return res
-        .status(400)
-        .json({ success: false, error: "lat and lng are required" });
-    }
-
-    const technician = await prisma.technician.update({
-      where: { id: req.params.id },
-      data: {
-        currentLat: parseFloat(lat),
-        currentLng: parseFloat(lng),
-        lastLocationAt: new Date(),
-      },
-    });
-
-    const io = req.app.get("io");
-    if (io) {
-      io.emit("technician:location", {
-        technicianId: technician.id,
-        lat: technician.currentLat,
-        lng: technician.currentLng,
-        updatedAt: technician.lastLocationAt,
-      });
-    }
-
-    return res.json({ success: true, data: technician });
-  } catch (err) {
-    if (err.code === "P2025")
-      return res
-        .status(404)
-        .json({ success: false, error: "Technician not found" });
-    console.error("technicians.updateLocation error:", err);
-    return res.status(500).json({ success: false, error: "Server error" });
-  }
-};
-
 const getAvailability = async (req, res) => {
   try {
     const { dateFrom, dateTo } = req.query;
@@ -271,4 +232,4 @@ const getMyJobs = async (req, res) => {
   }
 };
 
-module.exports = { list, get, updateLocation, getAvailability, getMyJobs };
+module.exports = { list, get, getAvailability, getMyJobs };

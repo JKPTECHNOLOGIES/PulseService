@@ -38,9 +38,11 @@ export function usePurchaseOrders(
     jobId?: string;
     search?: string;
   } = {},
+  options: { enabled?: boolean } = {},
 ) {
   return useQuery({
     queryKey: ["purchasing", "list", params],
+    enabled: options.enabled,
     queryFn: async () => {
       const res = await api.get<PaginatedResponse<PurchaseOrder>>(
         "/purchasing/purchase-orders",

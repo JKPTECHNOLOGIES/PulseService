@@ -27,6 +27,7 @@ import {
   useClockOut,
 } from "../hooks/useTime";
 import { useLookup } from "../hooks/useMetadata";
+import { usePermissions } from "../hooks/usePermissions";
 import {
   useSerializedUnits,
   useUninstallSerializedUnit,
@@ -676,8 +677,14 @@ function JobMaterialsCard({
   jobId: string;
   customerId: string;
 }) {
+  const { can } = usePermissions();
+  const canViewPurchasing =
+    can("purchasing.manage") || can("purchasing.receive");
   const { data: serials } = useSerializedUnits({ jobId, limit: 50 });
-  const { data: pos } = usePurchaseOrders({ jobId, limit: 50 });
+  const { data: pos } = usePurchaseOrders(
+    { jobId, limit: 50 },
+    { enabled: canViewPurchasing },
+  );
   const { data: parts } = useJobParts(jobId);
   const reverseTxn = useReverseTransaction();
   const uninstall = useUninstallSerializedUnit();
@@ -816,31 +823,33 @@ function JobMaterialsCard({
           )}
         </div>
 
-        <div>
-          <p className="text-xs font-medium text-gray-500 mb-2">
-            Purchase orders
-          </p>
-          {orders.length > 0 ? (
-            <ul className="space-y-1.5">
-              {orders.map((po) => (
-                <li
-                  key={po.id}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <Link
-                    to={`/purchasing/${po.id}`}
-                    className="font-mono text-xs text-primary-600 hover:text-primary-700"
+        <Can permission={["purchasing.manage", "purchasing.receive"]}>
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-2">
+              Purchase orders
+            </p>
+            {orders.length > 0 ? (
+              <ul className="space-y-1.5">
+                {orders.map((po) => (
+                  <li
+                    key={po.id}
+                    className="flex items-center justify-between text-sm"
                   >
-                    {po.poNumber}
-                  </Link>
-                  <StatusBadge status={po.status} category="poStatus" />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-gray-400">No purchase orders</p>
-          )}
-        </div>
+                    <Link
+                      to={`/purchasing/${po.id}`}
+                      className="font-mono text-xs text-primary-600 hover:text-primary-700"
+                    >
+                      {po.poNumber}
+                    </Link>
+                    <StatusBadge status={po.status} category="poStatus" />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-400">No purchase orders</p>
+            )}
+          </div>
+        </Can>
       </div>
 
       <InstallSerialModal

@@ -16,6 +16,20 @@ function totalFromStock(stock = []) {
   return qty(stock.reduce((sum, s) => sum + Number(s.quantityOnHand), 0));
 }
 
+// Read-only endpoints in this file are intentionally left open to any
+// authenticated user (e.g. AddPartModal needs the item list to let a
+// technician pick a part), but wholesale cost is not something everyone who
+// can browse that list should see. Strip it out unless the caller actually
+// holds inventory.manage.
+async function canSeeCost(req) {
+  const granted = await permissionsService.getForRole(req.user.role);
+  return granted.includes("inventory.manage");
+}
+function omitCost(item) {
+  const { unitCost: _unitCost, ...rest } = item;
+  return rest;
+}
+
 // ─── Items (catalog) ─────────────────────────────────────────────────────────
 
 const list = async (req, res) => {
@@ -50,10 +64,12 @@ const list = async (req, res) => {
       orderBy: { name: "asc" },
     });
 
+    const canSeeCostValue = await canSeeCost(req);
     const result = items.map((item) => {
       const totalOnHand = totalFromStock(item.stock);
+      const shaped = canSeeCostValue ? item : omitCost(item);
       return {
-        ...item,
+        ...shaped,
         totalOnHand,
         isLowStock: totalOnHand <= Number(item.reorderPoint),
       };
@@ -451,6 +467,7 @@ const getJobParts = async (req, res) => {
       },
     });
 
+    const canSeeCostValue = await canSeeCost(req);
     const parts = transactions.map((t) => {
       const quantityUsed = Math.abs(Number(t.quantity));
       const unitPrice = t.inventoryItem.pricebookItem
@@ -464,7 +481,12 @@ const getJobParts = async (req, res) => {
         unit: t.inventoryItem.unit,
         stockLocation: t.stockLocation,
         quantityUsed,
-        unitCost: Number(t.unitCost ?? t.inventoryItem.unitCost),
+        // Wholesale cost is only meaningful to someone who manages inventory --
+        // anyone who can merely view a job (including a technician) otherwise
+        // sees the suggested sale price/total, never the margin.
+        ...(canSeeCostValue && {
+          unitCost: Number(t.unitCost ?? t.inventoryItem.unitCost),
+        }),
         unitPrice,
         total: Math.round(quantityUsed * unitPrice * 100) / 100,
         transactionDate: t.transactionDate,

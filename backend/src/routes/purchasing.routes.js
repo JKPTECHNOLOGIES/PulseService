@@ -6,9 +6,16 @@ const c = require("../controllers/purchasing.controller");
 
 router.use(auth);
 
-router.get("/purchase-orders", c.list);
-router.get("/reorder-suggestions", c.reorderSuggestions);
-router.get("/purchase-orders/:id", c.get);
+// Purchasing data (costs, supplier pricing, receiving history) has no
+// legitimate technician use case, unlike inventory items/serials/stock
+// locations -- gate every read the same as the writes.
+const canViewPurchasing = requirePermission(
+  "purchasing.manage",
+  "purchasing.receive",
+);
+router.get("/purchase-orders", canViewPurchasing, c.list);
+router.get("/reorder-suggestions", canViewPurchasing, c.reorderSuggestions);
+router.get("/purchase-orders/:id", canViewPurchasing, c.get);
 router.post(
   "/purchase-orders",
   requirePermission("purchasing.manage"),

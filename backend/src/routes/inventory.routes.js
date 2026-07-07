@@ -5,7 +5,12 @@ const c = require("../controllers/inventory.controller");
 
 router.use(auth);
 
-// Items (catalog + aggregated stock)
+// Items (catalog + aggregated stock). The list stays open to any
+// authenticated user (e.g. AddPartModal needs it for a technician to pick a
+// part) but strips wholesale cost for non-managers -- see canSeeCost in the
+// controller. Single-item detail (supplier cost links, cost history) and
+// transaction history are admin-only views (only ever opened from
+// InventoryPage's own management modals), so those are fully gated.
 router.get("/items", c.list);
 router.post("/items", requirePermission("inventory.manage"), c.create);
 router.post(
@@ -13,7 +18,7 @@ router.post(
   requirePermission("inventory.manage"),
   c.importItems,
 );
-router.get("/items/:id", c.get);
+router.get("/items/:id", requirePermission("inventory.manage"), c.get);
 router.put("/items/:id", requirePermission("inventory.manage"), c.update);
 router.delete("/items/:id", requirePermission("inventory.manage"), c.remove);
 
@@ -28,7 +33,11 @@ router.post(
   requirePermission("inventory.manage"),
   c.transfer,
 );
-router.get("/items/:id/transactions", c.getTransactions);
+router.get(
+  "/items/:id/transactions",
+  requirePermission("inventory.manage"),
+  c.getTransactions,
+);
 
 // Per-supplier catalog pricing
 router.post(

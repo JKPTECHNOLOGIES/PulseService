@@ -1,6 +1,19 @@
 const prisma = require("../config/database");
+const permissionsService = require("../services/permissions.service");
 const { paginate, paginatedResponse } = require("../utils/helpers");
 const { money } = require("../services/inventory.service");
+
+// The list/detail stay open to any authenticated user (a technician needs
+// the list to pick a unit to install), but purchase cost isn't something
+// everyone who can browse units should see.
+async function canSeeCost(req) {
+  const granted = await permissionsService.getForRole(req.user.role);
+  return granted.includes("inventory.manage");
+}
+function omitCost(unit) {
+  const { purchaseCost: _purchaseCost, ...rest } = unit;
+  return rest;
+}
 
 const list = async (req, res) => {
   try {
@@ -31,9 +44,12 @@ const list = async (req, res) => {
       prisma.serializedUnit.count({ where }),
     ]);
 
+    const canSeeCostValue = await canSeeCost(req);
+    const shaped = canSeeCostValue ? units : units.map(omitCost);
+
     return res.json({
       success: true,
-      ...paginatedResponse(units, total, page, limit),
+      ...paginatedResponse(shaped, total, page, limit),
     });
   } catch (err) {
     console.error("serials.list error:", err);
@@ -70,7 +86,11 @@ const get = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, error: "Serialized unit not found" });
-    return res.json({ success: true, data: unit });
+    const canSeeCostValue = await canSeeCost(req);
+    return res.json({
+      success: true,
+      data: canSeeCostValue ? unit : omitCost(unit),
+    });
   } catch (err) {
     console.error("serials.get error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
