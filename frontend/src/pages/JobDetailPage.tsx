@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import {
   PencilIcon,
   ChevronRightIcon,
@@ -9,6 +10,7 @@ import {
   TrashIcon,
   ArchiveBoxIcon,
   ArrowUturnLeftIcon,
+  QrCodeIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { useJob } from "../hooks/useJobs";
@@ -45,6 +47,9 @@ import Badge, { StatusBadge } from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
 import { NumberInput } from "../components/ui/NumberInput";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+
+// Heavy (camera + decoder) -- only pulled in when a scan is actually started.
+const BarcodeScanner = lazy(() => import("../components/ui/BarcodeScanner"));
 import AttachmentGallery from "../components/ui/AttachmentGallery";
 import SignatureCard from "../components/ui/SignatureCard";
 import InstallSerialModal from "../components/ui/InstallSerialModal";
@@ -899,6 +904,8 @@ function AddPartModal({
   const [inventoryItemId, setItemId] = useState("");
   const [stockLocationId, setLocationId] = useState("");
   const [quantity, setQuantity] = useState(1);
+  const [partSearch, setPartSearch] = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   // Default the source location to the tech's own assigned truck, so a
   // technician issuing a part in the field doesn't have to hunt through every
@@ -919,6 +926,27 @@ function AddPartModal({
   if (!isOpen) return null;
 
   const item = (items ?? []).find((i) => i.id === inventoryItemId);
+  const term = partSearch.trim().toLowerCase();
+  const filteredItems = term
+    ? (items ?? []).filter(
+        (i) =>
+          i.name.toLowerCase().includes(term) ||
+          i.sku.toLowerCase().includes(term),
+      )
+    : (items ?? []);
+
+  // Scanned barcode -> match a part by SKU and select it.
+  const handleScan = (code: string) => {
+    setScannerOpen(false);
+    const scanned = code.trim().toLowerCase();
+    const match = (items ?? []).find((i) => i.sku.toLowerCase() === scanned);
+    if (match) {
+      setItemId(match.id);
+      setPartSearch("");
+    } else {
+      toast.error(`No part with SKU \u201C${code}\u201D`);
+    }
+  };
   const available = num(
     item?.stock?.find((s) => s.stockLocationId === stockLocationId)
       ?.quantityOnHand,
@@ -934,6 +962,27 @@ function AddPartModal({
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Part
           </label>
+          <div className="flex items-center gap-2 mb-2">
+            <input
+              value={partSearch}
+              onChange={(e) => {
+                setPartSearch(e.target.value);
+              }}
+              placeholder="Search name or SKU…"
+              className={inputClass}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setScannerOpen(true);
+              }}
+              aria-label="Scan barcode"
+              title="Scan barcode"
+              className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] shrink-0 rounded-lg border border-gray-300 text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <QrCodeIcon className="h-5 w-5" />
+            </button>
+          </div>
           <select
             value={inventoryItemId}
             onChange={(e) => {
@@ -942,7 +991,7 @@ function AddPartModal({
             className={inputClass}
           >
             <option value="">Select part...</option>
-            {(items ?? []).map((i) => (
+            {filteredItems.map((i) => (
               <option key={i.id} value={i.id}>
                 {i.sku} — {i.name}
               </option>
@@ -1014,6 +1063,17 @@ function AddPartModal({
           </Button>
         </div>
       </div>
+      {scannerOpen && (
+        <Suspense fallback={null}>
+          <BarcodeScanner
+            isOpen
+            onClose={() => {
+              setScannerOpen(false);
+            }}
+            onDetected={handleScan}
+          />
+        </Suspense>
+      )}
     </Modal>
   );
 }
