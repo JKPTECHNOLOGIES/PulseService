@@ -11,6 +11,7 @@ import api from "../lib/api";
 import { directionsUrl } from "../lib/maps";
 import { getErrorMessage } from "../lib/errors";
 import Button from "../components/ui/Button";
+import { Can } from "../components/ui/Can";
 import { PageSpinner } from "../components/ui/Spinner";
 import type { ApiResponse, Job } from "../types";
 
@@ -76,16 +77,21 @@ export default function MapPage() {
           {points.length} mapped job{points.length === 1 ? "" : "s"} (next 14
           days)
         </p>
-        <Button
-          variant="outline"
-          size="sm"
-          loading={geocodeMutation.isPending}
-          onClick={() => {
-            geocodeMutation.mutate();
-          }}
-        >
-          Geocode addresses
-        </Button>
+        {/* Backfilling coordinates writes to customer locations, so only offer
+            it to users who can edit customers (techs land here via the Map tab
+            but would only get a 403). */}
+        <Can permission="customers.edit">
+          <Button
+            variant="outline"
+            size="sm"
+            loading={geocodeMutation.isPending}
+            onClick={() => {
+              geocodeMutation.mutate();
+            }}
+          >
+            Geocode addresses
+          </Button>
+        </Can>
       </div>
 
       <div
