@@ -59,8 +59,12 @@ import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency } from "../utils/formatters";
 import { Job, Technician } from "../types";
 
-const HOUR_START = 7;
-const HOUR_END = 19;
+// Full 24-hour day so jobs scheduled at any hour show on the board.
+const HOUR_START = 0;
+const HOUR_END = 24;
+// Utilization is measured against a normal workday, not the full 24h span, so
+// the per-tech load bar stays meaningful.
+const WORKDAY_HOURS = 8;
 const HOUR_WIDTH = 120;
 const ROW_HEIGHT = 128;
 const HOURS = Array.from(
@@ -1221,8 +1225,7 @@ export default function DispatchPage() {
                         return sum + Math.max(0, dur);
                       }, 0);
                       const rowHours = (rowBookedMins / 60).toFixed(1);
-                      const util =
-                        rowBookedMins / ((HOUR_END - HOUR_START) * 60);
+                      const util = rowBookedMins / (WORKDAY_HOURS * 60);
                       const utilPct = Math.min(100, Math.round(util * 100));
                       const utilColor =
                         util > 1
