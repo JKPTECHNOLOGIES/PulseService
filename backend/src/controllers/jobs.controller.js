@@ -251,6 +251,7 @@ const update = async (req, res) => {
       createdAt: _ca,
       updatedAt: _ua,
       technicians: _t,
+      technicianIds,
       expectedUpdatedAt,
       ...data
     } = req.body;
@@ -276,6 +277,24 @@ const update = async (req, res) => {
           error:
             "This job was updated by someone else since you opened it. Refresh to see the latest changes before saving.",
           code: "STALE_JOB",
+        });
+      }
+    }
+
+    // technicianIds isn't a Job column -- it maps to JobTechnician join rows.
+    // Replace the assignments here (and keep it out of the scalar update data,
+    // which otherwise breaks Prisma's input typing and 500s the whole save).
+    if (Array.isArray(technicianIds)) {
+      await prisma.jobTechnician.deleteMany({
+        where: { jobId: req.params.id },
+      });
+      if (technicianIds.length > 0) {
+        await prisma.jobTechnician.createMany({
+          data: technicianIds.map((tid, i) => ({
+            jobId: req.params.id,
+            technicianId: tid,
+            isLead: i === 0,
+          })),
         });
       }
     }
