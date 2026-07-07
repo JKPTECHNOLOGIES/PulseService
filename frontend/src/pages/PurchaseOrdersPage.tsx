@@ -315,7 +315,49 @@ function ReorderSuggestionsModal({
                   </span>
                 )}
               </div>
-              <table className="w-full text-sm">
+              {/* Mobile: stacked cards */}
+              <div className="md:hidden divide-y divide-gray-50">
+                {group.lines.map((l) => (
+                  <div key={l.inventoryItemId} className="px-4 py-3">
+                    <div>
+                      <span className="font-medium text-gray-900">
+                        {l.name}
+                      </span>
+                      <span className="font-mono text-xs text-gray-400 ml-2">
+                        {l.sku}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                      <span>
+                        On hand{" "}
+                        <span className="font-medium text-yellow-700">
+                          {l.onHand}
+                        </span>
+                      </span>
+                      <span>
+                        Reorder pt{" "}
+                        <span className="font-medium text-gray-700">
+                          {l.reorderPoint}
+                        </span>
+                      </span>
+                      <span>
+                        Suggested{" "}
+                        <span className="font-medium text-gray-900">
+                          {l.suggestedQuantity}
+                        </span>
+                      </span>
+                      <span className="ml-auto">
+                        Est.{" "}
+                        <span className="font-medium text-gray-700">
+                          {formatCurrency(l.suggestedQuantity * l.unitCost)}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Desktop: table */}
+              <table className="hidden md:table w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
                     <th className="py-2 px-4 font-medium">Item</th>

@@ -457,48 +457,88 @@ function OverridesModal({
     >
       <div className="space-y-4">
         {tier.overrides && tier.overrides.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
-                <th className="py-2 font-medium">Item</th>
-                <th className="py-2 font-medium">Catalog price</th>
-                <th className="py-2 font-medium">Override</th>
-                <th className="py-2" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
+          <>
+            {/* Mobile: stacked cards */}
+            <div className="md:hidden divide-y divide-gray-50">
               {tier.overrides.map((o) => (
-                <tr key={o.id}>
-                  <td className="py-2.5 text-gray-900 font-medium">
-                    {o.pricebookItem?.name ?? "-"}
-                  </td>
-                  <td className="py-2.5 text-gray-500">
-                    {formatCurrency(o.pricebookItem?.unitPrice ?? 0)}
-                  </td>
-                  <td className="py-2.5 text-gray-700">
-                    {o.overrideType === "fixed_price"
-                      ? formatCurrency(o.overrideValue)
-                      : o.overrideType === "percentage"
-                        ? `${String(o.overrideValue)}% off`
-                        : `${formatCurrency(o.overrideValue)} off`}
-                  </td>
-                  <td className="py-2.5 text-right">
-                    <Can permission="pricebook.manage">
-                      <button
-                        onClick={() => {
-                          removeOverride.mutate({ tierId, overrideId: o.id });
-                        }}
-                        className="p-1 text-gray-400 hover:text-red-500"
-                        aria-label="Remove override"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </Can>
-                  </td>
-                </tr>
+                <div
+                  key={o.id}
+                  className="py-2.5 flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900 truncate">
+                      {o.pricebookItem?.name ?? "-"}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Catalog {formatCurrency(o.pricebookItem?.unitPrice ?? 0)}
+                      {" → "}
+                      <span className="text-gray-700">
+                        {o.overrideType === "fixed_price"
+                          ? formatCurrency(o.overrideValue)
+                          : o.overrideType === "percentage"
+                            ? `${String(o.overrideValue)}% off`
+                            : `${formatCurrency(o.overrideValue)} off`}
+                      </span>
+                    </p>
+                  </div>
+                  <Can permission="pricebook.manage">
+                    <button
+                      onClick={() => {
+                        removeOverride.mutate({ tierId, overrideId: o.id });
+                      }}
+                      className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] shrink-0 text-gray-400 hover:text-red-500"
+                      aria-label="Remove override"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </Can>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+            {/* Desktop: table */}
+            <table className="hidden md:table w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+                  <th className="py-2 font-medium">Item</th>
+                  <th className="py-2 font-medium">Catalog price</th>
+                  <th className="py-2 font-medium">Override</th>
+                  <th className="py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {tier.overrides.map((o) => (
+                  <tr key={o.id}>
+                    <td className="py-2.5 text-gray-900 font-medium">
+                      {o.pricebookItem?.name ?? "-"}
+                    </td>
+                    <td className="py-2.5 text-gray-500">
+                      {formatCurrency(o.pricebookItem?.unitPrice ?? 0)}
+                    </td>
+                    <td className="py-2.5 text-gray-700">
+                      {o.overrideType === "fixed_price"
+                        ? formatCurrency(o.overrideValue)
+                        : o.overrideType === "percentage"
+                          ? `${String(o.overrideValue)}% off`
+                          : `${formatCurrency(o.overrideValue)} off`}
+                    </td>
+                    <td className="py-2.5 text-right">
+                      <Can permission="pricebook.manage">
+                        <button
+                          onClick={() => {
+                            removeOverride.mutate({ tierId, overrideId: o.id });
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-500"
+                          aria-label="Remove override"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </Can>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         ) : (
           <p className="text-sm text-gray-400">No item overrides yet.</p>
         )}

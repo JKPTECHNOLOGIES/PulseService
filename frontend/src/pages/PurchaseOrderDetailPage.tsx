@@ -129,7 +129,59 @@ export default function PurchaseOrderDetailPage() {
 
       {/* Lines */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-sm">
+        {/* Mobile: stacked cards */}
+        <div className="md:hidden divide-y divide-gray-50">
+          {(po.lines ?? []).map((l) => (
+            <div key={l.id} className="p-4">
+              <div className="font-medium text-gray-900">{l.description}</div>
+              {l.inventoryItem && (
+                <div className="font-mono text-xs text-gray-400">
+                  {l.inventoryItem.sku}
+                </div>
+              )}
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                <span>
+                  Ordered{" "}
+                  <span className="font-medium text-gray-700">
+                    {num(l.quantity)}
+                  </span>
+                </span>
+                <span>
+                  Received{" "}
+                  <span
+                    className={
+                      num(l.receivedQuantity) >= num(l.quantity)
+                        ? "font-medium text-green-700"
+                        : "font-medium text-gray-700"
+                    }
+                  >
+                    {num(l.receivedQuantity)}
+                  </span>
+                </span>
+                <span>
+                  Unit{" "}
+                  <span className="font-medium text-gray-700">
+                    {formatCurrency(num(l.unitPrice))}
+                  </span>
+                </span>
+                <span className="ml-auto">
+                  Total{" "}
+                  <span className="font-semibold text-gray-900">
+                    {formatCurrency(num(l.totalPrice))}
+                  </span>
+                </span>
+              </div>
+            </div>
+          ))}
+          <div className="flex justify-between p-4 border-t border-gray-100">
+            <span className="text-gray-500">Total</span>
+            <span className="font-semibold text-gray-900">
+              {formatCurrency(num(po.totalAmount))}
+            </span>
+          </div>
+        </div>
+        {/* Desktop: table */}
+        <table className="hidden md:table w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
               <th className="py-3 px-4 font-medium">Item</th>
