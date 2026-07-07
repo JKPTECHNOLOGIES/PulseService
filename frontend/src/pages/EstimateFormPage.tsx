@@ -32,6 +32,20 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+// Autosaved draft for the New Estimate screen, so an accidental tab change (or a
+// reload) doesn't wipe in-progress work. Cleared once the estimate is created.
+const DRAFT_KEY = "draft:estimate:new";
+const DEFAULT_VALUES: Partial<FormData> = {
+  taxRate: 8.25,
+  discountType: "fixed",
+  discountValue: 0,
+};
+
+interface EstimateDraft {
+  form?: Partial<FormData>;
+  lineItems?: LineItem[];
+}
+
 export default function EstimateFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -54,8 +68,10 @@ export default function EstimateFormPage() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { taxRate: 8.25, discountType: "fixed", discountValue: 0 },
+    defaultValues: DEFAULT_VALUES,
   });
+
+  const [draftRestored, setDraftRestored] = useState(false);
 
   const customerId = watch("customerId");
   const discountType = watch("discountType");
@@ -95,6 +111,48 @@ export default function EstimateFormPage() {
     }
   }, [estimate, isEditing, reset]);
 
+  // Restore a saved draft when opening a fresh New Estimate (run once).
+  useEffect(() => {
+    if (isEditing) return;
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    try {
+      const draft = JSON.parse(raw) as EstimateDraft;
+      if (draft.form) reset({ ...DEFAULT_VALUES, ...draft.form });
+      if (draft.lineItems) setLineItems(draft.lineItems);
+      setDraftRestored(true);
+    } catch {
+      localStorage.removeItem(DRAFT_KEY);
+    }
+  }, [isEditing, reset]);
+
+  // Autosave the draft as the form changes (debounced), but only once there's
+  // something worth keeping so we don't persist an empty form.
+  const allValues = watch();
+  useEffect(() => {
+    if (isEditing) return;
+    const hasContent = Boolean(
+      allValues.customerId || allValues.title || lineItems.length,
+    );
+    if (!hasContent) return;
+    const t = setTimeout(() => {
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ form: allValues, lineItems }),
+      );
+    }, 500);
+    return () => {
+      clearTimeout(t);
+    };
+  }, [allValues, lineItems, isEditing]);
+
+  const discardDraft = () => {
+    localStorage.removeItem(DRAFT_KEY);
+    reset(DEFAULT_VALUES);
+    setLineItems([]);
+    setDraftRestored(false);
+  };
+
   const subtotal = lineItems.reduce((sum, li) => sum + li.total, 0);
   const discountAmt =
     discountType === "percentage"
@@ -118,6 +176,7 @@ export default function EstimateFormPage() {
       navigate(`/estimates/${id}`);
     } else {
       const result = await createMutation.mutateAsync(payload);
+      localStorage.removeItem(DRAFT_KEY);
       const newId = result.data.id;
       navigate(newId ? `/estimates/${newId}` : "/estimates");
     }
@@ -127,6 +186,18 @@ export default function EstimateFormPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-5">
+      {draftRestored && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm">
+          <span className="text-primary-800">Restored your unsaved draft.</span>
+          <button
+            type="button"
+            onClick={discardDraft}
+            className="shrink-0 font-medium text-primary-700 underline underline-offset-2"
+          >
+            Start fresh
+          </button>
+        </div>
+      )}
       <form
         onSubmit={(e) => void handleSubmit(onSubmit)(e)}
         className="space-y-5"
