@@ -4,6 +4,7 @@ import {
   PlusIcon,
   TrashIcon,
   ExclamationTriangleIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
@@ -13,6 +14,8 @@ import { StatusBadge } from "../components/ui/Badge";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import { Can } from "../components/ui/Can";
 import { LookupSelect } from "../components/ui/LookupSelect";
+import DataTable, { Column, SortState } from "../components/ui/DataTable";
+import { downloadCsv } from "../utils/csv";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { generateId } from "../utils/id";
 import {
@@ -23,12 +26,25 @@ import {
 } from "../hooks/usePurchasing";
 import { useSuppliers } from "../hooks/useSuppliers";
 import { useStockLocations, useInventoryItems } from "../hooks/useInventory";
+import type { PurchaseOrder } from "../types";
 
 const INPUT =
   "w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white";
 
 // Decimal fields arrive from the API as strings; coerce defensively.
 const num = (v: unknown) => Number(v ?? 0);
+
+const csvColumns = [
+  { header: "PO #", value: (po: PurchaseOrder) => po.poNumber },
+  { header: "Supplier", value: (po: PurchaseOrder) => po.supplier?.name ?? "" },
+  { header: "Status", value: (po: PurchaseOrder) => po.status },
+  {
+    header: "Ship To",
+    value: (po: PurchaseOrder) => po.shipToLocation?.code ?? "",
+  },
+  { header: "Ordered", value: (po: PurchaseOrder) => formatDate(po.orderDate) },
+  { header: "Total", value: (po: PurchaseOrder) => num(po.totalAmount) },
+];
 
 export default function PurchaseOrdersPage() {
   const navigate = useNavigate();
@@ -38,8 +54,74 @@ export default function PurchaseOrdersPage() {
   );
   const [creating, setCreating] = useState(false);
   const [reorderOpen, setReorderOpen] = useState(false);
+  const [sort, setSort] = useState<SortState | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const orders = data?.data ?? [];
+
+  const columns: Column<PurchaseOrder>[] = [
+    {
+      key: "poNumber",
+      header: "PO #",
+      sortValue: (po) => po.poNumber,
+      exportValue: (po) => po.poNumber,
+      render: (po) => (
+        <span className="font-mono text-xs text-gray-700">{po.poNumber}</span>
+      ),
+    },
+    {
+      key: "supplier",
+      header: "Supplier",
+      sortValue: (po) => po.supplier?.name.toLowerCase() ?? "",
+      exportValue: (po) => po.supplier?.name ?? "",
+      render: (po) => (
+        <span className="font-medium text-gray-900">
+          {po.supplier?.name ?? "-"}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      sortValue: (po) => po.status,
+      exportValue: (po) => po.status,
+      render: (po) => <StatusBadge status={po.status} category="poStatus" />,
+    },
+    {
+      key: "shipTo",
+      header: "Ship To",
+      sortValue: (po) => po.shipToLocation?.code.toLowerCase() ?? "",
+      exportValue: (po) => po.shipToLocation?.code ?? "",
+      render: (po) => (
+        <span className="text-gray-500 text-xs">
+          {po.shipToLocation?.code ?? "-"}
+        </span>
+      ),
+    },
+    {
+      key: "ordered",
+      header: "Ordered",
+      sortValue: (po) => new Date(po.orderDate).getTime(),
+      exportValue: (po) => formatDate(po.orderDate),
+      render: (po) => (
+        <span className="text-gray-500 text-xs">
+          {formatDate(po.orderDate)}
+        </span>
+      ),
+    },
+    {
+      key: "total",
+      header: "Total",
+      align: "right",
+      sortValue: (po) => num(po.totalAmount),
+      exportValue: (po) => num(po.totalAmount),
+      render: (po) => (
+        <span className="text-gray-700">
+          {formatCurrency(num(po.totalAmount))}
+        </span>
+      ),
+    },
+  ];
 
   if (isLoading) return <TableSkeleton rows={6} />;
 
@@ -92,48 +174,50 @@ export default function PurchaseOrdersPage() {
             description="Create a PO to order parts and equipment from a supplier."
           />
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
-                <th className="py-3 px-4 font-medium">PO #</th>
-                <th className="py-3 px-4 font-medium">Supplier</th>
-                <th className="py-3 px-4 font-medium">Status</th>
-                <th className="py-3 px-4 font-medium">Ship To</th>
-                <th className="py-3 px-4 font-medium">Ordered</th>
-                <th className="py-3 px-4 font-medium text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {orders.map((po) => (
-                <tr
-                  key={po.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => {
-                    navigate(`/purchasing/${po.id}`);
-                  }}
-                >
-                  <td className="py-3 px-4 font-mono text-xs text-gray-700">
+          <DataTable<PurchaseOrder>
+            columns={columns}
+            rows={orders}
+            getRowId={(po) => po.id}
+            onRowClick={(po) => {
+              navigate(`/purchasing/${po.id}`);
+            }}
+            sort={sort}
+            onSortChange={setSort}
+            selectable
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            csvFilename="purchase-orders"
+            renderMobileCard={(po) => (
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs text-gray-700">
                     {po.poNumber}
-                  </td>
-                  <td className="py-3 px-4 font-medium text-gray-900">
-                    {po.supplier?.name ?? "-"}
-                  </td>
-                  <td className="py-3 px-4">
-                    <StatusBadge status={po.status} category="poStatus" />
-                  </td>
-                  <td className="py-3 px-4 text-gray-500 text-xs">
-                    {po.shipToLocation?.code ?? "-"}
-                  </td>
-                  <td className="py-3 px-4 text-gray-500 text-xs">
-                    {formatDate(po.orderDate)}
-                  </td>
-                  <td className="py-3 px-4 text-right text-gray-700">
-                    {formatCurrency(num(po.totalAmount))}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </span>
+                  <StatusBadge status={po.status} category="poStatus" />
+                </div>
+                <p className="font-medium text-gray-900 mt-0.5">
+                  {po.supplier?.name ?? "-"}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {po.shipToLocation?.code ?? "-"} · {formatDate(po.orderDate)}
+                </p>
+                <p className="text-sm text-gray-900 font-medium mt-0.5">
+                  {formatCurrency(num(po.totalAmount))}
+                </p>
+              </div>
+            )}
+            bulkActions={(rows) => (
+              <button
+                onClick={() => {
+                  downloadCsv("purchase-orders-selected", rows, csvColumns);
+                }}
+                className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-800"
+              >
+                <ArrowDownTrayIcon className="h-4 w-4" />
+                Export selected
+              </button>
+            )}
+          />
         )}
       </div>
 

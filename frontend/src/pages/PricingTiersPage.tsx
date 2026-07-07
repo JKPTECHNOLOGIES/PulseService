@@ -6,6 +6,7 @@ import {
   PencilSquareIcon,
   TrashIcon,
   TagIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import Button from "../components/ui/Button";
 import IconButton from "../components/ui/IconButton";
@@ -16,6 +17,9 @@ import { LookupSelect } from "../components/ui/LookupSelect";
 import { NumberInput } from "../components/ui/NumberInput";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import { Can } from "../components/ui/Can";
+import { usePermissions } from "../hooks/usePermissions";
+import DataTable, { Column, SortState } from "../components/ui/DataTable";
+import { downloadCsv } from "../utils/csv";
 import { formatCurrency } from "../utils/formatters";
 import { usePricebookItems } from "../hooks/usePricebook";
 import {
@@ -31,14 +35,84 @@ import type { PricingTier } from "../types";
 const INPUT =
   "w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white";
 
+const discountLabel = (t: PricingTier) =>
+  t.discountValue === 0
+    ? "None"
+    : t.discountType === "percentage"
+      ? `${String(t.discountValue)}% off`
+      : `${formatCurrency(t.discountValue)} off`;
+
+const csvColumns = [
+  { header: "Name", value: (t: PricingTier) => t.name },
+  { header: "Discount", value: (t: PricingTier) => discountLabel(t) },
+  { header: "Customers", value: (t: PricingTier) => t._count?.customers ?? 0 },
+  {
+    header: "Item overrides",
+    value: (t: PricingTier) => t._count?.overrides ?? 0,
+  },
+];
+
 export default function PricingTiersPage() {
   const { data: tiers, isLoading } = usePricingTiers();
   const del = useDeletePricingTier();
+  const { can } = usePermissions();
   const [form, setForm] = useState<Partial<PricingTier> | null>(null);
   const [overridesTierId, setOverridesTierId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<PricingTier | null>(null);
+  const [bulkDeactivate, setBulkDeactivate] = useState<PricingTier[]>([]);
+  const [sort, setSort] = useState<SortState | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   if (isLoading) return <TableSkeleton rows={4} />;
+
+  const columns: Column<PricingTier>[] = [
+    {
+      key: "name",
+      header: "Name",
+      sortValue: (t) => t.name.toLowerCase(),
+      exportValue: (t) => t.name,
+      render: (t) => (
+        <div>
+          <span className="font-medium text-gray-900">{t.name}</span>
+          {t.isDefault && (
+            <span className="ml-2 text-[10px] uppercase tracking-wide bg-primary-50 text-primary-700 rounded px-1.5 py-0.5">
+              Default
+            </span>
+          )}
+          {t.description && (
+            <p className="text-xs text-gray-400 mt-0.5">{t.description}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "discount",
+      header: "Discount",
+      sortValue: (t) => t.discountValue,
+      exportValue: (t) => discountLabel(t),
+      render: (t) => <span className="text-gray-700">{discountLabel(t)}</span>,
+    },
+    {
+      key: "customers",
+      header: "Customers",
+      align: "right",
+      sortValue: (t) => t._count?.customers ?? 0,
+      exportValue: (t) => t._count?.customers ?? 0,
+      render: (t) => (
+        <span className="text-gray-600">{t._count?.customers ?? 0}</span>
+      ),
+    },
+    {
+      key: "overrides",
+      header: "Item overrides",
+      align: "right",
+      sortValue: (t) => t._count?.overrides ?? 0,
+      exportValue: (t) => t._count?.overrides ?? 0,
+      render: (t) => (
+        <span className="text-gray-600">{t._count?.overrides ?? 0}</span>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-5">
@@ -78,81 +152,100 @@ export default function PricingTiersPage() {
             description="Create a tier (e.g. Commercial Preferred) and assign it to customers from their profile."
           />
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
-                <th className="py-3 px-4 font-medium">Name</th>
-                <th className="py-3 px-4 font-medium">Discount</th>
-                <th className="py-3 px-4 font-medium text-right">Customers</th>
-                <th className="py-3 px-4 font-medium text-right">
-                  Item overrides
-                </th>
-                <th className="py-3 px-4" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {tiers.map((t) => (
-                <tr key={t.id} className="hover:bg-gray-50">
-                  <td className="py-3 px-4">
-                    <span className="font-medium text-gray-900">{t.name}</span>
+          <DataTable<PricingTier>
+            columns={columns}
+            rows={tiers}
+            getRowId={(t) => t.id}
+            sort={sort}
+            onSortChange={setSort}
+            selectable
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            csvFilename="pricing-tiers"
+            renderMobileCard={(t) => (
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-gray-900">
+                    {t.name}
                     {t.isDefault && (
                       <span className="ml-2 text-[10px] uppercase tracking-wide bg-primary-50 text-primary-700 rounded px-1.5 py-0.5">
                         Default
                       </span>
                     )}
-                    {t.description && (
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {t.description}
-                      </p>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 text-gray-700">
-                    {t.discountValue === 0
-                      ? "None"
-                      : t.discountType === "percentage"
-                        ? `${String(t.discountValue)}% off`
-                        : `${formatCurrency(t.discountValue)} off`}
-                  </td>
-                  <td className="py-3 px-4 text-right text-gray-600">
-                    {t._count?.customers ?? 0}
-                  </td>
-                  <td className="py-3 px-4 text-right text-gray-600">
-                    {t._count?.overrides ?? 0}
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex justify-end gap-1">
-                      <IconButton
-                        label="Item overrides"
-                        onClick={() => {
-                          setOverridesTierId(t.id);
-                        }}
-                      >
-                        <TagIcon className="h-4 w-4" />
-                      </IconButton>
-                      <Can permission="pricebook.manage">
-                        <IconButton
-                          label="Edit"
-                          onClick={() => {
-                            setForm(t);
-                          }}
-                        >
-                          <PencilSquareIcon className="h-4 w-4" />
-                        </IconButton>
-                        <IconButton
-                          label="Deactivate"
-                          onClick={() => {
-                            setConfirmDelete(t);
-                          }}
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </IconButton>
-                      </Can>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </span>
+                  <span className="text-sm text-gray-700">
+                    {discountLabel(t)}
+                  </span>
+                </div>
+                {t.description && (
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {t.description}
+                  </p>
+                )}
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {t._count?.customers ?? 0} customers ·{" "}
+                  {t._count?.overrides ?? 0} item overrides
+                </p>
+              </div>
+            )}
+            bulkActions={(rows) => {
+              const eligible = rows.filter((t) => !t.isDefault);
+              return (
+                <>
+                  <button
+                    onClick={() => {
+                      downloadCsv("pricing-tiers-selected", rows, csvColumns);
+                    }}
+                    className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-800"
+                  >
+                    <ArrowDownTrayIcon className="h-4 w-4" />
+                    Export selected
+                  </button>
+                  {can("pricebook.manage") && eligible.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setBulkDeactivate(eligible);
+                      }}
+                      className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-800"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                      Deactivate selected ({eligible.length})
+                    </button>
+                  )}
+                </>
+              );
+            }}
+            rowActions={(t) => (
+              <>
+                <IconButton
+                  label="Item overrides"
+                  onClick={() => {
+                    setOverridesTierId(t.id);
+                  }}
+                >
+                  <TagIcon className="h-4 w-4" />
+                </IconButton>
+                <Can permission="pricebook.manage">
+                  <IconButton
+                    label="Edit"
+                    onClick={() => {
+                      setForm(t);
+                    }}
+                  >
+                    <PencilSquareIcon className="h-4 w-4" />
+                  </IconButton>
+                  <IconButton
+                    label="Deactivate"
+                    onClick={() => {
+                      setConfirmDelete(t);
+                    }}
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </IconButton>
+                </Can>
+              </>
+            )}
+          />
         )}
       </div>
 
@@ -180,6 +273,21 @@ export default function PricingTiersPage() {
         onConfirm={() => {
           if (confirmDelete) void del.mutateAsync(confirmDelete.id);
           setConfirmDelete(null);
+        }}
+      />
+
+      <ConfirmDialog
+        isOpen={bulkDeactivate.length > 0}
+        title="Deactivate pricing tiers?"
+        message={`${String(bulkDeactivate.length)} tier${bulkDeactivate.length === 1 ? "" : "s"} will no longer be selectable for customers. Customers already on them keep their assignment.`}
+        confirmLabel="Deactivate"
+        onClose={() => {
+          setBulkDeactivate([]);
+        }}
+        onConfirm={() => {
+          for (const t of bulkDeactivate) void del.mutateAsync(t.id);
+          setBulkDeactivate([]);
+          setSelectedIds([]);
         }}
       />
     </div>

@@ -640,7 +640,7 @@ const serialsHelp: PageHelpContent = {
     {
       heading: "What's here",
       items: [
-        "Serialized units are created automatically when a serialized inventory item is received against a purchase order.",
+        "Serialized units are usually created automatically when a serialized inventory item is received against a purchase order, but you can also add one by hand from this page.",
         "Each row shows the serial number, the inventory item it belongs to, its current status, its stock location, and its warranty expiration date.",
         "Search by serial number or filter by status (e.g. in stock, reserved, installed) to find a specific unit.",
       ],
@@ -648,7 +648,9 @@ const serialsHelp: PageHelpContent = {
     {
       heading: "Managing a unit",
       items: [
-        "Use the status dropdown to change a unit's status directly from the list.",
+        'Click "New Unit" to manually add a serialized unit that wasn\'t received through a purchase order.',
+        "Click a row to edit a unit's serial number, item, stock location, or notes, or to delete it entirely.",
+        'Use the status dropdown to change a unit\'s status directly from the list. "Installed" can only be set through the Install action below, since it needs a linked customer.',
         'For units that are in stock or reserved, click "Install" to mark the unit as installed at a customer\'s location, optionally linking a service address and a warranty expiration date.',
       ],
     },
@@ -726,6 +728,8 @@ const marketingHelp: PageHelpContent = {
         "See all marketing campaigns with their type, status, budget, and dates.",
         "Click 'New Campaign' to add a campaign and give it a tracking number for attributing calls.",
         "Edit an existing campaign to update its budget, dates, or status.",
+        "Archive a campaign to hide it from the active list without deleting it -- check 'Show archived' to find it again and restore it anytime.",
+        "Deleting a campaign is permanent. Calls already logged against it are kept, just no longer linked to a campaign.",
       ],
     },
     {
@@ -734,6 +738,7 @@ const marketingHelp: PageHelpContent = {
         "Log every inbound or outbound phone call, including which customer and campaign it relates to.",
         "Record the call's direction, status, phone numbers, duration, and reason for calling.",
         "Add notes about what was discussed so any team member can follow up.",
+        "Delete a call log entry if it was logged in error. This can't be undone.",
       ],
     },
     {
@@ -741,6 +746,7 @@ const marketingHelp: PageHelpContent = {
       items: [
         "Log text messages, emails, or other written communication sent to or received from customers.",
         "Record the direction (inbound/outbound), channel, subject, and message body.",
+        "Delete a message log entry if it was logged in error. This can't be undone.",
       ],
     },
   ],

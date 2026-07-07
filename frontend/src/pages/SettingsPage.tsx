@@ -22,6 +22,7 @@ import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import { LookupSelect } from "../components/ui/LookupSelect";
 import Modal from "../components/ui/Modal";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import Pagination from "../components/ui/Pagination";
 import { PageSpinner } from "../components/ui/Spinner";
 import Switch from "../components/ui/Switch";
@@ -825,6 +826,7 @@ function RolesTab() {
   const [role, setRole] = useState("");
   const [draft, setDraft] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [pendingRole, setPendingRole] = useState<string | null>(null);
 
   // Select a default role once data loads.
   useEffect(() => {
@@ -836,6 +838,16 @@ function RolesTab() {
 
   const current = roles?.find((r) => r.role === role);
   const isSystem = current?.isSystem ?? false;
+  const isDirty =
+    !isSystem &&
+    current != null &&
+    [...draft].sort().join(",") !== [...current.permissions].sort().join(",");
+
+  const switchRole = (r: string) => {
+    setRole(r);
+    const found = roles?.find((x) => x.role === r);
+    setDraft(found ? found.permissions : []);
+  };
 
   const saveMutation = useMutation({
     mutationFn: (payload: { role: string; permissions: string[] }) =>
@@ -888,119 +900,140 @@ function RolesTab() {
   const grantedCount = isSystem ? totalCount : draft.length;
 
   return (
-    <Card
-      title="Roles & Permissions"
-      actions={
-        <Button
-          size="sm"
-          loading={saveMutation.isPending}
-          disabled={isSystem}
-          onClick={() => {
-            saveMutation.mutate({ role, permissions: draft });
-          }}
-        >
-          Save
-        </Button>
-      }
-    >
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end">
-        <div className="max-w-xs flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Role
-          </label>
-          <select
-            value={role}
-            onChange={(e) => {
-              const r = e.target.value;
-              setRole(r);
-              const found = roles?.find((x) => x.role === r);
-              setDraft(found ? found.permissions : []);
+    <>
+      <Card
+        title="Roles & Permissions"
+        actions={
+          <Button
+            size="sm"
+            loading={saveMutation.isPending}
+            disabled={isSystem}
+            onClick={() => {
+              saveMutation.mutate({ role, permissions: draft });
             }}
-            className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
-            {(roles ?? []).map((r) => (
-              <option key={r.role} value={r.role}>
-                {getRoleLabel(r.role)}
-              </option>
-            ))}
-          </select>
+            Save
+          </Button>
+        }
+      >
+        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end">
+          <div className="max-w-xs flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Role
+            </label>
+            <select
+              value={role}
+              onChange={(e) => {
+                const r = e.target.value;
+                if (r === role) return;
+                if (isDirty) {
+                  setPendingRole(r);
+                } else {
+                  switchRole(r);
+                }
+              }}
+              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              {(roles ?? []).map((r) => (
+                <option key={r.role} value={r.role}>
+                  {getRoleLabel(r.role)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Search permissions
+            </label>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Find a permission or section..."
+            />
+          </div>
+          <p className="pb-2.5 text-xs text-gray-400 whitespace-nowrap">
+            {grantedCount} of {totalCount} granted
+          </p>
         </div>
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Search permissions
-          </label>
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Find a permission or section..."
-          />
-        </div>
-        <p className="pb-2.5 text-xs text-gray-400 whitespace-nowrap">
-          {grantedCount} of {totalCount} granted
-        </p>
-      </div>
 
-      {isSystem && (
-        <p className="mb-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          The administrator role always has every permission and can&apos;t be
-          edited.
-        </p>
-      )}
+        {isSystem && (
+          <p className="mb-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            The administrator role always has every permission and can&apos;t be
+            edited.
+          </p>
+        )}
 
-      {filteredGroups.length === 0 ? (
-        <p className="py-8 text-center text-sm text-gray-400">
-          No permissions match &ldquo;{search}&rdquo;.
-        </p>
-      ) : (
-        <div className="divide-y divide-gray-100">
-          {filteredGroups.map((group) => {
-            const keys = group.permissions.map((p) => p.key);
-            const allChecked = isSystem || keys.every((k) => draft.includes(k));
-            return (
-              <div key={group.group} className="py-3.5 first:pt-0 last:pb-0">
-                <div className="flex items-center justify-between mb-1">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    {group.group}
-                  </h4>
-                  {!isSystem && keys.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setGroup(keys, !allChecked);
-                      }}
-                      className="text-xs font-medium text-primary-600 hover:text-primary-700"
-                    >
-                      {allChecked ? "Clear all" : "Select all"}
-                    </button>
-                  )}
-                </div>
-                <div className="divide-y divide-gray-50">
-                  {group.permissions.map((p) => {
-                    const checked = isSystem || draft.includes(p.key);
-                    return (
-                      <div
-                        key={p.key}
-                        className="flex items-center justify-between gap-4 py-2.5"
+        {filteredGroups.length === 0 ? (
+          <p className="py-8 text-center text-sm text-gray-400">
+            No permissions match &ldquo;{search}&rdquo;.
+          </p>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {filteredGroups.map((group) => {
+              const keys = group.permissions.map((p) => p.key);
+              const allChecked =
+                isSystem || keys.every((k) => draft.includes(k));
+              return (
+                <div key={group.group} className="py-3.5 first:pt-0 last:pb-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      {group.group}
+                    </h4>
+                    {!isSystem && keys.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGroup(keys, !allChecked);
+                        }}
+                        className="text-xs font-medium text-primary-600 hover:text-primary-700"
                       >
-                        <span className="text-sm text-gray-700">{p.label}</span>
-                        <Switch
-                          checked={checked}
-                          disabled={isSystem}
-                          label={p.label}
-                          onChange={() => {
-                            toggle(p.key);
-                          }}
-                        />
-                      </div>
-                    );
-                  })}
+                        {allChecked ? "Clear all" : "Select all"}
+                      </button>
+                    )}
+                  </div>
+                  <div className="divide-y divide-gray-50">
+                    {group.permissions.map((p) => {
+                      const checked = isSystem || draft.includes(p.key);
+                      return (
+                        <div
+                          key={p.key}
+                          className="flex items-center justify-between gap-4 py-2.5"
+                        >
+                          <span className="text-sm text-gray-700">
+                            {p.label}
+                          </span>
+                          <Switch
+                            checked={checked}
+                            disabled={isSystem}
+                            label={p.label}
+                            onChange={() => {
+                              toggle(p.key);
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </Card>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+      <ConfirmDialog
+        isOpen={pendingRole !== null}
+        onClose={() => {
+          setPendingRole(null);
+        }}
+        onConfirm={() => {
+          if (pendingRole) switchRole(pendingRole);
+          setPendingRole(null);
+        }}
+        title="Discard unsaved changes?"
+        message={`You've changed permissions for ${getRoleLabel(role)} that haven't been saved. Switching roles now will discard them.`}
+        confirmLabel="Discard & switch"
+      />
+    </>
   );
 }
 

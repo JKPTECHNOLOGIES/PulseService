@@ -1531,7 +1531,7 @@ export default function DispatchPage() {
                 </Button>
                 <Can permission="jobs.delete">
                   <Button
-                    variant="danger"
+                    variant="outline"
                     size="sm"
                     icon={<ArchiveBoxIcon className="h-4 w-4" />}
                     onClick={() => {

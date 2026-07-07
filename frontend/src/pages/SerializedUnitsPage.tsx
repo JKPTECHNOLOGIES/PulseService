@@ -3,18 +3,22 @@ import {
   PlusIcon,
   PencilSquareIcon,
   TrashIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import EmptyState from "../components/ui/EmptyState";
 import { StatusBadge } from "../components/ui/Badge";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import { LookupSelect } from "../components/ui/LookupSelect";
 import { Can } from "../components/ui/Can";
+import { usePermissions } from "../hooks/usePermissions";
 import Pagination from "../components/ui/Pagination";
 import InstallSerialModal from "../components/ui/InstallSerialModal";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import IconButton from "../components/ui/IconButton";
 import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
+import DataTable, { Column, SortState } from "../components/ui/DataTable";
+import { downloadCsv } from "../utils/csv";
 import { formatDate } from "../utils/formatters";
 import {
   useSerializedUnits,
@@ -25,6 +29,22 @@ import {
 import { useInventoryItems, useStockLocations } from "../hooks/useInventory";
 import { useLookup } from "../hooks/useMetadata";
 import type { SerializedUnit } from "../types";
+
+const csvColumns = [
+  { header: "Serial #", value: (u: SerializedUnit) => u.serialNumber },
+  { header: "Item", value: (u: SerializedUnit) => u.inventoryItem?.name ?? "" },
+  { header: "SKU", value: (u: SerializedUnit) => u.inventoryItem?.sku ?? "" },
+  { header: "Status", value: (u: SerializedUnit) => u.status },
+  {
+    header: "Location",
+    value: (u: SerializedUnit) => u.stockLocation?.code ?? "",
+  },
+  {
+    header: "Warranty expires",
+    value: (u: SerializedUnit) =>
+      u.warrantyExpiresAt ? formatDate(u.warrantyExpiresAt) : "",
+  },
+];
 
 const INPUT =
   "w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white";
@@ -43,6 +63,7 @@ export default function SerializedUnitsPage() {
   const createUnit = useCreateSerializedUnit();
   const updateUnit = useUpdateSerializedUnit();
   const deleteUnit = useDeleteSerializedUnit();
+  const { can } = usePermissions();
   const { options: statusOptions } = useLookup("serializedUnitStatus");
   const [installUnit, setInstallUnit] = useState<SerializedUnit | null>(null);
   const [formUnit, setFormUnit] = useState<Partial<SerializedUnit> | null>(
@@ -51,8 +72,132 @@ export default function SerializedUnitsPage() {
   const [confirmDelete, setConfirmDelete] = useState<SerializedUnit | null>(
     null,
   );
+  const [bulkDelete, setBulkDelete] = useState<SerializedUnit[]>([]);
+  const [sort, setSort] = useState<SortState | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const units = data?.data ?? [];
+
+  const columns: Column<SerializedUnit>[] = [
+    {
+      key: "serialNumber",
+      header: "Serial #",
+      sortValue: (u) => u.serialNumber,
+      exportValue: (u) => u.serialNumber,
+      render: (u) => (
+        <span className="font-mono text-xs text-gray-700">
+          {u.serialNumber}
+        </span>
+      ),
+    },
+    {
+      key: "item",
+      header: "Item",
+      sortValue: (u) => u.inventoryItem?.name.toLowerCase() ?? "",
+      exportValue: (u) => u.inventoryItem?.name ?? "",
+      render: (u) => (
+        <div>
+          <div className="font-medium text-gray-900">
+            {u.inventoryItem?.name ?? "-"}
+          </div>
+          <div className="font-mono text-xs text-gray-400">
+            {u.inventoryItem?.sku}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      sortValue: (u) => u.status,
+      exportValue: (u) => u.status,
+      render: (u) => (
+        <StatusBadge status={u.status} category="serializedUnitStatus" />
+      ),
+    },
+    {
+      key: "location",
+      header: "Location",
+      sortValue: (u) => u.stockLocation?.code.toLowerCase() ?? "",
+      exportValue: (u) => u.stockLocation?.code ?? "",
+      render: (u) => (
+        <span className="text-gray-500 text-xs">
+          {u.stockLocation?.code ?? "-"}
+        </span>
+      ),
+    },
+    {
+      key: "warranty",
+      header: "Warranty",
+      sortValue: (u) =>
+        u.warrantyExpiresAt ? new Date(u.warrantyExpiresAt).getTime() : 0,
+      exportValue: (u) =>
+        u.warrantyExpiresAt ? formatDate(u.warrantyExpiresAt) : "",
+      render: (u) => (
+        <span className="text-gray-500 text-xs">
+          {u.warrantyExpiresAt ? formatDate(u.warrantyExpiresAt) : "-"}
+        </span>
+      ),
+    },
+    {
+      key: "changeStatus",
+      header: "Change status",
+      render: (u) => (
+        <Can
+          permission={["inventory.manage", "inventory.issueToJob"]}
+          fallback={<span className="text-gray-300 text-xs">—</span>}
+        >
+          <div className="flex items-center gap-2">
+            {/* Changing status arbitrarily is a manage-only action;
+                issuing a unit to a job (Install) is available to
+                inventory.issueToJob too. */}
+            <Can permission="inventory.manage">
+              <select
+                value={u.status}
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+                onChange={(e) => {
+                  updateUnit.mutate({
+                    id: u.id,
+                    status: e.target.value,
+                  });
+                }}
+                className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+              >
+                {/* "Installed" is set only via the dedicated Install
+                  action below (it needs a customer/job link this
+                  dropdown can't collect) -- keep it selectable
+                  here only when it's already the unit's status,
+                  so the control still displays correctly. */}
+                {statusOptions
+                  .filter(
+                    (o) => o.value !== "installed" || u.status === "installed",
+                  )
+                  .map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+              </select>
+            </Can>
+            {(u.status === "in_stock" || u.status === "reserved") && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setInstallUnit(u);
+                }}
+              >
+                Install
+              </Button>
+            )}
+          </div>
+        </Can>
+      ),
+    },
+  ];
 
   if (isLoading) return <TableSkeleton rows={8} />;
 
@@ -103,133 +248,94 @@ export default function SerializedUnitsPage() {
             description="Serialized units are created when serialized items are received against a PO, or you can add one manually."
           />
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
-                <th className="py-3 px-4 font-medium">Serial #</th>
-                <th className="py-3 px-4 font-medium">Item</th>
-                <th className="py-3 px-4 font-medium">Status</th>
-                <th className="py-3 px-4 font-medium">Location</th>
-                <th className="py-3 px-4 font-medium">Warranty</th>
-                <th className="py-3 px-4 font-medium">Change status</th>
-                <th className="py-3 px-4 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {units.map((u: SerializedUnit) => (
-                <tr key={u.id}>
-                  <td className="py-3 px-4 font-mono text-xs text-gray-700">
+          <DataTable<SerializedUnit>
+            columns={columns}
+            rows={units}
+            getRowId={(u) => u.id}
+            sort={sort}
+            onSortChange={setSort}
+            selectable
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            csvFilename="serialized-units"
+            renderMobileCard={(u) => (
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs text-gray-700">
                     {u.serialNumber}
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="font-medium text-gray-900">
-                      {u.inventoryItem?.name ?? "-"}
-                    </div>
-                    <div className="font-mono text-xs text-gray-400">
-                      {u.inventoryItem?.sku}
-                    </div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <StatusBadge
-                      status={u.status}
-                      category="serializedUnitStatus"
-                    />
-                  </td>
-                  <td className="py-3 px-4 text-gray-500 text-xs">
-                    {u.stockLocation?.code ?? "-"}
-                  </td>
-                  <td className="py-3 px-4 text-gray-500 text-xs">
-                    {u.warrantyExpiresAt
-                      ? formatDate(u.warrantyExpiresAt)
-                      : "-"}
-                  </td>
-                  <td className="py-3 px-4">
-                    <Can
-                      permission={["inventory.manage", "inventory.issueToJob"]}
-                      fallback={
-                        <span className="text-gray-300 text-xs">—</span>
-                      }
+                  </span>
+                  <StatusBadge
+                    status={u.status}
+                    category="serializedUnitStatus"
+                  />
+                </div>
+                <p className="font-medium text-gray-900 mt-0.5">
+                  {u.inventoryItem?.name ?? "-"}
+                </p>
+                <p className="font-mono text-xs text-gray-400">
+                  {u.inventoryItem?.sku}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {u.stockLocation?.code ?? "-"}
+                  {u.warrantyExpiresAt
+                    ? ` \u00b7 warranty to ${formatDate(u.warrantyExpiresAt)}`
+                    : ""}
+                </p>
+              </div>
+            )}
+            bulkActions={(rows) => {
+              const eligible = rows.filter((u) => u.status !== "installed");
+              return (
+                <>
+                  <button
+                    onClick={() => {
+                      downloadCsv(
+                        "serialized-units-selected",
+                        rows,
+                        csvColumns,
+                      );
+                    }}
+                    className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-800"
+                  >
+                    <ArrowDownTrayIcon className="h-4 w-4" />
+                    Export selected
+                  </button>
+                  {can("inventory.manage") && eligible.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setBulkDelete(eligible);
+                      }}
+                      className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-800"
                     >
-                      <div className="flex items-center gap-2">
-                        {/* Changing status arbitrarily is a manage-only action;
-                            issuing a unit to a job (Install) is available to
-                            inventory.issueToJob too. */}
-                        <Can permission="inventory.manage">
-                          <select
-                            value={u.status}
-                            onChange={(e) => {
-                              updateUnit.mutate({
-                                id: u.id,
-                                status: e.target.value,
-                              });
-                            }}
-                            className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
-                          >
-                            {/* "Installed" is set only via the dedicated Install
-                              action below (it needs a customer/job link this
-                              dropdown can't collect) -- keep it selectable
-                              here only when it's already the unit's status,
-                              so the control still displays correctly. */}
-                            {statusOptions
-                              .filter(
-                                (o) =>
-                                  o.value !== "installed" ||
-                                  u.status === "installed",
-                              )
-                              .map((o) => (
-                                <option key={o.value} value={o.value}>
-                                  {o.label}
-                                </option>
-                              ))}
-                          </select>
-                        </Can>
-                        {(u.status === "in_stock" ||
-                          u.status === "reserved") && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setInstallUnit(u);
-                            }}
-                          >
-                            Install
-                          </Button>
-                        )}
-                      </div>
-                    </Can>
-                  </td>
-                  <td className="py-3 px-4">
-                    <Can
-                      permission="inventory.manage"
-                      fallback={
-                        <span className="text-gray-300 text-xs">—</span>
-                      }
-                    >
-                      <div className="flex items-center gap-1">
-                        <IconButton
-                          label="Edit"
-                          onClick={() => {
-                            setFormUnit(u);
-                          }}
-                        >
-                          <PencilSquareIcon className="h-4 w-4" />
-                        </IconButton>
-                        <IconButton
-                          label="Delete"
-                          variant="danger"
-                          onClick={() => {
-                            setConfirmDelete(u);
-                          }}
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </IconButton>
-                      </div>
-                    </Can>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      <TrashIcon className="h-4 w-4" />
+                      Delete selected ({eligible.length})
+                    </button>
+                  )}
+                </>
+              );
+            }}
+            rowActions={(u) => (
+              <Can permission="inventory.manage">
+                <IconButton
+                  label="Edit"
+                  onClick={() => {
+                    setFormUnit(u);
+                  }}
+                >
+                  <PencilSquareIcon className="h-4 w-4" />
+                </IconButton>
+                <IconButton
+                  label="Delete"
+                  variant="danger"
+                  onClick={() => {
+                    setConfirmDelete(u);
+                  }}
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </IconButton>
+              </Can>
+            )}
+          />
         )}
       </div>
 
@@ -289,6 +395,22 @@ export default function SerializedUnitsPage() {
               setConfirmDelete(null);
             });
           }
+        }}
+      />
+
+      <ConfirmDialog
+        isOpen={bulkDelete.length > 0}
+        title="Delete serialized units?"
+        message={`${String(bulkDelete.length)} unit${bulkDelete.length === 1 ? "" : "s"} will be permanently removed. This can't be undone.`}
+        confirmLabel="Delete"
+        loading={deleteUnit.isPending}
+        onClose={() => {
+          setBulkDelete([]);
+        }}
+        onConfirm={() => {
+          for (const u of bulkDelete) void deleteUnit.mutateAsync(u.id);
+          setBulkDelete([]);
+          setSelectedIds([]);
         }}
       />
     </div>

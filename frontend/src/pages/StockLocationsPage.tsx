@@ -5,6 +5,7 @@ import {
   PencilSquareIcon,
   TrashIcon,
   ArrowLeftIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import Button from "../components/ui/Button";
 import IconButton from "../components/ui/IconButton";
@@ -14,6 +15,9 @@ import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { StatusBadge } from "../components/ui/Badge";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import { Can } from "../components/ui/Can";
+import { usePermissions } from "../hooks/usePermissions";
+import DataTable, { Column, SortState } from "../components/ui/DataTable";
+import { downloadCsv } from "../utils/csv";
 import {
   useStockLocations,
   useSaveStockLocation,
@@ -25,13 +29,114 @@ import type { StockLocation } from "../types";
 const INPUT =
   "w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white";
 
+const csvColumns = [
+  { header: "Name", value: (l: StockLocation) => l.name },
+  { header: "Code", value: (l: StockLocation) => l.code },
+  { header: "Type", value: (l: StockLocation) => l.type },
+  {
+    header: "Vehicle",
+    value: (l: StockLocation) => l.vehicle?.name ?? "",
+  },
+  {
+    header: "Stocked items",
+    value: (l: StockLocation) => l._count?.stock ?? 0,
+  },
+  {
+    header: "Status",
+    value: (l: StockLocation) => (l.isActive ? "Active" : "Inactive"),
+  },
+];
+
 export default function StockLocationsPage() {
   const { data: locations, isLoading } = useStockLocations();
   const del = useDeleteStockLocation();
+  const { can } = usePermissions();
   const [form, setForm] = useState<Partial<StockLocation> | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<StockLocation | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<StockLocation | null>(
+    null,
+  );
+  const [bulkDeactivate, setBulkDeactivate] = useState<StockLocation[]>([]);
+  const [sort, setSort] = useState<SortState | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   if (isLoading) return <TableSkeleton rows={5} />;
+
+  const columns: Column<StockLocation>[] = [
+    {
+      key: "name",
+      header: "Name",
+      sortValue: (l) => l.name.toLowerCase(),
+      exportValue: (l) => l.name,
+      render: (l) => (
+        <span className="font-medium text-gray-900">
+          {l.name}
+          {l.isDefault && (
+            <span className="ml-2 text-[10px] uppercase tracking-wide bg-primary-50 text-primary-700 rounded px-1.5 py-0.5">
+              Default
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: "code",
+      header: "Code",
+      sortValue: (l) => l.code,
+      exportValue: (l) => l.code,
+      render: (l) => (
+        <span className="font-mono text-xs text-gray-600">{l.code}</span>
+      ),
+    },
+    {
+      key: "type",
+      header: "Type",
+      sortValue: (l) => l.type,
+      exportValue: (l) => l.type,
+      render: (l) => (
+        <StatusBadge status={l.type} category="stockLocationType" />
+      ),
+    },
+    {
+      key: "vehicle",
+      header: "Vehicle",
+      sortValue: (l) => l.vehicle?.name.toLowerCase() ?? "",
+      exportValue: (l) => l.vehicle?.name ?? "",
+      render: (l) => (
+        <span className="text-gray-500 text-xs">
+          {l.vehicle
+            ? `${l.vehicle.name}${l.vehicle.licensePlate ? ` (${l.vehicle.licensePlate})` : ""}`
+            : "-"}
+        </span>
+      ),
+    },
+    {
+      key: "stocked",
+      header: "Stocked items",
+      align: "right",
+      sortValue: (l) => l._count?.stock ?? 0,
+      exportValue: (l) => l._count?.stock ?? 0,
+      render: (l) => (
+        <span className="text-gray-600">{l._count?.stock ?? 0}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      sortValue: (l) => (l.isActive ? 1 : 0),
+      exportValue: (l) => (l.isActive ? "Active" : "Inactive"),
+      render: (l) => (
+        <span
+          className={
+            l.isActive
+              ? "text-green-700 text-xs font-medium"
+              : "text-gray-400 text-xs"
+          }
+        >
+          {l.isActive ? "Active" : "Inactive"}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-5">
@@ -70,82 +175,100 @@ export default function StockLocationsPage() {
             description="Create the main warehouse and one location per truck."
           />
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
-                <th className="py-3 px-4 font-medium">Name</th>
-                <th className="py-3 px-4 font-medium">Code</th>
-                <th className="py-3 px-4 font-medium">Type</th>
-                <th className="py-3 px-4 font-medium">Vehicle</th>
-                <th className="py-3 px-4 font-medium text-right">Stocked items</th>
-                <th className="py-3 px-4 font-medium">Status</th>
-                <th className="py-3 px-4" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {locations.map((loc) => (
-                <tr key={loc.id} className="hover:bg-gray-50">
-                  <td className="py-3 px-4 font-medium text-gray-900">
-                    {loc.name}
-                    {loc.isDefault && (
+          <DataTable<StockLocation>
+            columns={columns}
+            rows={locations}
+            getRowId={(l) => l.id}
+            sort={sort}
+            onSortChange={setSort}
+            selectable
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            csvFilename="stock-locations"
+            renderMobileCard={(l) => (
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-gray-900">
+                    {l.name}
+                    {l.isDefault && (
                       <span className="ml-2 text-[10px] uppercase tracking-wide bg-primary-50 text-primary-700 rounded px-1.5 py-0.5">
                         Default
                       </span>
                     )}
-                  </td>
-                  <td className="py-3 px-4 font-mono text-xs text-gray-600">
-                    {loc.code}
-                  </td>
-                  <td className="py-3 px-4">
-                    <StatusBadge status={loc.type} category="stockLocationType" />
-                  </td>
-                  <td className="py-3 px-4 text-gray-500 text-xs">
-                    {loc.vehicle
-                      ? `${loc.vehicle.name}${loc.vehicle.licensePlate ? ` (${loc.vehicle.licensePlate})` : ""}`
-                      : "-"}
-                  </td>
-                  <td className="py-3 px-4 text-right text-gray-600">
-                    {loc._count?.stock ?? 0}
-                  </td>
-                  <td className="py-3 px-4">
-                    <span
-                      className={
-                        loc.isActive
-                          ? "text-green-700 text-xs font-medium"
-                          : "text-gray-400 text-xs"
-                      }
+                  </span>
+                  <StatusBadge status={l.type} category="stockLocationType" />
+                </div>
+                <p className="font-mono text-xs text-gray-500 mt-0.5">
+                  {l.code}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {l.vehicle
+                    ? `${l.vehicle.name}${l.vehicle.licensePlate ? ` (${l.vehicle.licensePlate})` : ""}`
+                    : "-"}
+                  {" \u00b7 "}
+                  {l._count?.stock ?? 0} stocked items
+                </p>
+                <span
+                  className={
+                    l.isActive
+                      ? "text-green-700 text-xs font-medium"
+                      : "text-gray-400 text-xs"
+                  }
+                >
+                  {l.isActive ? "Active" : "Inactive"}
+                </span>
+              </div>
+            )}
+            bulkActions={(rows) => {
+              const eligible = rows.filter((l) => !l.isDefault && l.isActive);
+              return (
+                <>
+                  <button
+                    onClick={() => {
+                      downloadCsv("stock-locations-selected", rows, csvColumns);
+                    }}
+                    className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-800"
+                  >
+                    <ArrowDownTrayIcon className="h-4 w-4" />
+                    Export selected
+                  </button>
+                  {can("inventory.manage") && eligible.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setBulkDeactivate(eligible);
+                      }}
+                      className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-800"
                     >
-                      {loc.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <Can permission="inventory.manage">
-                      <div className="flex justify-end gap-1">
-                        <IconButton
-                          label="Edit"
-                          onClick={() => {
-                            setForm(loc);
-                          }}
-                        >
-                          <PencilSquareIcon className="h-4 w-4" />
-                        </IconButton>
-                        {!loc.isDefault && loc.isActive && (
-                          <IconButton
-                            label="Deactivate"
-                            onClick={() => {
-                              setConfirmDelete(loc);
-                            }}
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </IconButton>
-                        )}
-                      </div>
-                    </Can>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      <TrashIcon className="h-4 w-4" />
+                      Deactivate selected ({eligible.length})
+                    </button>
+                  )}
+                </>
+              );
+            }}
+            rowActions={(loc) => (
+              <Can permission="inventory.manage">
+                <IconButton
+                  label="Edit"
+                  onClick={() => {
+                    setForm(loc);
+                  }}
+                >
+                  <PencilSquareIcon className="h-4 w-4" />
+                </IconButton>
+                {!loc.isDefault && loc.isActive && (
+                  <IconButton
+                    label="Deactivate"
+                    onClick={() => {
+                      setConfirmDelete(loc);
+                    }}
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </IconButton>
+                )}
+              </Can>
+            )}
+          />
         )}
       </div>
 
@@ -167,6 +290,21 @@ export default function StockLocationsPage() {
         onConfirm={() => {
           if (confirmDelete) void del.mutateAsync(confirmDelete.id);
           setConfirmDelete(null);
+        }}
+      />
+
+      <ConfirmDialog
+        isOpen={bulkDeactivate.length > 0}
+        title="Deactivate locations?"
+        message={`${String(bulkDeactivate.length)} location${bulkDeactivate.length === 1 ? "" : "s"} will no longer be selectable for receiving or transfers. Stock history is kept.`}
+        confirmLabel="Deactivate"
+        onClose={() => {
+          setBulkDeactivate([]);
+        }}
+        onConfirm={() => {
+          for (const loc of bulkDeactivate) void del.mutateAsync(loc.id);
+          setBulkDeactivate([]);
+          setSelectedIds([]);
         }}
       />
     </div>
