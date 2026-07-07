@@ -61,15 +61,21 @@ export default function Header() {
   const { hasSeen, markSeen } = usePageHelpSeen();
   const [helpOpen, setHelpOpen] = useState(false);
 
+  // Tech-primary screens (the My Day agenda and any job screen) are where a
+  // technician is actively working, so we never auto-pop a dimming modal over
+  // them; the "?" button below still offers the guide on demand.
+  const isTechPrimaryScreen =
+    location.pathname === "/my-day" || location.pathname.startsWith("/jobs/");
+
   // Auto-open the help modal the first time this browser ever visits a page
   // that has help content, then remember not to do it again.
   useEffect(() => {
-    if (!helpContent) return;
+    if (!helpContent || isTechPrimaryScreen) return;
     if (!hasSeen(helpContent.key)) {
       setHelpOpen(true);
       markSeen(helpContent.key);
     }
-  }, [helpContent, hasSeen, markSeen]);
+  }, [helpContent, hasSeen, markSeen, isTechPrimaryScreen]);
 
   const title = getTitle(location.pathname);
   const initials = user

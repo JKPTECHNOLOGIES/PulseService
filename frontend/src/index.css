@@ -52,16 +52,18 @@
         /* Kill the grey tap flash on touch devices for a more native feel. */
         -webkit-tap-highlight-color: transparent;
     }
+}
 
-    /* iOS zooms the viewport when focusing a form control whose font-size is
-       under 16px. Bump controls to 16px on small screens only, so the desktop
-       (text-sm) sizing is preserved. */
-    @media (max-width: 640px) {
-        input,
-        select,
-        textarea {
-            font-size: 16px;
-        }
+/* iOS zooms the viewport when focusing a form control whose font-size is under
+   16px. Bump controls to 16px on small screens only. This lives OUTSIDE any
+   @layer on purpose: unlayered styles beat layered ones, so it overrides the
+   font-size baked into Tailwind's text-sm/text-xs utilities (which sit in the
+   utilities layer) instead of losing the cascade to them. */
+@media (max-width: 640px) {
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea {
+        font-size: 16px;
     }
 }
 

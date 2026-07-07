@@ -6,7 +6,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      // "prompt" (not "autoUpdate"): main.tsx registers the SW with an
+      // onNeedRefresh toast so a new deploy waits for the user to hit "Reload"
+      // instead of reloading mid-task (which could drop an in-progress entry).
+      registerType: "prompt",
       // We register the service worker ourselves (see main.tsx) so we can
       // prompt the user to reload when a new version is available, instead
       // of silently leaving an old cached bundle running until they happen
