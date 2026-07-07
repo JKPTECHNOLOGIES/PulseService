@@ -295,7 +295,14 @@ export default function JobsPage() {
                     <span className="font-semibold text-primary-600">
                       #{j.jobNumber}
                     </span>
-                    <StatusBadge status={j.status} type="job" />
+                    <span className="inline-flex items-center gap-1.5">
+                      <StatusBadge status={j.status} type="job" />
+                      {j.isArchived && (
+                        <Badge className="bg-gray-100 text-gray-500">
+                          Archived
+                        </Badge>
+                      )}
+                    </span>
                   </div>
                   <p className="text-sm text-gray-700 mt-0.5">{j.summary}</p>
                   <div className="mt-1.5 text-sm text-gray-600 space-y-0.5">

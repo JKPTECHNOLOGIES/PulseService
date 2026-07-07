@@ -291,74 +291,123 @@ export default function InvoiceDetailPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h3 className="font-semibold text-gray-900 mb-4">Payment History</h3>
         {invoice.payments && invoice.payments.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left py-2 font-medium text-gray-500 text-xs">
-                  DATE
-                </th>
-                <th className="text-left py-2 font-medium text-gray-500 text-xs">
-                  METHOD
-                </th>
-                <th className="text-left py-2 font-medium text-gray-500 text-xs">
-                  REFERENCE
-                </th>
-                <th className="text-left py-2 font-medium text-gray-500 text-xs">
-                  STATUS
-                </th>
-                <th className="text-right py-2 font-medium text-gray-500 text-xs">
-                  AMOUNT
-                </th>
-                {can("invoices.void") && <th className="py-2" />}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
+          <>
+            {/* Cards on narrow screens -- a 6-column table doesn't fit a phone. */}
+            <div className="sm:hidden space-y-3">
               {invoice.payments.map((p) => (
-                <tr key={p.id}>
-                  <td className="py-2.5 text-gray-700">
-                    {formatDateTime(p.paidAt)}
-                  </td>
-                  <td className="py-2.5 text-gray-700">
-                    {getPaymentMethodLabel(p.method)}
-                  </td>
-                  <td className="py-2.5 text-gray-500">
-                    {p.referenceNumber ?? "-"}
-                  </td>
-                  <td className="py-2.5">
+                <div
+                  key={p.id}
+                  className="border border-gray-100 rounded-lg p-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-gray-700">
+                      {formatDateTime(p.paidAt)}
+                    </span>
                     <StatusBadge status={p.status} category="paymentStatus" />
-                  </td>
-                  <td
-                    className={clsx(
-                      "py-2.5 text-right font-medium",
-                      p.status === "refunded"
-                        ? "text-gray-400 line-through"
-                        : "text-green-600",
+                  </div>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <span className="text-xs text-gray-500">
+                      {getPaymentMethodLabel(p.method)}
+                      {p.referenceNumber ? ` · ${p.referenceNumber}` : ""}
+                    </span>
+                    <span
+                      className={clsx(
+                        "text-sm font-medium",
+                        p.status === "refunded"
+                          ? "text-gray-400 line-through"
+                          : "text-green-600",
+                      )}
+                    >
+                      {formatCurrency(p.amount)}
+                    </span>
+                  </div>
+                  {can("invoices.void") &&
+                    p.status === "completed" &&
+                    invoice.status !== "void" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReverseConfirm(p.id);
+                        }}
+                        className="mt-2 inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-600"
+                      >
+                        <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
+                        Reverse payment
+                      </button>
                     )}
-                  >
-                    {formatCurrency(p.amount)}
-                  </td>
-                  {can("invoices.void") && (
-                    <td className="py-2.5 text-right">
-                      {p.status === "completed" &&
-                        invoice.status !== "void" && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReverseConfirm(p.id);
-                            }}
-                            className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-600"
-                            title="Reverse this payment"
-                          >
-                            <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
-                            Reverse
-                          </button>
-                        )}
-                    </td>
-                  )}
-                </tr>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            <table className="hidden sm:table w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-2 font-medium text-gray-500 text-xs">
+                    DATE
+                  </th>
+                  <th className="text-left py-2 font-medium text-gray-500 text-xs">
+                    METHOD
+                  </th>
+                  <th className="text-left py-2 font-medium text-gray-500 text-xs">
+                    REFERENCE
+                  </th>
+                  <th className="text-left py-2 font-medium text-gray-500 text-xs">
+                    STATUS
+                  </th>
+                  <th className="text-right py-2 font-medium text-gray-500 text-xs">
+                    AMOUNT
+                  </th>
+                  {can("invoices.void") && <th className="py-2" />}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {invoice.payments.map((p) => (
+                  <tr key={p.id}>
+                    <td className="py-2.5 text-gray-700">
+                      {formatDateTime(p.paidAt)}
+                    </td>
+                    <td className="py-2.5 text-gray-700">
+                      {getPaymentMethodLabel(p.method)}
+                    </td>
+                    <td className="py-2.5 text-gray-500">
+                      {p.referenceNumber ?? "-"}
+                    </td>
+                    <td className="py-2.5">
+                      <StatusBadge status={p.status} category="paymentStatus" />
+                    </td>
+                    <td
+                      className={clsx(
+                        "py-2.5 text-right font-medium",
+                        p.status === "refunded"
+                          ? "text-gray-400 line-through"
+                          : "text-green-600",
+                      )}
+                    >
+                      {formatCurrency(p.amount)}
+                    </td>
+                    {can("invoices.void") && (
+                      <td className="py-2.5 text-right">
+                        {p.status === "completed" &&
+                          invoice.status !== "void" && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReverseConfirm(p.id);
+                              }}
+                              className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-600"
+                              title="Reverse this payment"
+                            >
+                              <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
+                              Reverse
+                            </button>
+                          )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         ) : (
           <p className="text-sm text-gray-400">No payments recorded</p>
         )}

@@ -197,7 +197,7 @@ export default function JobDetailPage() {
             </div>
             <p className="text-gray-600 mt-1">{job.summary}</p>
           </div>
-          <div className="grid grid-cols-2 gap-2 shrink-0 sm:flex sm:flex-wrap">
+          <div className="flex flex-col gap-2 shrink-0 sm:flex-row sm:flex-wrap">
             <Button
               variant="outline"
               size="sm"

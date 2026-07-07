@@ -11,6 +11,10 @@ interface SwitchProps {
  * A compact iOS-style toggle. Used in place of checkbox tiles wherever a list
  * of on/off settings would otherwise turn into a wall of bordered boxes (e.g.
  * the permission matrix).
+ *
+ * The visual track is small by design, so the actual button is padded out to
+ * a comfortable ~44px touch target on touch devices (tightened on pointer
+ * devices), matching the convention used by IconButton.
  */
 export default function Switch({
   checked,
@@ -27,17 +31,25 @@ export default function Switch({
       disabled={disabled}
       onClick={onChange}
       className={clsx(
-        "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1",
-        checked ? "bg-primary-600" : "bg-gray-200",
+        "inline-flex shrink-0 items-center justify-center rounded-full transition-colors",
+        "min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0",
+        "focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1",
         disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
       )}
     >
       <span
         className={clsx(
-          "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
-          checked ? "translate-x-6" : "translate-x-1",
+          "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+          checked ? "bg-primary-600" : "bg-gray-200",
         )}
-      />
+      >
+        <span
+          className={clsx(
+            "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
+            checked ? "translate-x-6" : "translate-x-1",
+          )}
+        />
+      </span>
     </button>
   );
 }
