@@ -111,6 +111,7 @@ const create = async (req, res) => {
       discountType,
       discountValue = 0,
       taxRate = 0,
+      validUntil,
       ...estimateData
     } = req.body;
     const totals = calculateTotals(
@@ -123,6 +124,9 @@ const create = async (req, res) => {
     const estimate = await prisma.estimate.create({
       data: {
         ...estimateData,
+        // `validUntil` arrives as a date-only string (YYYY-MM-DD) from the
+        // <input type="date">; Prisma's DateTime needs a full instant.
+        validUntil: validUntil ? new Date(validUntil) : null,
         estimateNumber,
         createdById: req.user.id,
         discountType,
@@ -161,6 +165,7 @@ const update = async (req, res) => {
       discountType,
       discountValue = 0,
       taxRate = 0,
+      validUntil,
       id: _id,
       estimateNumber: _en,
       createdAt: _ca,
@@ -174,6 +179,9 @@ const update = async (req, res) => {
       discountValue,
       taxRate,
     };
+    if (validUntil !== undefined) {
+      updateData.validUntil = validUntil ? new Date(validUntil) : null;
+    }
 
     if (lineItems) {
       const totals = calculateTotals(

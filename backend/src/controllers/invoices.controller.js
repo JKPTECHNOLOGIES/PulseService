@@ -145,6 +145,7 @@ const create = async (req, res) => {
       discountType,
       discountValue = 0,
       taxRate = 0,
+      dueDate,
       ...invoiceData
     } = req.body;
     const totals = calculateTotals(
@@ -157,6 +158,8 @@ const create = async (req, res) => {
     const invoice = await prisma.invoice.create({
       data: {
         ...invoiceData,
+        // Date-only string from <input type="date"> -> full DateTime for Prisma.
+        dueDate: dueDate ? new Date(dueDate) : null,
         invoiceNumber,
         createdById: req.user.id,
         discountType,
@@ -197,6 +200,7 @@ const update = async (req, res) => {
       discountType,
       discountValue = 0,
       taxRate = 0,
+      dueDate,
       id: _id,
       invoiceNumber: _in,
       createdAt: _ca,
@@ -223,6 +227,9 @@ const update = async (req, res) => {
     }
 
     const updateData = { ...invoiceData, discountType, discountValue, taxRate };
+    if (dueDate !== undefined) {
+      updateData.dueDate = dueDate ? new Date(dueDate) : null;
+    }
 
     if (lineItems) {
       const totals = calculateTotals(
