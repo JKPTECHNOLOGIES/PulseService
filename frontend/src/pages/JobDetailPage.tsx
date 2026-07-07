@@ -205,17 +205,19 @@ export default function JobDetailPage() {
             <p className="text-gray-600 mt-1">{job.summary}</p>
           </div>
           <div className="flex flex-col gap-2 shrink-0 sm:flex-row sm:flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full sm:w-auto"
-              onClick={() => {
-                setNewStatus(job.status);
-                setStatusModal(true);
-              }}
-            >
-              Update Status
-            </Button>
+            <Can permission="jobs.status">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  setNewStatus(job.status);
+                  setStatusModal(true);
+                }}
+              >
+                Update Status
+              </Button>
+            </Can>
             <Can permission="jobs.edit">
               <Button
                 variant="secondary"
@@ -421,15 +423,17 @@ export default function JobDetailPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-900">Technicians</h3>
-              <button
-                onClick={() => {
-                  setAssignModal(true);
-                }}
-                className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
-              >
-                <UserPlusIcon className="h-3.5 w-3.5" />
-                Assign
-              </button>
+              <Can permission="jobs.assign">
+                <button
+                  onClick={() => {
+                    setAssignModal(true);
+                  }}
+                  className="inline-flex items-center gap-1 min-h-[44px] sm:min-h-0 px-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  <UserPlusIcon className="h-3.5 w-3.5" />
+                  Assign
+                </button>
+              </Can>
             </div>
             {job.technicians && job.technicians.length > 0 ? (
               <div className="space-y-3">
@@ -930,21 +934,39 @@ function AddPartModal({
   const filteredItems = term
     ? (items ?? []).filter(
         (i) =>
+          // Keep the currently-selected part visible even if it no longer
+          // matches the search, so the <select> value never goes blank.
+          i.id === inventoryItemId ||
           i.name.toLowerCase().includes(term) ||
           i.sku.toLowerCase().includes(term),
       )
     : (items ?? []);
 
-  // Scanned barcode -> match a part by SKU and select it.
+  // Scanned barcode -> find the part. A physical barcode is usually a vendor/
+  // manufacturer code, not our internal SKU, so match progressively: internal
+  // SKU, then any supplier SKU, then a loose substring across SKU + name.
   const handleScan = (code: string) => {
     setScannerOpen(false);
     const scanned = code.trim().toLowerCase();
-    const match = (items ?? []).find((i) => i.sku.toLowerCase() === scanned);
+    if (!scanned) return;
+    const all = items ?? [];
+    const match =
+      all.find((i) => i.sku.toLowerCase() === scanned) ??
+      all.find((i) =>
+        (i.suppliers ?? []).some(
+          (s) => s.supplierSku?.toLowerCase() === scanned,
+        ),
+      ) ??
+      all.find(
+        (i) =>
+          i.sku.toLowerCase().includes(scanned) ||
+          i.name.toLowerCase().includes(scanned),
+      );
     if (match) {
       setItemId(match.id);
       setPartSearch("");
     } else {
-      toast.error(`No part with SKU \u201C${code}\u201D`);
+      toast.error(`No part matching \u201C${code}\u201D`);
     }
   };
   const available = num(
@@ -1044,19 +1066,28 @@ function AddPartModal({
             loading={issue.isPending}
             disabled={!inventoryItemId || !stockLocationId || !(quantity > 0)}
             onClick={() => {
-              void issue
-                .mutateAsync({
-                  jobId,
-                  inventoryItemId,
-                  stockLocationId,
-                  quantity,
-                })
-                .then(() => {
-                  setItemId("");
-                  setLocationId("");
-                  setQuantity(1);
-                  onClose();
-                });
+              const vars = {
+                jobId,
+                inventoryItemId,
+                stockLocationId,
+                quantity,
+              };
+              const reset = () => {
+                setItemId("");
+                setLocationId("");
+                setQuantity(1);
+                onClose();
+              };
+              // Offline the mutation is paused, so its promise never resolves --
+              // queue it (replays via the keyed offline default) and close now
+              // instead of leaving the sheet spinning.
+              if (!navigator.onLine) {
+                issue.mutate(vars);
+                toast.success("Saved — will sync when back online");
+                reset();
+                return;
+              }
+              void issue.mutateAsync(vars).then(reset);
             }}
           >
             Issue part

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
+import { OFFLINE_MK } from "../lib/offlineMutations";
 import type { ApiResponse, Job, PaginatedResponse } from "../types";
 import toast from "react-hot-toast";
 
@@ -79,6 +80,9 @@ export function useUpdateJob() {
 export function useUpdateJobStatus() {
   const qc = useQueryClient();
   return useMutation({
+    // Keyed to the offline default so a status change made with no signal
+    // replays after an app reload (see lib/offlineMutations.ts).
+    mutationKey: OFFLINE_MK.updateJobStatus,
     mutationFn: ({
       id,
       status,

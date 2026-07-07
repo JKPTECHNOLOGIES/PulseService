@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
+import { OFFLINE_MK } from "../lib/offlineMutations";
 import type {
   ApiResponse,
   InventoryItem,
@@ -245,6 +246,9 @@ export function useJobParts(jobId: string) {
 export function useIssueToJob() {
   const qc = useQueryClient();
   return useMutation({
+    // Keyed to the offline default so a part logged with no signal replays
+    // after an app reload (see lib/offlineMutations.ts).
+    mutationKey: OFFLINE_MK.issueToJob,
     mutationFn: (payload: {
       jobId: string;
       inventoryItemId: string;
