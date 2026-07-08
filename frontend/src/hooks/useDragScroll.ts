@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 
 /**
  * Grab-to-pan for a scrollable element (a "hand tool"): click and drag empty
@@ -6,12 +6,17 @@ import { useEffect, useRef } from "react";
  * interactive or draggable children are ignored so it never fights buttons,
  * inputs, links, or drag-and-drop cards (dnd-kit marks draggables role="button").
  * Mouse-only; touch devices already pan natively.
+ *
+ * Returns a callback ref so listeners attach whenever the node actually mounts
+ * (the dispatch board renders after a loading spinner and remounts on view
+ * switches, so a mount-time effect would miss it).
  */
-export function useDragScroll<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
+export function useDragScroll() {
+  const cleanup = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    const el = ref.current;
+  return useCallback((el: HTMLElement | null) => {
+    cleanup.current?.();
+    cleanup.current = null;
     if (!el) return;
 
     let panning = false;
@@ -51,12 +56,10 @@ export function useDragScroll<T extends HTMLElement>() {
     el.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-    return () => {
+    cleanup.current = () => {
       el.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
   }, []);
-
-  return ref;
 }

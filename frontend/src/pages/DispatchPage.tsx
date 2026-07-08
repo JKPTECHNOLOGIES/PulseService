@@ -873,7 +873,7 @@ export default function DispatchPage() {
   );
 
   // Grab-to-pan the day timeline (drag empty space to scroll the hours).
-  const boardRef = useDragScroll<HTMLDivElement>();
+  const boardRef = useDragScroll();
 
   const board = boardData;
   const allTechs = techsData?.data ?? [];
