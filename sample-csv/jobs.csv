@@ -1,0 +1,4 @@
+Job,Customer,Type,Status,Priority,Scheduled,Technicians,Amount
+JOB-1001,Susan Thompson,Repair,In Progress,Urgent,"Jul 8, 2026 9:00 AM",Mike Rivera,0
+JOB-1004,Susan Thompson,Installation,Scheduled,Normal,"Jul 8, 2026 4:00 AM",Mike Rivera,0
+JOB-1009,New Guy,Inspection,New,Normal,"Jul 8, 2026 1:45 AM",Lisa Chen,0

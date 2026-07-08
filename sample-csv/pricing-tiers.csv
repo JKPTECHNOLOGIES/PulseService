@@ -1,0 +1,4 @@
+Name,Discount,Customers,Item overrides
+Standard,No discount,12,0
+Preferred,10% off,5,3
+Contractor,20% off,2,8

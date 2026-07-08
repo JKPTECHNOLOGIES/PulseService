@@ -1,0 +1,4 @@
+Estimate,Customer,Title,Date,Total,Status
+EST-1007,Susan Thompson,Real test,"Jul 7, 2026",316.59,sent
+EST-1009,New Guy,New AC inspection,"Jul 8, 2026",394.5,draft
+EST-1010,David Martinez,Rooftop unit replacement,"Jul 6, 2026",8200,approved

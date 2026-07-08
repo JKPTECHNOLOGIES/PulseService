@@ -1,0 +1,4 @@
+Date,Customer,Invoice,Method,Reference,Status,Amount
+"Jul 5, 2026 2:30 PM",Susan Thompson,#INV-1002,Credit Card,CH-88213,completed,480
+"Jul 6, 2026 10:12 AM",David Martinez,#INV-1001,Check,10456,completed,625
+"Jul 7, 2026 4:45 PM",Karen Willis,#INV-1003,Cash,,completed,100

@@ -1,0 +1,3 @@
+Date,Direction,Customer,Channel,Subject,Message
+"Jul 8, 2026 9:15 AM",outbound,Susan Thompson,sms,,"On our way - tech arriving ~9:30am"
+"Jul 7, 2026 5:00 PM",outbound,David Martinez,email,Invoice INV-1001,"Your invoice is attached. Thank you!"

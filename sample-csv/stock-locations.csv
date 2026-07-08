@@ -1,0 +1,4 @@
+Name,Code,Type,Vehicle,Stocked items,Status
+Main Warehouse,WH,warehouse,,42,Active
+Mike's Truck,TRUCK-1,vehicle,Van 12,18,Active
+Lisa's Truck,TRUCK-3,vehicle,Van 07,15,Active

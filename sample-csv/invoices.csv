@@ -1,0 +1,4 @@
+Invoice,Customer,Due Date,Total,Balance,Status
+INV-1001,David Martinez,"Jul 20, 2026",1250.5,1250.5,sent
+INV-1002,Susan Thompson,"Jul 15, 2026",480,0,paid
+INV-1003,Karen Willis,,320.75,320.75,draft
