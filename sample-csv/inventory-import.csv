@@ -1,0 +1,11 @@
+sku,name,unit,quantity,unitCost,reorderPoint,reorderQuantity,supplierName,locationCode,serialized
+IMP-FILTER-2020,Air Filter 20x20x1,each,50,4.25,20,100,Ferguson HVAC Supply,WH,no
+IMP-CAP-45-5,Dual Run Capacitor 45/5 MFD,each,24,12.50,10,40,Carrier Enterprise,TRK101,no
+IMP-CONTACTOR-2P,2-Pole 30A 24V Contactor,each,15,18.90,6,20,Grainger,TRK102,no
+IMP-THERM-PRO,Programmable Thermostat,each,8,89.00,3,12,Ferguson HVAC Supply,WH,yes
+IMP-REF-410A,R-410A Refrigerant 25lb Cylinder,cylinder,6,175.00,3,6,Refrigerant Depot,WH,no
+IMP-COND-3T,3-Ton AC Condenser Unit,each,4,1450.00,2,4,Carrier Enterprise,WH,true
+IMP-PVC-075-10,PVC Pipe 3/4in 10ft,ft,200,0.45,50,200,,WH,no
+IMP-WIRE-18-5,18/5 Thermostat Wire 250ft,roll,12,34.99,5,15,Ferguson HVAC Supply,TRK101,no
+IMP-BLOWER-MOT,1/2 HP Blower Motor,each,5,129.00,2,6,MotorTech Inc,,1
+IMP-IGNITER-HSI,Hot Surface Igniter,each,30,9.75,10,30,Grainger,TRK102,no
