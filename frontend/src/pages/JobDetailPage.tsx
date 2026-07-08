@@ -511,7 +511,23 @@ export default function JobDetailPage() {
             </div>
             {currentEntry && currentEntry.jobId !== job.id && (
               <p className="text-xs text-amber-600 mb-3">
-                You're clocked in on another job. Clock out there first.
+                {currentEntry.job ? (
+                  <>
+                    You're clocked in on{" "}
+                    <Link
+                      to={`/jobs/${currentEntry.job.id}`}
+                      className="font-medium underline underline-offset-2 hover:text-amber-700"
+                    >
+                      #{currentEntry.job.jobNumber}
+                      {currentEntry.job.summary
+                        ? ` — ${currentEntry.job.summary}`
+                        : ""}
+                    </Link>
+                    . Clock out there first.
+                  </>
+                ) : (
+                  "You're already clocked in elsewhere. Clock out there first."
+                )}
               </p>
             )}
             {jobTimeEntries && jobTimeEntries.length > 0 ? (
