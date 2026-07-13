@@ -258,14 +258,14 @@ async function main() {
     });
   }
   await ensureUser(
-    "manager@pulseservice.com",
+    "manager@primecomfortac.com",
     "Morgan",
     "Reed",
     "manager",
     "(404) 555-0010",
   );
   await ensureUser(
-    "exec@pulseservice.com",
+    "exec@primecomfortac.com",
     "Erin",
     "Vaughn",
     "exec",
@@ -305,7 +305,7 @@ async function main() {
     });
   }
   await ensureTech(
-    "tech4@pulseservice.com",
+    "tech4@primecomfortac.com",
     "Dana",
     "Wells",
     "EMP-004",
@@ -313,7 +313,7 @@ async function main() {
     "North,East",
   );
   await ensureTech(
-    "tech5@pulseservice.com",
+    "tech5@primecomfortac.com",
     "Sam",
     "Ortega",
     "EMP-005",

@@ -87,7 +87,8 @@ export default function HelpCenterPage() {
       <div>
         <h2 className="text-lg font-semibold text-gray-900">Help Center</h2>
         <p className="text-sm text-gray-500">
-          Simple, plain-English guides for what each page in PulseService does.
+          Simple, plain-English guides for what each page in Prime Comfort
+          Solutions does.
         </p>
       </div>
 

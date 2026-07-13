@@ -140,7 +140,7 @@ export default function PublicEstimatePage() {
             <BoltIcon className="h-5 w-5 text-oncolor" />
           </div>
           <span className="font-bold text-gray-900">
-            {estimate.company?.name ?? "PulseService"}
+            {estimate.company?.name ?? "Prime Comfort Solutions"}
           </span>
         </div>
 

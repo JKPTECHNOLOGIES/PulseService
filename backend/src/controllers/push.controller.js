@@ -50,7 +50,7 @@ const unsubscribe = async (req, res) => {
 // Sends a test notification to the current user's devices (for verification).
 const test = async (req, res) => {
   await push.sendToUser(req.user.id, {
-    title: "PulseService",
+    title: "Prime Comfort Solutions",
     body: "Push notifications are working \uD83C\uDF89",
     url: "/dashboard",
   });

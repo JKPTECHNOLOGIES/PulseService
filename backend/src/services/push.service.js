@@ -5,7 +5,7 @@ const prisma = require("../config/database");
 // public-key endpoint returns null and the frontend hides the feature).
 const publicKey = process.env.VAPID_PUBLIC_KEY;
 const privateKey = process.env.VAPID_PRIVATE_KEY;
-const subject = process.env.VAPID_SUBJECT || "mailto:admin@pulseservice.com";
+const subject = process.env.VAPID_SUBJECT || "mailto:admin@primecomfortac.com";
 
 let enabled = false;
 if (publicKey && privateKey) {

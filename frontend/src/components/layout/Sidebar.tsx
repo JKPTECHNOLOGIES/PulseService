@@ -225,8 +225,8 @@ export default function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
               <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center">
                 <BoltIcon className="h-5 w-5 text-oncolor" />
               </div>
-              <span className="font-bold text-gray-900 text-sm">
-                PulseService
+              <span className="font-bold text-gray-900 text-sm leading-tight">
+                Prime Comfort Solutions
               </span>
             </div>
           ) : (

@@ -955,7 +955,7 @@ model Notification {
 
 model CompanySettings {
   id                 String   @id @default(uuid())
-  name               String   @default("PulseService")
+  name               String   @default("Prime Comfort Solutions")
   logo               String?
   address            String?
   city               String?

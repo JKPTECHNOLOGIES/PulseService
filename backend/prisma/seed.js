@@ -85,14 +85,14 @@ async function main() {
   console.log("  Creating company settings...");
   await prisma.companySettings.create({
     data: {
-      name: "PulseService HVAC & Plumbing",
-      address: "1234 Main Street Suite 100",
-      city: "Atlanta",
-      state: "GA",
-      zip: "30301",
-      phone: "(404) 555-0100",
-      email: "info@pulseservice.com",
-      website: "https://pulseservice.com",
+      name: "Prime Comfort Solutions",
+      address: "6670 White Drive, Suite B",
+      city: "West Palm Beach",
+      state: "FL",
+      zip: "33407",
+      phone: "561-217-4822",
+      email: "info@primecomfortac.com",
+      website: "https://www.primecomfortac.com",
       taxRate: 0.085,
       currency: "USD",
       timezone: "America/New_York",
@@ -165,7 +165,7 @@ async function main() {
     await Promise.all([
       prisma.user.create({
         data: {
-          email: "admin@pulseservice.com",
+          email: "admin@primecomfortac.com",
           password: adminHash,
           firstName: "John",
           lastName: "Admin",
@@ -175,7 +175,7 @@ async function main() {
       }),
       prisma.user.create({
         data: {
-          email: "dispatcher@pulseservice.com",
+          email: "dispatcher@primecomfortac.com",
           password: passHash,
           firstName: "Sarah",
           lastName: "Dispatch",
@@ -185,7 +185,7 @@ async function main() {
       }),
       prisma.user.create({
         data: {
-          email: "tech1@pulseservice.com",
+          email: "tech1@primecomfortac.com",
           password: passHash,
           firstName: "Mike",
           lastName: "Rivera",
@@ -195,7 +195,7 @@ async function main() {
       }),
       prisma.user.create({
         data: {
-          email: "tech2@pulseservice.com",
+          email: "tech2@primecomfortac.com",
           password: passHash,
           firstName: "Carlos",
           lastName: "Mendez",
@@ -205,7 +205,7 @@ async function main() {
       }),
       prisma.user.create({
         data: {
-          email: "tech3@pulseservice.com",
+          email: "tech3@primecomfortac.com",
           password: passHash,
           firstName: "Lisa",
           lastName: "Chen",
@@ -215,7 +215,7 @@ async function main() {
       }),
       prisma.user.create({
         data: {
-          email: "csr@pulseservice.com",
+          email: "csr@primecomfortac.com",
           password: passHash,
           firstName: "Amy",
           lastName: "Johnson",
@@ -2050,7 +2050,7 @@ async function main() {
         customerId: customer1.id,
         direction: "outbound",
         channel: "sms",
-        body: "Hi Robert, this is PulseService confirming your HVAC tune-up tomorrow between 9-11am. Reply STOP to opt out.",
+        body: "Hi Robert, this is Prime Comfort Solutions confirming your HVAC tune-up tomorrow between 9-11am. Reply STOP to opt out.",
         sentById: csr.id,
         sentAt: daysOffset(-1, 14, 0),
       },
@@ -2080,12 +2080,12 @@ async function main() {
   console.log("\n✅ Seed completed successfully!");
   console.log("\n  Test credentials:");
   console.log("  ┌─────────────────────────────────────────────────┐");
-  console.log("  │  admin@pulseservice.com   / admin123  (admin)   │");
-  console.log("  │  dispatcher@pulseservice.com / pass123          │");
-  console.log("  │  tech1@pulseservice.com   / pass123  (Mike R.)  │");
-  console.log("  │  tech2@pulseservice.com   / pass123  (Carlos M.)│");
-  console.log("  │  tech3@pulseservice.com   / pass123  (Lisa C.)  │");
-  console.log("  │  csr@pulseservice.com     / pass123             │");
+  console.log("  │  admin@primecomfortac.com   / admin123  (admin) │");
+  console.log("  │  dispatcher@primecomfortac.com / pass123        │");
+  console.log("  │  tech1@primecomfortac.com   / pass123 (Mike R.) │");
+  console.log("  │  tech2@primecomfortac.com   / pass123(Carlos M.)│");
+  console.log("  │  tech3@primecomfortac.com   / pass123 (Lisa C.) │");
+  console.log("  │  csr@primecomfortac.com     / pass123           │");
   console.log("  └─────────────────────────────────────────────────┘\n");
 }
 

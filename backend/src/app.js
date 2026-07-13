@@ -55,7 +55,7 @@ app.get("/", (req, res) => {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>PulseService API</title>
+      <title>Prime Comfort Solutions API</title>
       <style>
         * {
           margin: 0;
@@ -170,7 +170,7 @@ app.get("/", (req, res) => {
       <div class="container">
         <div class="header">
           <div class="logo">🚀</div>
-          <h1>PulseService API</h1>
+          <h1>Prime Comfort Solutions API</h1>
           <div class="status">● Running</div>
           <div class="version">Version 1.0.0</div>
         </div>

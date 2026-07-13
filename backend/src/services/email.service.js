@@ -44,7 +44,8 @@ async function getTransport() {
 async function sendMail({ to, subject, text, html, attachments }) {
   const transport = await getTransport();
   const from =
-    process.env.SMTP_FROM || "PulseService <no-reply@pulseservice.local>";
+    process.env.SMTP_FROM ||
+    "Prime Comfort Solutions <no-reply@primecomfortac.com>";
   const info = await transport.sendMail({
     from,
     to,

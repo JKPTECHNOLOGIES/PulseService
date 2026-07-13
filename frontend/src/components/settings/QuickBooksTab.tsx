@@ -28,7 +28,7 @@ export default function QuickBooksTab() {
   return (
     <div className="space-y-5">
       <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-800">
-        PulseService is the system of record. QuickBooks Desktop has no server
+        Prime Comfort Solutions is the system of record. QuickBooks Desktop has no server
         of its own, so this only works with <strong>QuickBooks Web
         Connector</strong> — a small app that runs next to QuickBooks Desktop
         and polls this connection on its own schedule. There is no true

@@ -46,7 +46,7 @@ function getTitle(pathname: string): string {
       return title;
     }
   }
-  return "PulseService";
+  return "Prime Comfort Solutions";
 }
 
 export default function Header() {

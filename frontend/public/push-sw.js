@@ -10,7 +10,7 @@ self.addEventListener("push", (event) => {
   } catch {
     data = { body: event.data ? event.data.text() : "" };
   }
-  const title = data.title || "PulseService";
+  const title = data.title || "Prime Comfort Solutions";
   const options = {
     body: data.body || "",
     icon: "/pwa-192x192.png",

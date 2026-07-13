@@ -10,7 +10,7 @@ export { Toaster } from "react-hot-toast";
 // diagnostics recorded by the API layer, the page, and the time.
 function buildCopyText(message: string): string {
   const lines = [
-    "PulseService error report",
+    "Prime Comfort Solutions error report",
     `Message: ${message}`,
     `When: ${new Date().toLocaleString()}`,
     `Page: ${window.location.pathname}`,

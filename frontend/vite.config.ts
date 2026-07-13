@@ -19,8 +19,8 @@ export default defineConfig({
       // source SVG and injects the icon + theme-color tags into index.html.
       pwaAssets: { image: "public/logo.svg" },
       manifest: {
-        name: "PulseService",
-        short_name: "PulseService",
+        name: "Prime Comfort Solutions",
+        short_name: "Prime Comfort",
         description: "Field Service Management Platform",
         theme_color: "#2563eb",
         background_color: "#111827",

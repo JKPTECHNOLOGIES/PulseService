@@ -46,7 +46,7 @@ function render(kind, doc, settings) {
 
       // ── Header: company (left) + document title/meta (right) ──────────────
       const headY = 50;
-      const companyName = company.name || "PulseService";
+      const companyName = company.name || "Prime Comfort Solutions";
       pdf.fontSize(20).fillColor(INK).font("Helvetica-Bold");
       const nameHeight = pdf.heightOfString(companyName, { width: 250 });
       pdf.text(companyName, LEFT, headY, { width: 250 });
@@ -280,7 +280,7 @@ function renderAgreement(agreement, settings) {
 
       // ── Header: company (left) + document title/meta (right) ──────────────
       const headY = 50;
-      const companyName = company.name || "PulseService";
+      const companyName = company.name || "Prime Comfort Solutions";
       pdf.fontSize(20).fillColor(INK).font("Helvetica-Bold");
       const nameHeight = pdf.heightOfString(companyName, { width: 250 });
       pdf.text(companyName, LEFT, headY, { width: 250 });

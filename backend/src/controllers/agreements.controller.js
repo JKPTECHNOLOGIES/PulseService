@@ -152,7 +152,7 @@ const send = async (req, res) => {
     }
 
     const settings = await prisma.companySettings.findFirst();
-    const companyName = settings?.name || 'PulseService';
+    const companyName = settings?.name || 'Prime Comfort Solutions';
     const pdf = await generateAgreementPdf(agreement, settings);
 
     let emailPreviewUrl = null;

@@ -823,7 +823,7 @@ const settingsHelp: PageHelpContent = {
     {
       heading: "Users",
       items: [
-        "View everyone with access to PulseService and their assigned role.",
+        "View everyone with access to Prime Comfort Solutions and their assigned role.",
         "Invite a new user by email and assign them a role.",
         "Edit a user's role or active status, or reset their password.",
       ],

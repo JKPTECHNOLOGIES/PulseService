@@ -30,7 +30,7 @@ export default function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "admin@pulseservice.com", password: "admin123" },
+    defaultValues: { email: "admin@primecomfortac.com", password: "admin123" },
   });
 
   const onSubmit = async (data: FormData) => {
@@ -61,7 +61,9 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-oncolor/10 backdrop-blur mb-4">
             <BoltIcon className="h-9 w-9 text-oncolor" />
           </div>
-          <h1 className="text-3xl font-bold text-oncolor">PulseService</h1>
+          <h1 className="text-3xl font-bold text-oncolor">
+            Prime Comfort Solutions
+          </h1>
           <p className="text-primary-300 mt-1 text-sm">
             Field Service Management Platform
           </p>
@@ -157,7 +159,7 @@ export default function LoginPage() {
                 </p>
                 <p className="text-xs text-blue-700">
                   Email:{" "}
-                  <span className="font-mono">admin@pulseservice.com</span>
+                  <span className="font-mono">admin@primecomfortac.com</span>
                 </p>
                 <p className="text-xs text-blue-700">
                   Password: <span className="font-mono">admin123</span>
@@ -168,7 +170,8 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-primary-400 text-xs mt-6">
-          &copy; {new Date().getFullYear()} PulseService. All rights reserved.
+          &copy; {new Date().getFullYear()} Prime Comfort Solutions. All rights
+          reserved.
         </p>
       </div>
     </div>
