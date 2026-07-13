@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { BoltIcon, InformationCircleIcon } from "@heroicons/react/24/outline";
+import { InformationCircleIcon } from "@heroicons/react/24/outline";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
 import Button from "../components/ui/Button";
+import ThermometerLogo from "../components/ui/ThermometerLogo";
 import type { User } from "../types";
 
 const schema = z.object({
@@ -59,7 +60,7 @@ export default function LoginPage() {
         {/* Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-oncolor/10 backdrop-blur mb-4">
-            <BoltIcon className="h-9 w-9 text-oncolor" />
+            <ThermometerLogo className="h-10 w-10" />
           </div>
           <h1 className="text-3xl font-bold text-oncolor">
             Prime Comfort Solutions

@@ -27,13 +27,13 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ArrowRightStartOnRectangleIcon,
-  BoltIcon,
   XMarkIcon,
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import { useAuthStore } from "../../store/authStore";
 import { useLookup } from "../../hooks/useMetadata";
 import { usePermissions } from "../../hooks/usePermissions";
+import ThermometerLogo from "../ui/ThermometerLogo";
 
 // `perm` (optional) hides the item unless the user holds one of the listed
 // permissions -- the same rule the page's own actions are gated by, so a role
@@ -222,17 +222,13 @@ export default function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
           {showLabels ? (
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center">
-                <BoltIcon className="h-5 w-5 text-oncolor" />
-              </div>
+              <ThermometerLogo className="h-8 w-8 shrink-0" />
               <span className="font-bold text-gray-900 text-sm leading-tight">
                 Prime Comfort Solutions
               </span>
             </div>
           ) : (
-            <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center mx-auto">
-              <BoltIcon className="h-5 w-5 text-oncolor" />
-            </div>
+            <ThermometerLogo className="h-8 w-8 mx-auto" />
           )}
 
           {/* Close button (mobile only) */}

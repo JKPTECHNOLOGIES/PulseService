@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { BoltIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon } from "@heroicons/react/24/outline";
 import toast from "../lib/toast";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
 import Button from "../components/ui/Button";
 import { PageSpinner } from "../components/ui/Spinner";
+import ThermometerLogo from "../components/ui/ThermometerLogo";
 import { formatCurrency, formatDate } from "../utils/formatters";
 
 interface PublicLineItem {
@@ -136,9 +137,7 @@ export default function PublicEstimatePage() {
       <div className="mx-auto max-w-2xl space-y-5">
         {/* Brand */}
         <div className="flex items-center gap-2 justify-center">
-          <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center">
-            <BoltIcon className="h-5 w-5 text-oncolor" />
-          </div>
+          <ThermometerLogo className="h-8 w-8" />
           <span className="font-bold text-gray-900">
             {estimate.company?.name ?? "Prime Comfort Solutions"}
           </span>
