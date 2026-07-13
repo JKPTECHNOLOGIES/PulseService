@@ -1,0 +1,197 @@
+// Prisma Schema - User Settings, Preferences & Navigation
+
+
+model UserSkill {
+  id                String    @id @default(uuid())
+  userId            String
+  skillId           String
+  proficiencyLevel  String
+  certificationDate DateTime?
+  expiryDate        DateTime?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  skill             Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+  @@index([userId])
+  @@index([skillId])
+  @@index([proficiencyLevel])
+  @@index([expiryDate])
+}
+
+
+model DashboardWidgetTemplate {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  category    String
+  widgetType  String
+  dataSource  String
+  roles       String[]
+  defaultSize String   @default("medium")
+  config      Json?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([code])
+  @@index([category])
+  @@index([isActive])
+  @@map("dashboard_widget_templates")
+}
+
+
+model DashboardLayout {
+  id        String                @id @default(uuid())
+  userId    String                @unique
+  roleId    String
+  layout    Json
+  isDefault Boolean               @default(false)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  role      Role                  @relation(fields: [roleId], references: [id])
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  widgets   UserDashboardWidget[]
+
+  @@index([userId])
+  @@index([roleId])
+}
+
+
+model UserDashboardWidget {
+  id                String          @id @default(uuid())
+  dashboardLayoutId String
+  widgetCode        String
+  position          Int
+  size              String
+  config            Json?
+  isVisible         Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  dashboardLayout   DashboardLayout @relation(fields: [dashboardLayoutId], references: [id], onDelete: Cascade)
+
+  @@unique([dashboardLayoutId, widgetCode])
+  @@index([dashboardLayoutId])
+  @@index([widgetCode])
+  @@index([position])
+}
+
+
+model NavigationMenu {
+  id                  String           @id @default(uuid())
+  code                String           @unique
+  label               String
+  icon                String?
+  path                String?
+  parentId            String?
+  // NOTE: The design spec calls for renaming `order` → `sortOrder`, but Prisma
+  // does not generate a RENAME COLUMN — it generates DROP+ADD which loses data.
+  // Field is kept as `order` here to preserve production data. The service layer
+  // maps this field to `sortOrder` in all TypeScript interfaces.
+  // A future manual migration can do: ALTER TABLE navigation_menus RENAME COLUMN "order" TO "sort_order"
+  order               Int              @default(0)
+  // NEW: top-level grouping key, e.g. "operations", "finance", "admin"
+  section             String?
+  // NEW: item type — LINK, SUBMENU_PARENT, SECTION_HEADER, or DIVIDER
+  itemType            String           @default("LINK")
+  requiredPermissions Json             @default("[]")
+  permissionLogic     String           @default("ANY")
+  roles               String[]
+  badgeConfig         Json?
+  isActive            Boolean          @default(true)
+  // NEW: soft hide — hidden from users in sidebar but visible in admin builder
+  isVisible           Boolean          @default(true)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  parent              NavigationMenu?  @relation("NavigationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children            NavigationMenu[] @relation("NavigationHierarchy")
+
+  @@index([parentId])
+  @@index([code])
+  @@index([isActive])
+  @@index([order])
+  @@index([section])
+  @@index([itemType])
+  @@map("navigation_menus")
+}
+
+
+model RoleDefaultDashboard {
+  id          String   @id @default(uuid())
+  roleId      String   @unique
+  name        String
+  description String?
+  layout      Json
+  widgets     Json
+  isActive    Boolean  @default(true)
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  role        Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@index([roleId])
+  @@index([isActive])
+  @@map("role_default_dashboards")
+}
+
+
+model UserPreference {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  theme           String   @default("light")
+  language        String   @default("en")
+  timezone        String   @default("UTC")
+  dateFormat      String   @default("MM/DD/YYYY")
+  timeFormat      String   @default("12h")
+  defaultView     String?
+  itemsPerPage    Int      @default(25)
+  compactMode     Boolean  @default(false)
+  showTutorials   Boolean  @default(true)
+  emailDigestTime String?
+  preferences     Json?
+  shortcuts       Json?
+  quickActions    Json?
+  settings        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+
+model UserFavorite {
+  id         String   @id @default(uuid())
+  userId     String
+  entityType String
+  entityId   String
+  entityName String?
+  notes      String?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entityType, entityId])
+  @@index([userId])
+  @@index([entityType])
+  @@index([sortOrder])
+}
+
+
+model RecentlyViewed {
+  id         String   @id @default(uuid())
+  userId     String
+  entityType String
+  entityId   String
+  entityName String?
+  viewedAt   DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entityType, entityId])
+  @@index([userId])
+  @@index([entityType])
+  @@index([viewedAt])
+}

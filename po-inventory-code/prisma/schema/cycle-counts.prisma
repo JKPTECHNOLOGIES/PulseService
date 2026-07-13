@@ -1,0 +1,132 @@
+// Prisma Schema - Cycle Counts & Inventory Audits
+
+
+model MasterCycleCount {
+  id                 String                  @id @default(uuid())
+  countNumber        String                  @unique
+  title              String
+  description        String?
+  status             CycleCountStatus        @default(IN_PROGRESS)
+  storeId            String?
+  binFilter          String?
+  categoryFilter     String?
+  startedBy          String
+  startedAt          DateTime                @default(now())
+  countCompletedAt   DateTime?
+  reviewedBy         String?
+  reviewedAt         DateTime?
+  approvedBy         String?
+  approvedAt         DateTime?
+  totalItems         Int                     @default(0)
+  itemsCounted       Int                     @default(0)
+  itemsWithVariance  Int                     @default(0)
+  totalVarianceValue Decimal                 @default(0) @db.Decimal(12, 2)
+  notes              String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  audits             MasterCycleCountAudit[]
+  items              MasterCycleCountItem[]
+  approver           User?                   @relation("MasterCycleCount_approver", fields: [approvedBy], references: [id])
+  reviewer           User?                   @relation("MasterCycleCount_reviewer", fields: [reviewedBy], references: [id])
+  starter            User                    @relation("MasterCycleCount_starter", fields: [startedBy], references: [id])
+  store              Store?                  @relation(fields: [storeId], references: [id])
+
+  @@index([countNumber])
+  @@index([status])
+  @@index([startedBy])
+  @@index([startedAt])
+  @@map("master_cycle_counts")
+}
+
+
+model MasterCycleCountItem {
+  id                    String                  @id @default(uuid())
+  cycleCountId          String
+  inventoryItemId       String
+  storeId               String
+  bin                   String
+  systemQuantity        Decimal                 @db.Decimal(10, 2)
+  systemUnitCost        Decimal                 @db.Decimal(12, 2)
+  status                CountItemStatus         @default(PENDING)
+  firstCountQuantity    Decimal?                @db.Decimal(10, 2)
+  firstCountedBy        String?
+  firstCountedAt        DateTime?
+  hasVariance           Boolean                 @default(false)
+  varianceQuantity      Decimal?                @db.Decimal(10, 2)
+  varianceValue         Decimal?                @db.Decimal(12, 2)
+  variancePercentage    Decimal?                @db.Decimal(5, 2)
+  secondCountQuantity   Decimal?                @db.Decimal(10, 2)
+  secondCountedBy       String?
+  secondCountedAt       DateTime?
+  secondCountMatches    Boolean?
+  finalQuantity         Decimal?                @db.Decimal(10, 2)
+  finalCountedBy        String?
+  finalCountedAt        DateTime?
+  notes                 String?
+  varianceReason        String?
+  requiresInvestigation Boolean                 @default(false)
+  investigationNotes    String?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  audits                MasterCycleCountAudit[]
+  cycleCount            MasterCycleCount        @relation(fields: [cycleCountId], references: [id], onDelete: Cascade)
+  finalCounter          User?                   @relation("CountItem_finalCounter", fields: [finalCountedBy], references: [id])
+  firstCounter          User?                   @relation("CountItem_firstCounter", fields: [firstCountedBy], references: [id])
+  inventoryItem         InventoryItem           @relation(fields: [inventoryItemId], references: [id])
+  secondCounter         User?                   @relation("CountItem_secondCounter", fields: [secondCountedBy], references: [id])
+  store                 Store                   @relation(fields: [storeId], references: [id])
+
+  @@unique([cycleCountId, inventoryItemId, storeId, bin])
+  @@index([cycleCountId])
+  @@index([inventoryItemId])
+  @@index([storeId])
+  @@index([bin])
+  @@index([status])
+  @@index([hasVariance])
+  @@map("master_cycle_count_items")
+}
+
+
+model MasterCycleCountAudit {
+  id            String                @id @default(uuid())
+  cycleCountId  String
+  itemId        String?
+  action        String
+  performedBy   String
+  performedAt   DateTime              @default(now())
+  previousValue Json?
+  newValue      Json?
+  notes         String?
+  ipAddress     String?
+  userAgent     String?
+  cycleCount    MasterCycleCount      @relation(fields: [cycleCountId], references: [id], onDelete: Cascade)
+  item          MasterCycleCountItem? @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user          User                  @relation("CycleCountAudit_user", fields: [performedBy], references: [id])
+
+  @@index([cycleCountId])
+  @@index([itemId])
+  @@index([performedBy])
+  @@index([performedAt])
+  @@index([action])
+  @@map("master_cycle_count_audits")
+}
+
+
+enum CycleCountStatus {
+  IN_PROGRESS
+  COUNT_COMPLETE
+  UNDER_REVIEW
+  APPROVED
+  POSTED
+  CANCELLED
+}
+
+
+enum CountItemStatus {
+  PENDING
+  COUNTED
+  VARIANCE_DETECTED
+  RECOUNTED
+  VERIFIED
+  SKIPPED
+}

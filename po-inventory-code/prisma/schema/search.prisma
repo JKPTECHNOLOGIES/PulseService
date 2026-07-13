@@ -1,0 +1,135 @@
+// Prisma Schema - Search, Quick Actions & Recent Activity
+
+
+model SearchIndex {
+  id          String   @id @default(uuid())
+  entityType  String
+  entityId    String
+  title       String
+  description String?
+  content     String
+  metadata    Json?
+  tags        String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([entityType, entityId])
+  @@index([title])
+  @@map("search_indexes")
+}
+
+
+model SearchHistory {
+  id          String   @id @default(uuid())
+  userId      String
+  query       String
+  entityType  String?
+  resultCount Int
+  clickedId   String?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("search_history")
+}
+
+
+model QuickAction {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String
+  action      String
+  icon        String?
+  shortcut    String?
+  permissions Json?
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@map("quick_actions")
+}
+
+
+model RecentActivity {
+  id         String   @id @default(uuid())
+  userId     String
+  entityType String
+  entityId   String
+  entityName String
+  action     String
+  createdAt  DateTime @default(now())
+  user       User     @relation("RecentActivityUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@map("recent_activities")
+}
+
+
+model SavedSearch {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  query       String
+  filters     Json?
+  entityTypes String[]
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([name])
+}
+
+
+model QuickActionTemplate {
+  id          String            @id @default(uuid())
+  code        String            @unique
+  name        String
+  description String?
+  icon        String?
+  actionType  String
+  targetUrl   String?
+  targetApi   String?
+  roles       String[]
+  category    String
+  isActive    Boolean           @default(true)
+  sortOrder   Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  userActions UserQuickAction[]
+
+  @@index([code])
+  @@index([category])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+
+model UserQuickAction {
+  id                    String              @id @default(uuid())
+  userId                String
+  quickActionTemplateId String
+  customName            String?
+  customIcon            String?
+  isVisible             Boolean             @default(true)
+  sortOrder             Int                 @default(0)
+  usageCount            Int                 @default(0)
+  lastUsedAt            DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  template              QuickActionTemplate @relation(fields: [quickActionTemplateId], references: [id], onDelete: Cascade)
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, quickActionTemplateId])
+  @@index([userId])
+  @@index([quickActionTemplateId])
+  @@index([sortOrder])
+  @@index([lastUsedAt])
+}

@@ -5,20 +5,25 @@ import {
   PencilIcon,
   PlusIcon,
   CheckCircleIcon,
+  ArrowDownTrayIcon,
+  PaperAirplaneIcon,
 } from "@heroicons/react/24/outline";
 import {
   useAgreement,
   useUpdateAgreement,
+  useSendAgreement,
   useScheduleVisit,
   useCompleteVisit,
 } from "../hooks/useAgreements";
 import { useLookup } from "../hooks/useMetadata";
+import { usePermissions } from "../hooks/usePermissions";
 import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
 import { PageSpinner } from "../components/ui/Spinner";
 import { NumberInput } from "../components/ui/NumberInput";
-import { formatCurrency, formatDate } from "../utils/formatters";
+import { downloadPdf } from "../lib/pdf";
+import { formatCurrency, formatDate, formatDateTime } from "../utils/formatters";
 
 interface EditForm {
   name: string;
@@ -39,8 +44,10 @@ export default function AgreementDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: agreement, isLoading } = useAgreement(id ?? "");
   const updateAgreement = useUpdateAgreement();
+  const sendMutation = useSendAgreement();
   const scheduleVisit = useScheduleVisit();
   const completeVisit = useCompleteVisit();
+  const { can } = usePermissions();
 
   const { options: statusOptions, getLabel: getStatusLabel } =
     useLookup("agreementStatus");
@@ -177,16 +184,44 @@ export default function AgreementDetailPage() {
             )}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          icon={<PencilIcon className="h-4 w-4" />}
-          onClick={() => {
-            setEditOpen(true);
-          }}
-        >
-          Edit
-        </Button>
+        <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<ArrowDownTrayIcon className="h-4 w-4" />}
+            onClick={() => {
+              void downloadPdf(
+                `/agreements/${id ?? ""}/pdf`,
+                `Agreement-${agreement.agreementNumber}.pdf`,
+              );
+            }}
+          >
+            PDF
+          </Button>
+          {can("agreements.manage") && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<PaperAirplaneIcon className="h-4 w-4" />}
+              onClick={() => {
+                sendMutation.mutate(id ?? "");
+              }}
+              loading={sendMutation.isPending}
+            >
+              Send
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<PencilIcon className="h-4 w-4" />}
+            onClick={() => {
+              setEditOpen(true);
+            }}
+          >
+            Edit
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -233,6 +268,14 @@ export default function AgreementDetailPage() {
                 <dt className="text-xs text-gray-500">Auto-Renew</dt>
                 <dd className="text-sm text-gray-900 mt-0.5">
                   {agreement.autoRenew ? "Yes" : "No"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-gray-500">Last Sent</dt>
+                <dd className="text-sm text-gray-900 mt-0.5">
+                  {agreement.lastSentAt
+                    ? formatDateTime(agreement.lastSentAt)
+                    : "Never"}
                 </dd>
               </div>
             </dl>

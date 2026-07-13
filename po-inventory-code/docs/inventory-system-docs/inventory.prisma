@@ -1,0 +1,503 @@
+// Prisma Schema - Inventory Management
+
+
+enum CostChangeSource {
+  WAC_RUN       // Monthly WAC run updated this item's cost
+  WAC_REVERSAL  // WAC run was reversed; cost restored to pre-run value
+  REVALUATION   // Finance revaluation tool (inventory-revaluation.service.ts)
+  MANUAL        // Direct API edit to unitCost
+  IMPORT        // Initial import / item creation
+}
+
+
+model InventoryCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+  @@map("inventory_categories")
+}
+
+
+model InventoryItem {
+  id                      String                           @id @default(uuid())
+  sku                     String                           @unique
+  description             String
+  category                String?
+  unit                    String
+  minQuantity             Decimal                          @db.Decimal(10, 2)
+  maxQuantity             Decimal                          @db.Decimal(10, 2)
+  defaultSupplierId       String?
+  unitCost                Decimal                          @db.Decimal(12, 2)
+  equipmentId             String?
+  isActive                Boolean                          @default(true)
+  isArchived              Boolean                          @default(false)
+  archivedAt              DateTime?
+  archivedBy              String?
+  isStockItem             Boolean                          @default(true)
+  notes                   String?
+  longText                String?
+  createdAt               DateTime                         @default(now())
+  updatedAt               DateTime                         @updatedAt
+  name                    String?
+  leadTimeDays            Int?
+  isRepairable            Boolean                          @default(false)
+  isAssembly              Boolean                          @default(false)
+  abcClassification       ABCClassification?               @default(UNCLASSIFIED)
+  lastClassifiedAt        DateTime?
+  annualUsageQuantity     Decimal?                         @db.Decimal(10, 2)
+  annualUsageValue        Decimal?                         @db.Decimal(12, 2)
+  cycleCountFrequencyDays Int?
+  lastCycleCountDate      DateTime?
+  nextCycleCountDate      DateTime?
+  documents               Document[]
+  defaultSupplier         Supplier?                        @relation(fields: [defaultSupplierId], references: [id])
+  equipment               Equipment?                       @relation(fields: [equipmentId], references: [id])
+  reservations            InventoryReservation[]
+  stock                   InventoryStock[]
+  transactions            InventoryTransaction[]
+  poLines                 POLine[]
+  requisitionLines        RequisitionLine[]
+  workOrderParts          WorkOrderPart[]
+  directIssues            DirectIssue[]
+  bomAlternates           EquipmentBOMAlternate[]          @relation("BOMAlternate_inventoryItem")
+  bomLines                EquipmentBOMLine[]               @relation("BOMLine_inventoryItem")
+  classificationHistory   InventoryClassificationHistory[]
+  suppliers               InventoryItemSupplier[]
+  usageStatistics         InventoryUsageStatistic[]
+  cycleCountItems         MasterCycleCountItem[]
+  repairableItems         RepairableItem[]
+  repairWorkOrders        WorkOrder[]                      @relation("WorkOrder_repairInventoryItem")
+  assemblyBOMEntries      RepairableAssemblyBOM[]          @relation("AssemblyBOM_assemblyItem")
+  componentBOMEntries     RepairableAssemblyBOM[]          @relation("AssemblyBOM_componentItem")
+  returnLines             POLineReturn[]
+  costVariances           CostVariance[]
+  wacRunItems             InventoryWACRunItem[]   // WAC run detail records for this item
+  costHistory             InventoryItemCostHistory[]           // unitCost change audit log
+
+  // WAC (Weighted Average Cost) tracking — set by monthly-wac.service.ts
+  lastWACAt    DateTime?  // when unitCost was last updated by a WAC run
+  lastWACRunId String?    // which InventoryWACRun last updated this item
+
+  @@index([category])
+  @@index([equipmentId])
+  @@index([sku])
+  @@index([isArchived])
+  @@index([defaultSupplierId])           // supplier filter was missing an index
+  @@index([isActive, isArchived])        // common combined filter for active non-archived items
+  @@index([isActive, category])          // common combined filter for category browsing
+  @@index([leadTimeDays])
+  @@index([isRepairable])
+  @@index([isAssembly])
+  @@index([abcClassification])
+  @@index([nextCycleCountDate])
+  @@index([lastClassifiedAt])
+}
+
+
+model InventoryItemSupplier {
+  id               String        @id @default(uuid())
+  inventoryItemId  String
+  supplierId       String
+  supplierSku      String?
+  unitCost         Decimal       @db.Decimal(12, 2)
+  leadTimeDays     Int
+  minimumOrderQty  Decimal?      @db.Decimal(10, 2)
+  isPrimary        Boolean       @default(false)
+  isActive         Boolean       @default(true)
+  lastOrderDate    DateTime?
+  onTimeDeliveries Int           @default(0)
+  totalDeliveries  Int           @default(0)
+  qualityRating    Decimal?      @db.Decimal(3, 2)
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  createdBy        String?
+  inventoryItem    InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  supplier         Supplier      @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([inventoryItemId, supplierId])
+  @@index([inventoryItemId])
+  @@index([supplierId])
+  @@index([isPrimary])
+  @@index([isActive])
+  @@index([leadTimeDays])
+  @@map("inventory_item_suppliers")
+}
+
+
+model InventoryReservation {
+  id               String            @id @default(uuid())
+  inventoryItemId  String
+  quantity         Decimal           @db.Decimal(10, 2)
+  reservedBy       String
+  reservedFor      String?
+  reservedForId    String?
+  status           ReservationStatus @default(ACTIVE)
+  expiresAt        DateTime?
+  notes            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  cancelledAt      DateTime?
+  cancelledBy      String?
+  consumedAt       DateTime?
+  consumedBy       String?
+  reviewDate       DateTime?
+  reviewNotifiedAt DateTime?
+  confirmedAt      DateTime?
+  confirmedBy      String?
+  autoReqEnabled   Boolean           @default(true)
+
+  // CRITICAL: Reverse relation to WorkOrderPart
+  // This creates a 1:1 relationship between reservations and work order parts
+  workOrderPart WorkOrderPart?
+
+  cancelledByUser User?                  @relation("InventoryReservation_cancelledByToUser", fields: [cancelledBy], references: [id])
+  confirmedByUser User?                  @relation("InventoryReservation_confirmedByToUser", fields: [confirmedBy], references: [id])
+  consumedByUser  User?                  @relation("InventoryReservation_consumedByToUser", fields: [consumedBy], references: [id])
+  inventoryItem   InventoryItem          @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  reservedByUser  User                   @relation("InventoryReservation_reservedByToUser", fields: [reservedBy], references: [id])
+  reviewLogs      ReservationReviewLog[]
+
+  @@index([inventoryItemId])
+  @@index([reservedBy])
+  @@index([reservedFor, reservedForId])
+  @@index([status])
+  @@index([reviewDate])
+  @@index([confirmedBy])
+}
+
+
+model ReservationReviewLog {
+  id            String               @id @default(uuid())
+  reservationId String
+  reviewedBy    String
+  action        String
+  previousQty   Decimal?             @db.Decimal(10, 2)
+  newQty        Decimal?             @db.Decimal(10, 2)
+  notes         String?
+  createdAt     DateTime             @default(now())
+  reservation   InventoryReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  reviewer      User                 @relation("ReservationReviewLog_reviewer", fields: [reviewedBy], references: [id])
+
+  @@index([reservationId])
+  @@index([reviewedBy])
+  @@index([createdAt])
+  @@index([action])
+}
+
+
+model InventoryStock {
+  id               String        @id @default(uuid())
+  inventoryItemId  String
+  storeId          String
+  bin              String        @default("MAIN")
+  quantityOnHand    Decimal       @db.Decimal(10, 2)
+  quantityReserved  Decimal       @default(0) @db.Decimal(10, 2)
+  quantityCommitted Decimal       @default(0) @db.Decimal(10, 4)
+  lastCountDate     DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  inventoryItem    InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  store            Store         @relation(fields: [storeId], references: [id])
+
+  @@unique([inventoryItemId, storeId, bin])
+  @@index([inventoryItemId])
+  @@index([storeId])
+  @@index([bin])
+}
+
+
+model InventoryTransaction {
+  id                String        @id @default(uuid())
+  inventoryItemId   String
+  storeId           String
+  transactionType   String
+  quantity          Decimal       @db.Decimal(10, 2)
+  unitCost          Decimal?      @db.Decimal(12, 2)
+  referenceType     String?
+  referenceId       String?
+  referenceNumber   String?
+  directIssueId     String?
+  directIssueNumber String?
+  notes             String?
+  performedBy       String?
+  performedByName   String?
+  quantityBefore    Decimal?      @db.Decimal(10, 2)
+  quantityAfter     Decimal?      @db.Decimal(10, 2)
+  equipmentId       String?
+  equipmentTag      String?
+  transactionDate   DateTime      @default(now())
+  createdAt         DateTime      @default(now())
+  createdBy         String?
+  updatedAt         DateTime      @updatedAt
+  updatedBy         String?
+  isActive          Boolean       @default(true)
+  verified          Boolean       @default(false)
+  verifiedBy        String?
+  verifiedAt        DateTime?
+  verificationNotes String?
+
+  // Reversal tracking
+  isReversed        Boolean   @default(false)
+  reversedById      String?   // ID of the reversal transaction
+  reversalOfId      String?   @unique // ID of the original transaction (set on the reversal record)
+  reversalReason    String?
+  reversedBy        String?   // userId who performed reversal
+  reversedByName    String?
+  reversedAt        DateTime?
+
+  inventoryItem     InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  // Self-referential relations for reversal linking
+  reversedByTransaction  InventoryTransaction? @relation("TransactionReversal", fields: [reversalOfId], references: [id])
+  reversalTransaction    InventoryTransaction? @relation("TransactionReversal")
+
+  @@index([inventoryItemId])
+  @@index([referenceType, referenceId])
+  @@index([storeId])
+  @@index([transactionDate])
+  @@index([transactionType])
+  @@index([performedBy])
+  @@index([equipmentId])
+  @@index([createdBy])
+  @@index([isActive])
+  @@index([verified])
+  @@index([verifiedBy])
+  @@index([directIssueId])
+  @@index([reversalOfId])
+  @@index([isReversed])
+  @@index([transactionDate, transactionType])
+  @@index([inventoryItemId, transactionDate])
+  @@index([inventoryItemId, transactionType, transactionDate])
+}
+
+
+model Store {
+  id                String                 @id @default(uuid())
+  name              String                 @unique
+  code              String                 @unique
+  locationId        String?
+  description       String?
+  isActive          Boolean                @default(true)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  stock             InventoryStock[]
+  directIssues      DirectIssue[]
+  cycleCountItems   MasterCycleCountItem[]
+  masterCycleCounts MasterCycleCount[]
+
+  @@index([code])
+}
+
+
+model InventoryAutomationRule {
+  id              String                              @id @default(uuid())
+  name            String
+  description     String?
+  ruleType        String
+  trigger         String
+  conditions      Json
+  actions         Json
+  isActive        Boolean                             @default(true)
+  priority        Int                                 @default(0)
+  createdBy       String
+  createdAt       DateTime                            @default(now())
+  updatedAt       DateTime                            @updatedAt
+  lastExecutedAt  DateTime?
+  executionCount  Int                                 @default(0)
+  recommendations InventoryAutomationRecommendation[]
+
+  @@index([isActive, priority])
+  @@index([trigger])
+  @@index([ruleType])
+  @@index([createdBy])
+}
+
+
+model InventoryAutomationRecommendation {
+  id                 String                   @id @default(uuid())
+  ruleId             String?
+  inventoryItemId    String?
+  recommendationType String
+  title              String
+  description        String
+  impact             String
+  estimatedSavings   Decimal?                 @db.Decimal(12, 2)
+  data               Json
+  status             String                   @default("pending")
+  appliedAt          DateTime?
+  appliedBy          String?
+  rejectedAt         DateTime?
+  rejectedBy         String?
+  rejectionReason    String?
+  expiresAt          DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  rule               InventoryAutomationRule? @relation(fields: [ruleId], references: [id])
+
+  @@index([ruleId])
+  @@index([inventoryItemId])
+  @@index([status])
+  @@index([recommendationType])
+  @@index([createdAt])
+}
+
+
+model InventoryUsageStatistic {
+  id              String        @id @default(uuid())
+  inventoryItemId String
+  periodStart     DateTime      @db.Date
+  periodEnd       DateTime      @db.Date
+  issueCount      Int           @default(0)
+  issueQuantity   Decimal       @default(0) @db.Decimal(10, 2)
+  issueValue      Decimal       @default(0) @db.Decimal(12, 2)
+  receiptCount    Int           @default(0)
+  receiptQuantity Decimal       @default(0) @db.Decimal(10, 2)
+  adjustmentCount Int           @default(0)
+  averageUnitCost Decimal       @db.Decimal(12, 2)
+  turnoverRate    Decimal?      @db.Decimal(5, 2)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@unique([inventoryItemId, periodStart])
+  @@index([inventoryItemId])
+  @@index([periodStart])
+  @@map("inventory_usage_statistics")
+}
+
+
+model InventoryClassificationHistory {
+  id                     String             @id @default(uuid())
+  inventoryItemId        String
+  classificationDate     DateTime           @default(now())
+  previousClassification ABCClassification?
+  newClassification      ABCClassification
+  annualUsageQuantity    Decimal            @db.Decimal(10, 2)
+  annualUsageValue       Decimal            @db.Decimal(12, 2)
+  percentileRank         Decimal            @db.Decimal(5, 2)
+  classificationRules    Json
+  calculatedBy           String?
+  notes                  String?
+  inventoryItem          InventoryItem      @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryItemId])
+  @@index([classificationDate])
+  @@map("inventory_classification_history")
+}
+
+
+model ABCClassificationSettings {
+  id             String   @id @default(uuid())
+  aThreshold     Decimal  @default(70) @db.Decimal(5, 2)
+  bThreshold     Decimal  @default(90) @db.Decimal(5, 2)
+  cThreshold     Decimal  @default(98) @db.Decimal(5, 2)
+  aFrequency     Int      @default(60)
+  bFrequency     Int      @default(120)
+  cFrequency     Int      @default(180)
+  dFrequency     Int      @default(365)
+  rollingMonths  Int      @default(12)
+  autoCalculate  Boolean  @default(true)
+  calculationDay Int      @default(1)
+  updatedAt      DateTime @updatedAt
+  updatedBy      String
+
+  @@map("abc_classification_settings")
+}
+
+
+enum ReservationStatus {
+  ACTIVE
+  PENDING_REVIEW
+  PENDING        // Backorder/zero-stock reservation - waiting for stock to arrive
+  EXPIRED
+  CANCELLED
+  CONSUMED
+}
+
+
+enum ABCClassification {
+  A
+  B
+  C
+  D
+  UNCLASSIFIED
+}
+
+
+// Inventory Settings - Global inventory module configuration
+model InventorySettings {
+  id                      String   @id @default(uuid())
+  allowOutsideRepair      Boolean  @default(true)  // When false, outside repair option is hidden from initiate repair dialog
+  assemblyTrackingEnabled Boolean  @default(false) // When true, assembly-level BOM learning and sub-serial parent tracking are active
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  updatedBy               String?
+  updatedByName           String?
+
+  @@map("inventory_settings")
+}
+
+
+// Reservation Settings - Configurable reservation management behavior
+model ReservationSettings {
+  id                    String   @id @default(uuid())
+  mode                  String   @default("TIME_BASED") // TIME_BASED (current 30-day) or PROMPT_BASED (new behavior)
+  daysThreshold         Int      @default(30) // Configurable threshold for TIME_BASED mode
+  promptOnStockShortage Boolean  @default(true) // Prompt planner when requesting more parts than available
+  promptOnMinQty        Boolean  @default(true) // Prompt planner when stock will hit minimum quantity
+  autoCreateReq         Boolean  @default(true) // Auto-create requisition when prompted (if user confirms)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  updatedBy             String?
+  updatedByName         String?
+
+  @@map("reservation_settings")
+}
+
+// ─── Inventory Item Cost History ─────────────────────────────────────────────
+//
+// Immutable audit log of every unitCost change on an InventoryItem.
+// Written by:
+//   • monthly-wac.service.ts  (WAC_RUN, WAC_REVERSAL)
+//   • inventory-revaluation.service.ts (REVALUATION)
+//   • any future path that updates InventoryItem.unitCost
+//
+// Used by the Inventory In Stock report to freeze historical opening balances:
+//   cost_at_date = oldUnitCost of the earliest record where changedAt > asOfDate
+//   (if no record exists after the date, current unitCost is the correct history)
+
+model InventoryItemCostHistory {
+  id              String           @id @default(uuid())
+  inventoryItemId String
+
+  oldUnitCost     Decimal          @db.Decimal(12, 4)
+  newUnitCost     Decimal          @db.Decimal(12, 4)
+
+  changeSource    CostChangeSource
+
+  // Which run / operation drove this change (null for MANUAL/IMPORT)
+  referenceId     String?          // WAC run ID, GL transaction ID, etc.
+  referenceType   String?          // "WAC_RUN" | "WAC_REVERSAL" | "REVALUATION"
+
+  changedAt       DateTime         @default(now())
+  changedBy       String?          // userId
+  changedByName   String?
+
+  notes           String?
+
+  inventoryItem   InventoryItem    @relation(fields: [inventoryItemId], references: [id])
+
+  @@index([inventoryItemId])
+  @@index([inventoryItemId, changedAt])   // primary lookup: item + date range
+  @@index([changedAt])
+  @@index([changeSource])
+  @@index([referenceId])
+  @@map("inventory_item_cost_history")
+}

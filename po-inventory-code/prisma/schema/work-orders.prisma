@@ -1,0 +1,499 @@
+// Prisma Schema - Work Orders & Labor
+
+
+enum WorkOrderTechnicianRole {
+  LEAD
+  ASSISTANT
+  SPECIALIST
+  SUPPORT
+}
+
+
+// ── Repair Work Order Workflow Status ─────────────────────────────────────────
+// Only meaningful when WorkOrder.isRepairWorkOrder = true.
+// Records every stage of the broken-part repair lifecycle in the DB so the
+// process is fully data-driven and queryable rather than inferred by code.
+//
+// Transition rules (enforced in service layer):
+//   AWAITING_SERIAL_ASSIGNMENT → AWAITING_REPAIR_DECISION (serial linked)
+//   AWAITING_REPAIR_DECISION   → INTERNAL_REPAIR_IN_PROGRESS | VENDOR_REPAIR_REQUESTED | SCRAPPED
+//   INTERNAL_REPAIR_IN_PROGRESS → REPAIR_COMPLETE
+//   VENDOR_REPAIR_REQUESTED    → REQ_CREATED
+//   REQ_CREATED                → PO_CREATED
+//   PO_CREATED                 → SENT_TO_VENDOR
+//   SENT_TO_VENDOR             → RECEIVED_FROM_VENDOR
+//   RECEIVED_FROM_VENDOR       → REPAIR_COMPLETE
+//   REPAIR_COMPLETE            → RETURNED_TO_INVENTORY
+//   * → SCRAPPED (any stage can be scrapped by IM/Admin)
+enum RepairWorkflowStatus {
+  AWAITING_SERIAL_ASSIGNMENT   // Auto-created from DI; no broken serial linked yet
+  AWAITING_REPAIR_DECISION     // Serial assigned; repair path not yet chosen
+  INTERNAL_REPAIR_IN_PROGRESS  // Inside repair started via WO
+  VENDOR_REPAIR_REQUESTED      // Outside repair chosen; REQ not yet created
+  REQ_CREATED                  // Vendor repair REQ created
+  PO_CREATED                   // PO issued against REQ
+  SENT_TO_VENDOR               // Part physically shipped to vendor
+  RECEIVED_FROM_VENDOR         // Part received back; not yet returned to inventory
+  REPAIR_COMPLETE              // Repair done; awaiting return to inventory
+  RETURNED_TO_INVENTORY        // Part back on shelf; workflow closed
+  SCRAPPED                     // Part written off; workflow closed
+}
+
+
+model WorkOrder {
+  id                   String                       @id @default(uuid())
+  woNumber             String                       @unique
+  type                 String
+  status               String                       @default("Requested")
+  priority             String
+  trade                String[]
+  equipmentId          String?
+  title                String
+  description          String
+  requestedById        String
+  assignedToId         String?
+  approvedById         String?
+  plannedStartDate     DateTime?
+  plannedEndDate       DateTime?
+  isDateTBD            Boolean                      @default(false)
+  actualStartDate      DateTime?
+  actualEndDate        DateTime?
+  estimatedHours       Decimal?                     @db.Decimal(8, 2)
+  actualHours          Decimal?                     @db.Decimal(8, 2)
+  estimatedCost        Decimal?                     @db.Decimal(12, 2)
+  actualCost           Decimal?                     @db.Decimal(12, 2)
+  failureCodeId        String?
+  projectId            String?
+  pmInstanceId         String?
+  safetyNotes          String?
+  completionNotes      String?
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  laborCost            Decimal                      @default(0) @db.Decimal(12, 2)
+  partsCost            Decimal                      @default(0) @db.Decimal(12, 2)
+  totalCost            Decimal                      @default(0) @db.Decimal(12, 2)
+  outageTypes          String[]
+  actualDuration       Decimal?                     @db.Decimal(8, 2)
+  completedAt          DateTime?
+  createdById          String?
+  estimatedDuration    Decimal?                     @db.Decimal(8, 2)
+  lastModifiedById     String?
+  plannedAt            DateTime?
+  plannerId            String?
+  plannerInstructions  String?
+  verifiedClosedAt     DateTime?
+  verifiedClosedBy     String?
+  verificationNotes    String?
+  isRepairWorkOrder    Boolean                      @default(false)
+  // Set on auto-created repair WOs; tracks which stage of the broken-part
+  // repair lifecycle this WO is currently in.  Null on normal (non-repair) WOs.
+  repairWorkflowStatus RepairWorkflowStatus?
+  // The InventoryItem (part type) being repaired on this WO.
+  // Set when manually converting a WO via "Convert to Repairable" so the
+  // serial-assignment dialog can scope its search to the correct SKU even
+  // before a specific serial is linked (repairableItemId still null).
+  // Also set for auto-created repair WOs via the DI workflow.
+  repairInventoryItemId String?
+  // User-set flag: this WO is tracking the repair/overhaul of a serialized assembly.
+  // Distinct from isRepairWorkOrder, which is auto-set by the broken-part DI workflow.
+  // When true:
+  //   – repairableItemId can point to an existing assembly serial OR a new serial can
+  //     be created directly from the WO (no DI required).
+  //   – Any direct issues to this WO participate in assembly BOM learning when
+  //     InventorySettings.assemblyTrackingEnabled = true.
+  //   – A REPAIR_INITIATED history event is recorded on the linked assembly serial.
+  isAssemblyRepair     Boolean                      @default(false)
+  psrRequired          Boolean                      @default(false)
+  repairableItemId     String?
+  parentWorkOrderId    String?
+  // The original equipment WO (e.g. WO-1001) whose direct-issue triggered
+  // the auto-creation of this repair WO.  Enables "show all repair WOs created
+  // from this equipment job" queries without parsing description text.
+  sourceWorkOrderId    String?
+  // The DirectIssue record (good-spare swap) that auto-created this repair WO.
+  // Provides full traceability: DI → repair WO → serial → repair history.
+  sourceDirectIssueId  String?
+  automationLogs       AutomationExecutionLog[]
+  documents            Document[]
+  failures             EquipmentFailure[]
+  meterReadings        EquipmentMeterReading[]
+  notebooks            EquipmentNotebook[]
+  transfers            EquipmentTransfer[]
+  events               Event[]
+  approvedBy           User?                        @relation("WorkOrder_approvedByIdToUser", fields: [approvedById], references: [id])
+  assignedTo           User?                        @relation("WorkOrder_assignedToIdToUser", fields: [assignedToId], references: [id])
+  createdBy            User?                        @relation("WorkOrder_createdByIdToUser", fields: [createdById], references: [id])
+  equipment            Equipment?                   @relation(fields: [equipmentId], references: [id])
+  failureCode          FailureCode?                 @relation(fields: [failureCodeId], references: [id])
+  lastModifiedBy       User?                        @relation("WorkOrder_lastModifiedByIdToUser", fields: [lastModifiedById], references: [id])
+  parentWorkOrder      WorkOrder?                   @relation("WorkOrderRepairSubtasks", fields: [parentWorkOrderId], references: [id])
+  repairSubtasks       WorkOrder[]                  @relation("WorkOrderRepairSubtasks")
+  planner              User?                        @relation("WorkOrder_plannerIdToUser", fields: [plannerId], references: [id])
+  pmInstances          PMInstance[]
+  project              Project?                     @relation(fields: [projectId], references: [id])
+  repairInventoryItem  InventoryItem?               @relation("WorkOrder_repairInventoryItem", fields: [repairInventoryItemId], references: [id])
+  repairableItem       RepairableItem?              @relation(fields: [repairableItemId], references: [id])
+  // The original equipment WO that triggered the DI that created this repair WO.
+  sourceWorkOrder      WorkOrder?                   @relation("RepairWO_sourceWO", fields: [sourceWorkOrderId], references: [id])
+  repairWOsTriggered   WorkOrder[]                  @relation("RepairWO_sourceWO")
+  // The DirectIssue (good-spare swap) that auto-created this repair WO.
+  sourceDirectIssue    DirectIssue?                 @relation("RepairWO_sourceDirectIssue", fields: [sourceDirectIssueId], references: [id])
+  requestedBy          User                         @relation("WorkOrder_requestedByIdToUser", fields: [requestedById], references: [id])
+  compliance           WorkOrderCompliance[]
+  laborEntries         WorkOrderLabor[]
+  parts                WorkOrderPart[]
+  resources            WorkOrderResource[]
+  safetyTags           WorkOrderSafetyTag[]
+  lotoExecutions       LOTOExecution[]
+  pmWorkOrder          PMWorkOrder?
+  repairHistories      RepairHistory[]
+  requisitionBudgets   RequisitionBudgetHeader[]    @relation("RequisitionBudget_workOrder")
+  woIssueNotifications WorkOrderIssueNotification[]
+  laborLogs            WorkOrderLaborLog[]
+  lotoRequirements     WorkOrderLOTO[]
+  progressNotes        WorkOrderProgressNote[]
+  directIssues         DirectIssue[]                @relation("DirectIssue_workOrder")
+  technicians          WorkOrderTechnician[]
+  poLines              POLine[]                     @relation("POLine_workOrder")
+  plannerAcks          WorkOrderPlannerAck[]
+
+  @@index([assignedToId])
+  @@index([equipmentId])
+  @@index([plannedStartDate])
+  @@index([priority])
+  @@index([status])
+  @@index([woNumber])
+  @@index([createdById])
+  @@index([plannerId])
+  @@index([lastModifiedById])
+  @@index([plannedAt])
+  @@index([outageTypes])
+  @@index([isRepairWorkOrder])
+  @@index([isAssemblyRepair])
+  @@index([repairableItemId])
+  @@index([parentWorkOrderId])
+  @@index([repairWorkflowStatus])
+  @@index([sourceWorkOrderId])
+  @@index([sourceDirectIssueId])
+  @@index([repairInventoryItemId])
+  @@index([status, plannedEndDate])
+  @@index([assignedToId, status])
+  @@index([equipmentId, status])
+  @@index([createdAt])
+  @@index([createdAt, status])
+  @@index([actualStartDate])
+  @@index([actualStartDate, status])
+}
+
+
+model WorkOrderTechnician {
+  id             String                  @id @default(uuid())
+  workOrderId    String
+  technicianId   String
+  role           WorkOrderTechnicianRole @default(ASSISTANT)
+  assignedAt     DateTime                @default(now())
+  assignedBy     String
+  assignedByName String?
+  removedAt      DateTime?
+  removedBy      String?
+  removedByName  String?
+  notes          String?
+  isActive       Boolean                 @default(true)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  workOrder  WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  technician User      @relation("WorkOrderTechnician_technician", fields: [technicianId], references: [id], onDelete: Cascade)
+  assigner   User      @relation("WorkOrderTechnician_assigner", fields: [assignedBy], references: [id])
+  remover    User?     @relation("WorkOrderTechnician_remover", fields: [removedBy], references: [id])
+
+  @@unique([workOrderId, technicianId])
+  @@index([workOrderId])
+  @@index([technicianId])
+  @@index([role])
+  @@index([isActive])
+  @@index([assignedBy])
+  @@index([removedBy])
+  @@map("work_order_technicians")
+}
+
+
+model WorkOrderLabor {
+  id             String                 @id @default(uuid())
+  workOrderId    String
+  userId         String?
+  startTime      DateTime
+  endTime        DateTime?
+  hours          Decimal                @db.Decimal(8, 2)
+  costRate       Decimal                @db.Decimal(10, 2)
+  totalCost      Decimal                @db.Decimal(12, 2)
+  notes          String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  createdBy      String
+  updatedBy      String?
+  isActive       Boolean                @default(true)
+  actualHours    Decimal                @default(0) @db.Decimal(8, 2)
+  allocatedHours Decimal?               @db.Decimal(8, 2)
+  creator        User                   @relation("WorkOrderLabor_creator", fields: [createdBy], references: [id])
+  updater        User?                  @relation("WorkOrderLabor_updater", fields: [updatedBy], references: [id])
+  user           User?                  @relation("UserLaborEntries", fields: [userId], references: [id])
+  workOrder      WorkOrder              @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  logs           WorkOrderLaborLog[]
+  progressNote   WorkOrderProgressNote?
+
+  @@index([userId])
+  @@index([startTime])
+  @@index([workOrderId])
+  @@index([createdBy])
+  @@index([updatedBy])
+  @@index([isActive])
+}
+
+
+model WorkOrderLaborLog {
+  id                    String         @id @default(uuid())
+  laborId               String
+  workOrderId           String
+  loggedBy              String
+  enteredBy             String? // User who actually performed the logging action (for "on behalf of" tracking)
+  hoursLogged           Decimal        @db.Decimal(8, 2)
+  costRate              Decimal        @db.Decimal(10, 2)
+  cost                  Decimal        @db.Decimal(12, 2)
+  workDate              DateTime       @db.Date
+  notes                 String?
+  noteType              String
+  content               String
+  flaggedEquipmentIssue Boolean        @default(false)
+  issueType             String?
+  issueSeverity         String?
+  issueTitle            String?
+  issueDescription      String?
+  issueNotificationId   String?
+  createdBy             String
+  createdAt             DateTime       @default(now())
+  updatedBy             String
+  updatedAt             DateTime       @updatedAt
+  creator               User           @relation("WorkOrderLaborLog_creator", fields: [createdBy], references: [id])
+  enterer               User?          @relation("WorkOrderLaborLog_enterer", fields: [enteredBy], references: [id])
+  labor                 WorkOrderLabor @relation(fields: [laborId], references: [id], onDelete: Cascade)
+  logger                User           @relation("UserLaborLogs", fields: [loggedBy], references: [id])
+  updater               User           @relation("WorkOrderLaborLog_updater", fields: [updatedBy], references: [id])
+  workOrder             WorkOrder      @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([laborId])
+  @@index([workOrderId])
+  @@index([loggedBy])
+  @@index([enteredBy])
+  @@index([workDate])
+  @@index([noteType])
+  @@index([flaggedEquipmentIssue])
+  @@index([issueNotificationId])
+  @@index([createdBy])
+  @@index([updatedBy])
+  @@map("work_order_labor_logs")
+}
+
+
+model WorkOrderPart {
+  id              String    @id @default(uuid())
+  workOrderId     String
+  inventoryItemId String
+  quantityPlanned Decimal   @db.Decimal(10, 2)
+  quantityUsed    Decimal?  @db.Decimal(10, 2)
+  unitCost        Decimal   @db.Decimal(12, 2)
+  totalCost       Decimal   @db.Decimal(12, 2)
+  issuedAt        DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  consumedBy      String?
+  consumedByName  String?
+  consumedAt      DateTime?
+  consumedFrom    String?
+
+  // Status tracking
+  status         WorkOrderPartStatus @default(PLANNED)
+  reservedAt     DateTime?
+  reservedBy     String?
+  reservedByUser User?               @relation("WorkOrderPart_reservedBy", fields: [reservedBy], references: [id])
+
+  cancelledAt        DateTime?
+  cancelledBy        String?
+  cancelledByUser    User?     @relation("WorkOrderPart_cancelledBy", fields: [cancelledBy], references: [id])
+  cancellationReason String?
+
+  expiresAt      DateTime?
+  autoReqEnabled Boolean   @default(true)
+
+  // FIFO Priority Tracking
+  // These fields ensure perfect FIFO priority management through all lifecycle states
+  fifoPriorityOrder  Int?      // Sequential order number (1, 2, 3...) assigned when FIRST reserved, never changes
+  originalReservedAt DateTime? // Timestamp of FIRST reservation, preserved even if cancelled/re-reserved
+  fifoActive         Boolean   @default(false) // True if this part currently holds FIFO priority for its inventory item
+
+  // CRITICAL: Foreign key link to InventoryReservation
+  // This ensures both systems stay in sync
+  reservationId String?               @unique
+  reservation   InventoryReservation? @relation(fields: [reservationId], references: [id])
+
+  // Serialized / Repairable Part Reservation
+  // When a repairable (serialized) item is reserved, inventory stock is NOT touched.
+  // Instead an email is sent to Inventory Managers asking them to direct-issue a serial number.
+  isSerializedReservation  Boolean @default(false) // True when this part is a repairable/serialized item reservation
+  pendingSerialAssignment  Boolean @default(false) // True while waiting for INV manager to assign a serial number
+  assignedSerialNumber     String?                 // Serial number assigned by INV manager via direct issue
+  assignedRepairableItemId String?                 // FK to RepairableItem once a serial number is assigned
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  workOrder     WorkOrder     @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryItemId])
+  @@index([workOrderId])
+  @@index([consumedBy])
+  @@index([reservationId])
+  @@index([status])
+  @@index([reservedBy])
+  @@index([cancelledBy])
+  @@index([fifoPriorityOrder])
+  @@index([fifoActive])
+  @@index([originalReservedAt])
+  @@index([inventoryItemId, fifoPriorityOrder])
+  @@index([inventoryItemId, fifoActive])
+  @@index([isSerializedReservation])
+  @@index([pendingSerialAssignment])
+  @@index([assignedRepairableItemId])
+}
+
+
+model WorkOrderResource {
+  id                String           @id @default(uuid())
+  workOrderId       String
+  resourceType      String
+  rentalEquipmentId String?
+  equipmentName     String?
+  equipmentDesc     String?
+  supplierId        String?
+  supplierName      String?
+  quantity          Decimal          @default(1) @db.Decimal(10, 2)
+  estimatedCost     Decimal?         @db.Decimal(12, 2)
+  actualCost        Decimal?         @db.Decimal(12, 2)
+  startDate         DateTime?
+  endDate           DateTime?
+  duration          Decimal?         @db.Decimal(8, 2)
+  durationUnit      RentalUnit?
+  status            String           @default("Requested")
+  requisitionId     String?
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  rentalEquipment   RentalEquipment? @relation(fields: [rentalEquipmentId], references: [id])
+  requisition       Requisition?     @relation(fields: [requisitionId], references: [id])
+  supplier          Supplier?        @relation(fields: [supplierId], references: [id])
+  workOrder         WorkOrder        @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@index([resourceType])
+  @@index([rentalEquipmentId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([requisitionId])
+}
+
+
+model WorkOrderAutomationRule {
+  id            String                   @id @default(uuid())
+  name          String
+  description   String?
+  ruleType      String
+  trigger       String
+  conditions    Json
+  actions       Json
+  isActive      Boolean                  @default(true)
+  priority      Int                      @default(0)
+  createdBy     String
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  executionLogs AutomationExecutionLog[]
+
+  @@index([isActive, priority])
+  @@index([trigger])
+  @@index([ruleType])
+  @@index([createdBy])
+}
+
+
+model AutomationExecutionLog {
+  id              String                  @id @default(uuid())
+  ruleId          String
+  workOrderId     String
+  trigger         String
+  status          String
+  executedAt      DateTime                @default(now())
+  executionTime   Int
+  actionsExecuted Int                     @default(0)
+  actionsFailed   Int                     @default(0)
+  error           String?
+  details         Json
+  rule            WorkOrderAutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  workOrder       WorkOrder               @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+  @@index([workOrderId])
+  @@index([trigger])
+  @@index([status])
+  @@index([executedAt])
+}
+
+
+model WorkOrderProgressNote {
+  id           String          @id @default(uuid())
+  workOrderId  String
+  userId       String
+  noteType     String
+  content      String
+  hoursWorked  Decimal         @db.Decimal(10, 2)
+  workDate     DateTime        @db.Date
+  laborEntryId String?         @unique
+  isLocked     Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  laborEntry   WorkOrderLabor? @relation(fields: [laborEntryId], references: [id])
+  user         User            @relation(fields: [userId], references: [id])
+  workOrder    WorkOrder       @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@index([userId])
+  @@index([workDate])
+  @@index([noteType])
+  @@map("work_order_progress_notes")
+}
+
+/// Tracks when a technician acknowledges they have read the planner instructions
+/// on a work order. Used to show the acknowledgment modal and audit the event.
+model WorkOrderPlannerAck {
+  id                   String    @id @default(uuid())
+  workOrderId          String
+  userId               String
+  acknowledgedAt       DateTime  @default(now())
+  /// Snapshot of instructions at the time of acknowledgment.
+  /// If the planner updates instructions later, the snapshot won't match
+  /// and the modal fires again.
+  instructionsSnapshot String
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  user      User      @relation("WorkOrderPlannerAck_user", fields: [userId], references: [id])
+
+  @@unique([workOrderId, userId])
+  @@index([workOrderId])
+  @@index([userId])
+  @@map("work_order_planner_acks")
+}
+
+
+enum WorkOrderPartStatus {
+  PLANNED // Part added to WO, not reserved yet
+  RESERVED // Stock reserved for this part
+  ISSUED // Physically issued from inventory
+  CANCELLED // Part removed/cancelled
+}

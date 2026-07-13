@@ -1,0 +1,214 @@
+// Prisma Schema - Invoicing & Payments
+
+
+model Invoice {
+  id              String    @id @default(uuid())
+  internalNumber  String    @unique          // Auto-generated internal tracking number (e.g., INV-000001)
+  invoiceNumber   String                     // Vendor's invoice number (unique per supplier, not globally)
+  purchaseOrderId String?
+  invoiceDate     DateTime
+  dueDate         DateTime?
+  totalAmount     Decimal   @db.Decimal(12, 2)
+  paidAmount      Decimal   @default(0) @db.Decimal(12, 2)
+  status          String    @default("Pending")
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  balanceAmount   Decimal   @default(0) @db.Decimal(12, 2)
+  sentAt          DateTime?
+  shippingCost    Decimal   @default(0) @db.Decimal(12, 2)
+  subtotal        Decimal   @db.Decimal(12, 2)
+  supplierId      String
+  tax             Decimal   @default(0) @db.Decimal(12, 2)
+  voidReason      String?
+  voidedAt        DateTime?
+
+  // Invoice Approval Workflow Fields
+  uploadedAt               DateTime?
+  uploadedBy               String?
+  uploadedByName           String?
+  matchStatus              InvoiceMatchStatus    @default(UNMATCHED)
+  matchedAt                DateTime?
+  matchedBy                String?
+  matchedByName            String?
+  approvalStatus           InvoiceApprovalStatus @default(FULLY_APPROVED)
+  requestorApprovedAt      DateTime?
+  requestorApprovedBy      String?
+  requestorApprovedByName  String?
+  requestorRejectedAt      DateTime?
+  requestorRejectionReason String?
+  managerApprovedAt        DateTime?
+  managerApprovedBy        String?
+  managerApprovedByName    String?
+  managerRejectedAt        DateTime?
+  managerRejectionReason   String?
+  // B1-7 (TD-012): finalApprovedAt removed — never set anywhere
+  // B1-7 (TD-013): canReceiveServices removed — set but never read
+
+  // Batch 0: Amount validation fields for invoice matching
+  poTotalAtUpload          Decimal?  @db.Decimal(18, 6)  @map("po_total_at_upload")
+  cumulativeInvoicedAmount Decimal?  @db.Decimal(18, 6)  @map("cumulative_invoiced_amount")
+  matchVariancePercent     Decimal?  @db.Decimal(8, 4)   @map("match_variance_percent")
+  matchValidationNotes     String?   @map("match_validation_notes")
+  autoApprovalEligible     Boolean   @default(false)     @map("auto_approval_eligible")
+
+  // Prepayment / pre-shipment payment approval flag.
+  // When true, the invoice is routed to PENDING_REQUESTOR regardless of the
+  // usual amount/match auto-approve logic. Used for vendors that require
+  // payment before goods ship. Added 2026-04-20 per customer request.
+  paymentApprovalRequired  Boolean   @default(false)     @map("payment_approval_required")
+  paymentApprovalReason    String?   @map("payment_approval_reason")
+
+  purchaseOrder    PurchaseOrder?           @relation(fields: [purchaseOrderId], references: [id])
+  supplier         Supplier                 @relation(fields: [supplierId], references: [id])
+  documents        Document[]
+  lines            InvoiceLine[]
+  invoiceLineItems InvoiceLineItem[]
+  payments         InvoicePayment[]
+  receipts         POLineReceipt[]
+  approvalHistory  InvoiceApprovalHistory[]
+
+  // ── NAV invoice sync tracking ─────────────────────────────
+  // ── NAV invoice sync tracking ─────────────────────────────────────────────────────────
+  // navSyncStatus values (matches NAVMOCK PULSE_SYNC_SCHEMA.md):
+  //   null            — not yet pushed to NAV
+  //   IN_FLIGHT       — push in progress
+  //   SYNCED          — pushed to PULSEINV batch (Finance F9-post pending)
+  //   POSTED          — confirmed in NAV Vendor Ledger Entry (F9-posted) ← VLE sync writes this
+  //   FAILED          — push failed
+  navDocumentNo         String?   @unique @map("navDocumentNo") @db.VarChar(20)
+  navPostingDate        DateTime? @map("navPostingDate") @db.Date
+  navSyncedAt           DateTime? @map("navSyncedAt")
+  navSyncStatus         String?   @map("navSyncStatus") @db.VarChar(20)
+  navSyncedBy           String?   @map("navSyncedBy") @db.VarChar(100)
+  navSyncAttempts       Int       @default(0) @map("navSyncAttempts")
+  navSyncError          String?   @map("navSyncError")
+  // VLE confirmation — written by the Sync VLE endpoint after Finance F9-posts
+  navVleEntryNo         Int?      @map("navVleEntryNo")          // NAV Vendor Ledger Entry No_
+  navVlePostingDate     DateTime? @map("navVlePostingDate") @db.Date
+  navVleOpen            Boolean?  @map("navVleOpen")              // true=unpaid false=paid
+  navVleConfirmedAt     DateTime? @map("navVleConfirmedAt")       // last time VLE was confirmed
+
+  // ── NAV payment sync tracking ─────────────────────────────
+  navPaymentDocNo       String?   @map("navPaymentDocNo") @db.VarChar(20)
+  navPaymentAmount      Decimal?  @map("navPaymentAmount") @db.Decimal(18, 2)
+  navPaymentDate        DateTime? @map("navPaymentDate") @db.Date
+  navPaymentSyncedAt    DateTime? @map("navPaymentSyncedAt")
+  navPaymentSyncedBy    String?   @map("navPaymentSyncedBy") @db.VarChar(100)
+
+  @@unique([invoiceNumber, supplierId]) // Vendor invoice number is unique per supplier, not globally
+  @@index([dueDate])
+  @@index([internalNumber])
+  @@index([invoiceDate])
+  @@index([invoiceNumber])
+  @@index([purchaseOrderId])
+  @@index([status])
+  @@index([supplierId])
+  @@index([supplierId, status])
+  @@index([matchStatus])
+  @@index([approvalStatus])
+  @@index([uploadedBy])
+  @@index([requestorApprovedBy])
+  @@index([managerApprovedBy])
+  @@index([navSyncStatus])
+  @@index([navPaymentDocNo])
+}
+
+
+model InvoiceLine {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  description String
+  quantity    Decimal  @db.Decimal(10, 2)
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  totalPrice  Decimal  @db.Decimal(12, 2)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+
+model InvoiceLineItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  poLineId    String
+  description String
+  quantity    Decimal  @db.Decimal(10, 2)
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  totalAmount Decimal  @db.Decimal(12, 2)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  poLine      POLine   @relation(fields: [poLineId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([poLineId])
+  @@map("invoice_line_items")
+}
+
+
+model InvoicePayment {
+  id              String   @id @default(uuid())
+  invoiceId       String   @map("invoiceId")
+  paymentDate     DateTime @map("paymentDate")
+  amount          Decimal  @db.Decimal(18, 2)
+  paymentMethod   String   @map("paymentMethod") @db.VarChar(50)
+  referenceNumber String?
+  reference       String?  @db.VarChar(100)
+  notes           String?
+  createdAt       DateTime @default(now()) @map("createdAt")
+  updatedAt       DateTime @updatedAt @map("updatedAt")
+  invoice         Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([paymentDate])
+  @@index([paymentMethod])
+  @@index([reference])
+  @@map("InvoicePayment")
+}
+
+
+enum InvoiceMatchStatus {
+  UNMATCHED
+  PARTIALLY_MATCHED
+  FULLY_MATCHED
+  MATCH_APPROVED
+  OVER_MATCHED
+}
+
+
+enum InvoiceApprovalStatus {
+  PENDING_REQUESTOR
+  REQUESTOR_APPROVED
+  REQUESTOR_REJECTED
+  // B1-6 (TD-010, TD-011): PENDING_MANAGER, MANAGER_APPROVED, MANAGER_REJECTED, REJECTED removed — dead enum values, no manager workflow exists.
+  // Validated via query: 0 invoices used these values at time of removal.
+  FULLY_APPROVED
+  PENDING_REVIEW
+}
+
+
+// Invoice Approval History
+model InvoiceApprovalHistory {
+  id             String                 @id @default(uuid())
+  invoiceId      String
+  approverType   String // REQUESTOR, MANAGER
+  approvedBy     String
+  approvedByName String
+  action         String // APPROVED, REJECTED
+  comments       String?
+  previousStatus InvoiceApprovalStatus?
+  newStatus      InvoiceApprovalStatus
+  approvedAt     DateTime               @default(now())
+  invoice        Invoice                @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([approvedBy])
+  @@index([approvedAt])
+  @@index([action])
+  @@map("invoice_approval_history")
+}

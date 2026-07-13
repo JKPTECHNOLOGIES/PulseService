@@ -1,0 +1,107 @@
+// Prisma Schema - Suggestions Box
+//
+// A lightweight "suggestions box" that lets any operational user request a
+// code / feature adjustment to the application itself (e.g. "I need to be able
+// to inactivate a supplier in Pulse"). Suggestions are tagged to an area of the
+// system (covering all aspects) and free-typed.
+//
+// Workflow:
+//   1. A user submits a suggestion  → status NEW. The product team is emailed
+//      (jkpweb@jkptechnologies.com) that a new suggestion was raised.
+//   2. The team triages / builds it → status IN_REVIEW / IN_PROGRESS.
+//   3. The team marks it COMPLETED   → the original requester is emailed a link
+//      asking them to check it and confirm closure.
+//   4. The requester confirms        → status CLOSED (closureConfirmedAt stamped).
+//
+// This is an intake + acknowledgement trail only; it does not change any
+// application behaviour by itself.
+
+/// The area of the system a suggestion relates to. Intentionally broad so a
+/// user can request a change to "all aspects" of the application.
+enum SuggestionCategory {
+  EQUIPMENT
+  INVENTORY
+  WORK_ORDERS
+  PREVENTIVE_MAINTENANCE
+  PURCHASING
+  REQUISITIONS
+  PURCHASE_ORDERS
+  INVOICING
+  SUPPLIERS
+  MASTER_DATA
+  REPORTS
+  FINANCE
+  BUDGET
+  SAFETY
+  DOCUMENTS
+  NOTIFICATIONS
+  DASHBOARD
+  MOBILE
+  GENERAL
+  OTHER
+}
+
+enum SuggestionStatus {
+  NEW
+  IN_REVIEW
+  IN_PROGRESS
+  COMPLETED
+  CLOSED
+  DECLINED
+  CANCELLED
+}
+
+enum SuggestionPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Suggestion {
+  id               String             @id @default(uuid())
+  /// Human-readable sequence number, e.g. SUG-000123 (documentCounter "SUG-<year>")
+  suggestionNumber String             @unique
+  /// Short summary line
+  title            String
+  category         SuggestionCategory @default(GENERAL)
+  /// The free-typed suggestion / feature request
+  details          String             @db.Text
+  priority         SuggestionPriority @default(NORMAL)
+  status           SuggestionStatus   @default(NEW)
+
+  // Requester
+  requestedById    String
+  requestedBy      User               @relation("Suggestion_requester", fields: [requestedById], references: [id])
+
+  // Product-team handling
+  /// Free-form notes from the team (shown to the requester)
+  adminNotes       String?            @db.Text
+  handledById      String?
+  handledBy        User?              @relation("Suggestion_handler", fields: [handledById], references: [id])
+  /// When the team marked the suggestion COMPLETED (awaiting requester closure)
+  completedAt      DateTime?
+
+  // Requester closure confirmation
+  closureConfirmedAt DateTime?
+  /// Optional feedback the requester leaves when confirming closure
+  closureFeedback    String?          @db.Text
+
+  // Email notification audit
+  /// When the product team inbox was notified of the new suggestion
+  intakeNotifiedAt        DateTime?
+  /// When the "please confirm closure" email was sent to the requester
+  completionNotifiedAt    DateTime?
+
+  // Attachments (screenshots / supporting documents) linked via Document.suggestionId
+  documents        Document[]
+
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([status])
+  @@index([category])
+  @@index([requestedById])
+  @@index([createdAt])
+  @@map("suggestions")
+}

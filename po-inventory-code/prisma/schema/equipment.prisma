@@ -1,0 +1,495 @@
+// Prisma Schema - Equipment, BOM & Failure Management
+
+
+model EquipmentCategory {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  equipment   Equipment[]
+
+  @@index([name])
+  @@index([isActive])
+  @@map("equipment_categories")
+}
+
+
+model Equipment {
+  id                     String                       @id @default(uuid())
+  tag                    String                       @unique
+  description            String
+  locationId             String
+  manufacturerId         String?
+  categoryId             String?
+  model                  String?
+  serialNumber           String?
+  installDate            DateTime?
+  warrantyExpiry         DateTime?
+  criticality            EquipmentCriticality
+  status                 String                       @default("Active")
+  purchaseCost           Decimal?                     @db.Decimal(12, 2)
+  replacementCost        Decimal?                     @db.Decimal(12, 2)
+  specifications         Json?
+  notes                  String?
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+  category               String?
+  currentMeter           Decimal?                     @db.Decimal(12, 2)
+  lastMaintenanceDate    DateTime?
+  lastMeterUpdate        DateTime?
+  meterType              String?
+  operatingHours         Decimal?                     @db.Decimal(12, 2)
+  pidNumber              String?
+  areaId                 String?
+  costCenterId           String?
+  defaultAccountCodeId   String?
+  departmentId           String?
+  latitude               Decimal?                     @db.Decimal(10, 8)
+  longitude              Decimal?                     @db.Decimal(11, 8)
+  gpsLastUpdated         DateTime?
+  gpsNotes               String?
+  isPSM                  Boolean                      @default(false)
+  isHazardousLocation    Boolean                      @default(false)
+  documents              Document[]
+  area                   Location?                    @relation("Equipment_budgetArea", fields: [areaId], references: [id])
+  defaultAccountCode     AccountCode?                 @relation("Equipment_defaultAccountCode", fields: [defaultAccountCodeId], references: [id])
+  department             Department?                  @relation("Equipment_department", fields: [departmentId], references: [id])
+  equipmentCategory      EquipmentCategory?           @relation(fields: [categoryId], references: [id])
+  location               Location                     @relation("Equipment_location", fields: [locationId], references: [id])
+  manufacturer           Manufacturer?                @relation(fields: [manufacturerId], references: [id])
+  compliance             EquipmentCompliance[]
+  failures               EquipmentFailure[]
+  meterReadings          EquipmentMeterReading[]
+  notebooks              EquipmentNotebook[]
+  safetyTags             EquipmentSafetyTag[]
+  serials                EquipmentSerial[]
+  transfers              EquipmentTransfer[]
+  events                 Event[]
+  inventoryItem          InventoryItem[]
+  pmInstances            PMInstance[]
+  pmSchedules            PMSchedule[]
+  workOrders             WorkOrder[]
+  bomLinks               EquipmentBOMLink[]           @relation("EquipmentBOMLinks")
+  lotoProcedureLinks     EquipmentLOTOProcedure[]
+  pmChecklistItems       EquipmentPMChecklistItem[]
+  hazards                Hazard[]
+  lotoExecutions         LOTOExecution[]
+  pmChecklistCompletions PMChecklistCompletion[]
+  pmTemplateLinks        PMTemplateEquipment[]
+  safetyIncidents        SafetyIncident[]
+  safetyInspections      SafetyInspection[]
+  woIssueNotifications   WorkOrderIssueNotification[]
+  repairableItems        RepairableItem[]             @relation("RepairableItem_equipment")
+  directIssues           DirectIssue[]                @relation("DirectIssueEquipment")
+
+  @@index([categoryId])
+  @@index([criticality])
+  @@index([locationId])
+  @@index([status, locationId])          // common combined filter: active equipment at a location
+  @@index([status, criticality])         // common combined filter: critical active equipment
+  @@index([serialNumber])
+  @@index([status])
+  @@index([tag])
+  @@index([defaultAccountCodeId])
+  @@index([areaId])
+  @@index([departmentId])
+  @@index([latitude, longitude])
+  @@index([isPSM])
+  @@index([isHazardousLocation])
+}
+
+
+model EquipmentFailure {
+  id                    String                      @id @default(uuid())
+  equipmentId           String
+  failureDate           DateTime
+  failureCodeId         String?
+  description           String
+  rootCause             String?
+  correctiveAction      String?
+  workOrderId           String?
+  downtime              Decimal?                    @db.Decimal(8, 2)
+  repairCost            Decimal?                    @db.Decimal(12, 2)
+  reportedById          String
+  severity              String
+  status                String                      @default("Open")
+  resolvedAt            DateTime?
+  lessonsLearned        String?
+  failureMode           String?
+  woIssueNotificationId String?
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  equipment             Equipment                   @relation(fields: [equipmentId], references: [id])
+  failureCode           FailureCode?                @relation(fields: [failureCodeId], references: [id])
+  reportedBy            User                        @relation(fields: [reportedById], references: [id])
+  woIssueNotification   WorkOrderIssueNotification? @relation(fields: [woIssueNotificationId], references: [id])
+  workOrder             WorkOrder?                  @relation(fields: [workOrderId], references: [id])
+
+  @@index([equipmentId])
+  @@index([failureCodeId])
+  @@index([failureDate])
+  @@index([severity])
+  @@index([status])
+  @@index([woIssueNotificationId])
+  @@index([failureDate, severity])
+  @@index([equipmentId, failureDate])
+}
+
+
+model EquipmentMeterReading {
+  id           String     @id @default(uuid())
+  equipmentId  String
+  readingDate  DateTime   @default(now())
+  meterType    String
+  reading      Decimal    @db.Decimal(12, 2)
+  recordedById String
+  workOrderId  String?
+  notes        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  equipment    Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  recordedBy   User       @relation(fields: [recordedById], references: [id])
+  workOrder    WorkOrder? @relation(fields: [workOrderId], references: [id])
+
+  @@index([equipmentId])
+  @@index([meterType])
+  @@index([readingDate])
+}
+
+
+model EquipmentNotebook {
+  id          String     @id @default(uuid())
+  equipmentId String
+  entryDate   DateTime   @default(now())
+  entryType   String
+  title       String
+  content     String
+  authorId    String
+  workOrderId String?
+  isPinned    Boolean    @default(false)
+  tags        String[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  author      User       @relation(fields: [authorId], references: [id])
+  equipment   Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id])
+
+  @@index([authorId])
+  @@index([entryDate])
+  @@index([entryType])
+  @@index([equipmentId])
+  @@index([isPinned])
+}
+
+
+model EquipmentSerial {
+  id             String    @id @default(uuid())
+  equipmentId    String
+  serialNumber   String    @unique
+  description    String?
+  manufacturer   String?
+  model          String?
+  installDate    DateTime?
+  warrantyExpiry DateTime?
+  purchaseCost   Decimal?  @db.Decimal(12, 2)
+  status         String    @default("Active")
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  equipment      Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@index([equipmentId])
+  @@index([serialNumber])
+  @@index([status])
+}
+
+
+model EquipmentTransfer {
+  id             String     @id @default(uuid())
+  equipmentId    String
+  fromLocationId String
+  toLocationId   String
+  transferDate   DateTime
+  requestedById  String
+  approvedById   String?
+  status         String     @default("Pending")
+  reason         String
+  workOrderId    String?
+  completedAt    DateTime?
+  notes          String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  approvedBy     User?      @relation("EquipmentTransfer_approvedByIdToUser", fields: [approvedById], references: [id])
+  equipment      Equipment  @relation(fields: [equipmentId], references: [id])
+  requestedBy    User       @relation("EquipmentTransfer_requestedByIdToUser", fields: [requestedById], references: [id])
+  workOrder      WorkOrder? @relation(fields: [workOrderId], references: [id])
+
+  @@index([equipmentId])
+  @@index([requestedById])
+  @@index([status])
+  @@index([transferDate])
+}
+
+
+model EquipmentBOM {
+  id             String             @id @default(uuid())
+  bomNumber      String
+  name           String
+  description    String?
+  bomType        BOMType            @default(STANDARD)
+  version        Int                @default(1)
+  isActive       Boolean            @default(true)
+  estimatedCost  Decimal?           @db.Decimal(12, 2)
+  notes          String?
+  createdBy      String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  lines          EquipmentBOMLine[] @relation("ParentBOM")
+  parentLines    EquipmentBOMLine[] @relation("ChildBOM")
+  creator        User               @relation("EquipmentBOM_creator", fields: [createdBy], references: [id])
+  equipmentLinks EquipmentBOMLink[]
+  changeHistory  EquipmentBOMChangeHistory[] @relation("BOMChangeHistory")
+
+  @@index([bomNumber])
+  @@index([bomType])
+  @@index([isActive])
+  @@index([createdBy])
+  @@map("equipment_boms")
+}
+
+
+model EquipmentBOMLink {
+  id          String       @id @default(uuid())
+  equipmentId String
+  bomId       String
+  isPrimary   Boolean      @default(true)
+  notes       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  equipment   Equipment    @relation("EquipmentBOMLinks", fields: [equipmentId], references: [id], onDelete: Cascade)
+  bom         EquipmentBOM @relation(fields: [bomId], references: [id], onDelete: Cascade)
+
+  @@unique([equipmentId, bomId])
+  @@index([equipmentId])
+  @@index([bomId])
+  @@index([isPrimary])
+  @@map("equipment_bom_links")
+}
+
+
+model EquipmentBOMLine {
+  id              String                  @id @default(uuid())
+  bomId           String
+  lineNumber      Int
+  inventoryItemId String?
+  description     String
+  quantity        Decimal                 @db.Decimal(10, 2)
+  unit            String
+  unitCost        Decimal?                @db.Decimal(12, 2)
+  totalCost       Decimal?                @db.Decimal(12, 2)
+  isCritical      Boolean                 @default(false)
+  isOptional      Boolean                 @default(false)
+  leadTimeDays    Int?
+  notes           String?
+  childBomId      String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  alternates      EquipmentBOMAlternate[]
+  bom             EquipmentBOM            @relation("ParentBOM", fields: [bomId], references: [id], onDelete: Cascade)
+  childBom        EquipmentBOM?           @relation("ChildBOM", fields: [childBomId], references: [id])
+  inventoryItem   InventoryItem?          @relation("BOMLine_inventoryItem", fields: [inventoryItemId], references: [id])
+  changeHistory   EquipmentBOMChangeHistory[] @relation("BOMLineChangeHistory")
+
+  @@unique([bomId, lineNumber])
+  @@index([bomId])
+  @@index([inventoryItemId])
+  @@index([isCritical])
+  @@index([childBomId])
+  @@map("equipment_bom_lines")
+}
+
+
+model EquipmentBOMAlternate {
+  id              String           @id @default(uuid())
+  bomLineId       String
+  inventoryItemId String
+  description     String
+  unitCost        Decimal?         @db.Decimal(12, 2)
+  leadTimeDays    Int?
+  preferenceOrder Int              @default(1)
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  bomLine         EquipmentBOMLine @relation(fields: [bomLineId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryItem    @relation("BOMAlternate_inventoryItem", fields: [inventoryItemId], references: [id])
+  changeHistory   EquipmentBOMChangeHistory[] @relation("BOMAlternateChangeHistory")
+
+  @@index([bomLineId])
+  @@index([inventoryItemId])
+  @@index([preferenceOrder])
+  @@map("equipment_bom_alternates")
+}
+
+
+model EquipmentBOMTemplate {
+  id                String   @id @default(uuid())
+  templateNumber    String   @unique
+  name              String
+  description       String?
+  equipmentCategory String
+  bomType           BOMType  @default(STANDARD)
+  templateData      Json
+  isActive          Boolean  @default(true)
+  usageCount        Int      @default(0)
+  notes             String?
+  createdBy         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  creator           User     @relation("EquipmentBOMTemplate_creator", fields: [createdBy], references: [id])
+
+  @@index([templateNumber])
+  @@index([equipmentCategory])
+  @@index([bomType])
+  @@index([isActive])
+  @@index([createdBy])
+  @@map("equipment_bom_templates")
+}
+
+
+model Event {
+  id                   String     @id @default(uuid())
+  eventNumber          String     @unique
+  type                 String
+  severity             String
+  eventDate            DateTime
+  equipmentId          String?
+  reportedById         String
+  description          String
+  rootCause            String?
+  correctiveActionWOId String?
+  lessonsLearned       String?
+  status               String     @default("Open")
+  closedAt             DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  correctiveActionWO   WorkOrder? @relation(fields: [correctiveActionWOId], references: [id])
+  equipment            Equipment? @relation(fields: [equipmentId], references: [id])
+  reportedBy           User       @relation(fields: [reportedById], references: [id])
+
+  @@index([equipmentId])
+  @@index([eventNumber])
+  @@index([severity])
+  @@index([type])
+}
+
+
+model FailureCode {
+  id                String             @id @default(uuid())
+  code              String             @unique
+  description       String
+  category          String?
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  equipmentFailures EquipmentFailure[]
+  workOrders        WorkOrder[]
+
+  @@index([category])
+  @@index([code])
+}
+
+
+model Manufacturer {
+  id        String      @id @default(uuid())
+  name      String      @unique
+  code      String?     @unique
+  website   String?
+  phone     String?
+  email     String?
+  address   String?
+  notes     String?
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  equipment Equipment[]
+
+  @@index([name])
+}
+
+
+enum EquipmentCriticality {
+  A
+  B
+  C
+  D
+  E
+  F
+}
+
+
+enum BOMStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ACTIVE
+  SUPERSEDED
+  OBSOLETE
+}
+
+
+enum BOMType {
+  STANDARD
+  CUSTOM
+  MAINTENANCE
+  SPARE_PARTS
+  CONSUMABLES
+}
+
+
+// ============================================================================
+// BOM Change History / Audit Log
+// ============================================================================
+
+enum BOMChangeAction {
+  BOM_CREATED
+  BOM_UPDATED
+  BOM_DELETED
+  BOM_CLONED
+  EQUIPMENT_LINKED
+  EQUIPMENT_UNLINKED
+  LINE_ADDED
+  LINE_UPDATED
+  LINE_DELETED
+  ALTERNATE_ADDED
+  ALTERNATE_UPDATED
+  ALTERNATE_DELETED
+}
+
+
+model EquipmentBOMChangeHistory {
+  id          String          @id @default(uuid())
+  bomId       String
+  action      BOMChangeAction
+  changedBy   String                              // FK → User.id
+  changedAt   DateTime        @default(now())
+  bomLineId   String?                             // FK → EquipmentBOMLine.id (nullable)
+  alternateId String?                             // FK → EquipmentBOMAlternate.id (nullable)
+  oldValues   Json?                               // snapshot before change
+  newValues   Json?                               // snapshot after change
+  description String                              // human-readable summary
+  metadata    Json?                               // extra context
+
+  bom           EquipmentBOM              @relation("BOMChangeHistory", fields: [bomId], references: [id], onDelete: Cascade)
+  changedByUser User                      @relation("BOMChangeHistory_user", fields: [changedBy], references: [id])
+  bomLine       EquipmentBOMLine?         @relation("BOMLineChangeHistory", fields: [bomLineId], references: [id], onDelete: SetNull)
+  alternate     EquipmentBOMAlternate?    @relation("BOMAlternateChangeHistory", fields: [alternateId], references: [id], onDelete: SetNull)
+
+  @@index([bomId])
+  @@index([changedBy])
+  @@index([changedAt])
+  @@index([action])
+  @@index([bomLineId])
+  @@map("equipment_bom_change_history")
+}

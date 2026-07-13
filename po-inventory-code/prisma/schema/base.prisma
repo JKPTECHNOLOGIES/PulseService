@@ -1,0 +1,12 @@
+// Prisma Schema - Base Configuration
+// Generator and datasource settings
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}

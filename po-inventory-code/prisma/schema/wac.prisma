@@ -1,0 +1,113 @@
+// Prisma Schema - Inventory WAC (Weighted Average Cost) Run Tracking
+//
+// Provides idempotency, full audit trail, and Finance review workflow
+// for monthly moving-average cost runs.
+//
+// Every WAC run is atomic: either all items update and all GL entries post,
+// or the entire run rolls back. The @@unique on runMonth prevents double-posting
+// for the same calendar month.
+//
+// GL entries produced by a WAC run use:
+//   referenceType = 'INVENTORY_WAC_REVALUATION'
+//   referenceNumber = 'WAC-{YYYY-MM}-{SKU}'
+// so they can always be found with a simple query.
+
+
+enum WACRunStatus {
+  PENDING    // run record created, preview not yet computed
+  PREVIEW    // preview computed and stored, awaiting Finance confirmation
+  POSTING    // in-flight guard — prevents concurrent runs for same month
+  POSTED     // all GL entries posted, all unitCosts updated
+  FAILED     // errored mid-post; safe to retry (a new run record is required)
+  REVERSED   // all GL entries reversed, unitCosts restored to pre-run values
+}
+
+
+model InventoryWACRun {
+  id              String       @id @default(uuid())
+
+  // The month this run covers in YYYY-MM format, e.g. "2026-03".
+  // The @@unique constraint is the primary idempotency guard against double-posting.
+  runMonth        String       @unique
+
+  status          WACRunStatus @default(PENDING)
+
+  triggeredBy     String       // userId
+  triggeredByName String
+
+  triggeredAt     DateTime     @default(now())
+  previewedAt     DateTime?
+  postedAt        DateTime?
+  reversedAt      DateTime?
+  reversedBy      String?
+  reversedByName  String?
+  reversalReason  String?
+
+  // Summary counters — populated after post
+  itemsProcessed  Int          @default(0) // total items evaluated
+  itemsUpdated    Int          @default(0) // items where unitCost changed and GL was posted
+  itemsSkipped    Int          @default(0) // items with no material change, zero qty, etc.
+
+  // GL totals — debits and credits always equal (balanced entries)
+  totalGLDebit    Decimal      @default(0) @db.Decimal(14, 2)
+  totalGLCredit   Decimal      @default(0) @db.Decimal(14, 2)
+
+  // JSON array of { itemId, sku, error } for any per-item failures
+  errorLog        String?
+
+  notes           String?
+
+  items           InventoryWACRunItem[]
+  receipts        POLineReceipt[]
+
+  @@index([status])
+  @@index([runMonth])
+  @@index([triggeredAt])
+  @@map("inventory_wac_runs")
+}
+
+
+model InventoryWACRunItem {
+  id              String  @id @default(uuid())
+
+  wacRunId        String
+  inventoryItemId String
+
+  // Cost snapshot — old is what was in InventoryItem.unitCost before this run
+  oldUnitCost     Decimal @db.Decimal(12, 4)
+  newUnitCost     Decimal @db.Decimal(12, 4)
+
+  // Quantity on-hand at the moment the WAC was computed (sum across all stores/bins)
+  qtyOnHand       Decimal @db.Decimal(10, 2)
+
+  // GL adjustment = qtyOnHand × (newUnitCost - oldUnitCost)
+  // Positive  → DR 1110 Inventory Asset  / CR 5400 Inventory Adjustment
+  // Negative  → DR 5400 Inventory Adjustment / CR 1110 Inventory Asset
+  // Zero      → no GL entry posted (zero on-hand or no material change)
+  glAdjustmentAmount  Decimal  @default(0) @db.Decimal(14, 2)
+
+  // Null during preview mode; populated after GL is posted
+  glTransactionId     String?
+
+  // Receipt data that drove the new WAC
+  totalReceiptQty     Decimal  @default(0) @db.Decimal(10, 2)
+  totalReceiptValue   Decimal  @default(0) @db.Decimal(14, 2)
+  freightAllocated    Decimal  @default(0) @db.Decimal(12, 2)
+
+  // PO IDs whose receipts were included in this item's WAC calculation
+  poIds               String[] @default([])
+
+  // Set for items that were evaluated but not updated/GL-posted.
+  // Values: NO_MATERIAL_CHANGE | ZERO_QTY_NO_GL | NEGATIVE_QTY_SKIPPED
+  skippedReason       String?
+
+  createdAt  DateTime @default(now())
+
+  wacRun        InventoryWACRun @relation(fields: [wacRunId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem   @relation(fields: [inventoryItemId], references: [id])
+
+  @@index([wacRunId])
+  @@index([inventoryItemId])
+  @@index([glTransactionId])
+  @@map("inventory_wac_run_items")
+}

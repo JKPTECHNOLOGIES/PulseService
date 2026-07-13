@@ -1,0 +1,56 @@
+// Prisma Schema - Email Logging & Settings
+
+
+model EmailLog {
+  id        String      @id @default(uuid())
+  messageId String?     @unique
+  to        String[]
+  cc        String[]    @default([])
+  bcc       String[]    @default([])
+  subject   String
+  body      String
+  isHtml    Boolean     @default(true)
+  status    EmailStatus
+  sentBy    String
+  sentAt    DateTime?
+  error     String?
+  attempts  Int         @default(0)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  user      User        @relation("EmailLog_user", fields: [sentBy], references: [id])
+
+  @@index([sentBy])
+  @@index([status])
+  @@index([createdAt])
+  @@map("email_logs")
+}
+
+
+model EmailSettings {
+  id                 String   @id @default(uuid())
+  fromAddress        String
+  fromName           String
+  replyToAddress     String?
+  enabled            Boolean  @default(true)
+  provider           String   @default("graph") // graph, sendgrid, ses
+  retryAttempts      Int      @default(3)
+  retryDelayMs       Int      @default(300000) // 5 minutes
+  rateLimitPerMinute Int      @default(30)
+  rateLimitPerHour   Int      @default(1000)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  updatedBy          String?
+  updatedByName      String?
+
+  @@index([updatedBy])
+  @@index([updatedAt])
+  @@map("email_settings")
+}
+
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+  QUEUED
+}

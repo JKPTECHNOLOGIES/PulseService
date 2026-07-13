@@ -1,0 +1,161 @@
+// Prisma Schema - Notifications & Assignments
+
+
+model Notification {
+  id          String            @id @default(uuid())
+  userId      String?
+  type        String
+  category    String
+  title       String
+  message     String
+  data        Json?
+  priority    String            @default("normal")
+  isRead      Boolean           @default(false)
+  readAt      DateTime?
+  actionUrl   String?
+  actionLabel String?
+  createdAt   DateTime          @default(now())
+  expiresAt   DateTime?
+  user        User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs        NotificationLog[]
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@index([category])
+  @@index([priority])
+  @@index([expiresAt])
+}
+
+
+model NotificationPreference {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  emailEnabled      Boolean  @default(true)
+  smsEnabled        Boolean  @default(false)
+  pushEnabled       Boolean  @default(true)
+  dailyDigest       Boolean  @default(true)
+  weeklyInsights    Boolean  @default(true)
+  quietHoursStart   String?
+  quietHoursEnd     String?
+  quietHoursDays    String[] @default(["0", "1", "2", "3", "4", "5", "6"])
+  workOrderEnabled  Boolean  @default(true)
+  pmEnabled         Boolean  @default(true)
+  inventoryEnabled  Boolean  @default(true)
+  equipmentEnabled  Boolean  @default(true)
+  documentEnabled   Boolean  @default(true)
+  reportEnabled     Boolean  @default(true)
+  purchasingEnabled Boolean  @default(true)
+  budgetEnabled     Boolean  @default(true)
+  safetyEnabled     Boolean  @default(true)
+  systemEnabled     Boolean  @default(true)
+  complianceEnabled Boolean  @default(true)
+  disabledTypes     String[] @default([])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+
+model NotificationTemplate {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  name         String
+  category     String
+  emailSubject String?
+  emailBody    String?
+  smsBody      String?
+  pushTitle    String?
+  pushBody     String?
+  variables    String[]
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([code])
+  @@index([category])
+  @@index([isActive])
+}
+
+
+model NotificationLog {
+  id             String       @id @default(uuid())
+  notificationId String
+  channel        String
+  status         String
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  failedAt       DateTime?
+  errorMessage   String?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@index([channel])
+  @@index([status])
+  @@index([sentAt])
+  @@index([status, createdAt])
+  @@index([channel, status])
+}
+
+
+model AssignmentRule {
+  id                           String                            @id @default(uuid())
+  name                         String
+  description                  String?
+  priority                     Int                               @default(0)
+  isActive                     Boolean                           @default(true)
+  assignmentType               String
+  assignToUserId               String?
+  assignToRoleId               String?
+  maxWorkload                  Int?
+  createdAt                    DateTime                          @default(now())
+  updatedAt                    DateTime                          @updatedAt
+  createdBy                    String
+  assignToRole                 Role?                             @relation(fields: [assignToRoleId], references: [id])
+  assignToUser                 User?                             @relation("AssignmentRule_assignToUser", fields: [assignToUserId], references: [id])
+  creator                      User                              @relation("AssignmentRule_creator", fields: [createdBy], references: [id])
+  equipmentCategoryAssignments UserEquipmentCategoryAssignment[]
+  locationAssignments          UserLocationAssignment[]
+
+  @@index([isActive, priority])
+  @@index([assignToUserId])
+  @@index([assignToRoleId])
+  @@index([createdBy])
+}
+
+
+model UserLocationAssignment {
+  id               String         @id @default(uuid())
+  assignmentRuleId String
+  userId           String
+  locationId       String
+  createdAt        DateTime       @default(now())
+  assignmentRule   AssignmentRule @relation(fields: [assignmentRuleId], references: [id], onDelete: Cascade)
+  location         Location       @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentRuleId, userId, locationId])
+  @@index([assignmentRuleId])
+  @@index([userId])
+  @@index([locationId])
+}
+
+
+model UserEquipmentCategoryAssignment {
+  id                String         @id @default(uuid())
+  assignmentRuleId  String
+  userId            String
+  equipmentCategory String
+  createdAt         DateTime       @default(now())
+  assignmentRule    AssignmentRule @relation(fields: [assignmentRuleId], references: [id], onDelete: Cascade)
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentRuleId, userId, equipmentCategory])
+  @@index([assignmentRuleId])
+  @@index([userId])
+  @@index([equipmentCategory])
+}

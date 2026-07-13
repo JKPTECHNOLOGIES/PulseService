@@ -1,0 +1,185 @@
+// Prisma Schema - Shift Handover Reports & Notifications
+
+
+enum ShiftType {
+  DAY
+  NIGHT
+}
+
+
+enum ShiftReportStatus {
+  DRAFT
+  COMPLETED
+  SENT
+  ARCHIVED
+}
+
+
+enum ShiftSectionType {
+  GAS_PREP
+  COMPRESSION_SYN_LOOP
+  REACTION_CRYSTALS
+  PT_NA_AN
+  NOTIFICATION_SUBMITTED
+  BYPASS_TRIPS_ALARMS
+  EQUIPMENT_OUT_OF_SERVICE
+  HSE_INCIDENTS
+  UPCOMING_MAINTENANCE
+}
+
+
+enum ShiftRecipientType {
+  STANDARD
+  SUPERVISOR
+  MANAGEMENT
+}
+
+
+enum ShiftAuditAction {
+  INSERT
+  UPDATE
+  DELETE
+  VIEW
+  EMAIL_SENT
+  REPORT_COMPLETED
+}
+
+
+model ShiftReport {
+  id                 String                   @id @default(uuid())
+  reportDate         DateTime                 @db.Date
+  shiftType          ShiftType
+  srTechName         String
+  status             ShiftReportStatus        @default(DRAFT)
+  createdById        String
+  receivedById       String?
+  completedAt        DateTime?
+  sentAt             DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  createdBy          User                     @relation("ShiftReportCreatedBy", fields: [createdById], references: [id])
+  receivedBy         User?                    @relation("ShiftReportReceivedBy", fields: [receivedById], references: [id])
+  productionEstimate ShiftProductionEstimate?
+  statusSections     ShiftStatusSection[]
+  emailNotifications ShiftEmailNotification[]
+  auditLogs          ShiftAuditLog[]
+  autoSaves          ShiftAutoSave[]
+
+  @@unique([reportDate, shiftType])
+  @@index([reportDate])
+  @@index([createdById])
+  @@index([status])
+  @@map("shift_reports")
+}
+
+
+model ShiftProductionEstimate {
+  id            String      @id @default(uuid())
+  shiftReportId String      @unique
+  nh3_301       Decimal?    @db.Decimal(10, 2)
+  co2_40        Decimal?    @db.Decimal(10, 2)
+  urea_406      Decimal?    @db.Decimal(10, 2)
+  na_72         Decimal?    @db.Decimal(10, 2)
+  an_71         Decimal?    @db.Decimal(10, 2)
+  createdById   String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  shiftReport   ShiftReport @relation(fields: [shiftReportId], references: [id], onDelete: Cascade)
+  createdBy     User        @relation("ShiftProductionCreatedBy", fields: [createdById], references: [id])
+
+  @@map("shift_production_estimates")
+}
+
+
+model ShiftStatusSection {
+  id              String           @id @default(uuid())
+  shiftReportId   String
+  sectionType     ShiftSectionType
+  content         String           @db.Text
+  isCarriedOver   Boolean          @default(false)
+  originalContent String?          @db.Text
+  createdById     String
+  updatedById     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  shiftReport     ShiftReport      @relation(fields: [shiftReportId], references: [id], onDelete: Cascade)
+  createdBy       User             @relation("ShiftSectionCreatedBy", fields: [createdById], references: [id])
+  updatedBy       User?            @relation("ShiftSectionUpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([shiftReportId, sectionType])
+  @@map("shift_status_sections")
+}
+
+
+model ShiftEmailRecipient {
+  id            String             @id @default(uuid())
+  firstName     String
+  lastName      String
+  email         String             @unique
+  isActive      Boolean            @default(true)
+  recipientType ShiftRecipientType @default(STANDARD)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@map("shift_email_recipients")
+}
+
+
+model ShiftEmailNotification {
+  id            String       @id @default(uuid())
+  shiftReportId String?
+  recipients    String[]
+  subject       String
+  htmlContent   String       @db.Text
+  textContent   String?      @db.Text
+  sentById      String
+  sentAt        DateTime?
+  status        EmailStatus  @default(PENDING)
+  errorMessage  String?
+  retryCount    Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  shiftReport   ShiftReport? @relation(fields: [shiftReportId], references: [id], onDelete: Cascade)
+  sentBy        User         @relation("ShiftEmailSentBy", fields: [sentById], references: [id])
+
+  @@map("shift_email_notifications")
+}
+
+
+model ShiftAutoSave {
+  id            String      @id @default(uuid())
+  shiftReportId String
+  userId        String
+  sessionData   Json
+  version       Int         @default(1)
+  lastSavedAt   DateTime    @updatedAt
+  expiresAt     DateTime
+  createdAt     DateTime    @default(now())
+  shiftReport   ShiftReport @relation(fields: [shiftReportId], references: [id], onDelete: Cascade)
+  user          User        @relation("ShiftAutoSaveUser", fields: [userId], references: [id])
+
+  @@unique([shiftReportId, userId])
+  @@map("shift_autosave_sessions")
+}
+
+
+model ShiftAuditLog {
+  id            String           @id @default(uuid())
+  tableName     String
+  recordId      String
+  action        ShiftAuditAction
+  oldValues     Json?
+  newValues     Json?
+  changedById   String
+  shiftReportId String?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime         @default(now())
+  changedBy     User             @relation("ShiftAuditChangedBy", fields: [changedById], references: [id])
+  shiftReport   ShiftReport?     @relation(fields: [shiftReportId], references: [id])
+
+  @@index([tableName, recordId])
+  @@index([changedById])
+  @@index([shiftReportId])
+  @@map("shift_audit_logs")
+}

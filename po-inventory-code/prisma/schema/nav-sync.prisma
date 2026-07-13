@@ -1,0 +1,143 @@
+// NAV Sync — models that replace NAVMOCK's SQLite tables.
+// All state that was spread across data/mock.db now lives in the same
+// PostgreSQL database as the rest of Pulse.
+
+/// Push-state tracking: replaces nav_receipt_journal_pushes (SQLite).
+/// One row per Pulse GLTransaction that enters the NAV push pipeline.
+/// status: PENDING → IN_FLIGHT → PUSHED | FAILED
+model NavJournalPush {
+  id              String    @id @default(cuid())
+  glTransactionId String    @unique
+  referenceType   String
+  referenceNumber String    @default("")
+  navDocumentNo   String?
+  navBatchName    String?
+  navLineCount    Int       @default(0)
+  /// PENDING | IN_FLIGHT | PUSHED | FAILED
+  status          String    @default("PENDING")
+  errorMessage    String?
+  attemptCount    Int       @default(0)
+  lastAttemptAt   DateTime?
+  pushedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  glTransaction GLTransaction @relation("GLTransaction_navPush", fields: [glTransactionId], references: [id])
+
+  @@index([status])
+  @@map("nav_journal_pushes")
+}
+
+/// Pulse GL account → NAV GL account mapping table.
+/// Replaces gl_account_mappings (SQLite).
+/// sourceType: "inventory" = GL-sync (receipts/issues); "invoice" = AP invoice sync
+model NavGLAccountMapping {
+  id                 String   @id @default(cuid())
+  pulseAccountNumber String   @unique
+  pulseAccountName   String
+  navAccountNumber   String
+  navAccountName     String
+  /// inventory | invoice
+  sourceType         String   @default("inventory")
+  confirmedBy        String   @default("system")
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([navAccountNumber])
+  @@map("nav_gl_account_mappings")
+}
+
+/// Dimension posting rules for NAV journal lines.
+/// Replaces nav_account_dimension_rules (SQLite).
+/// matchType: exact = exact account number match; prefix = starts-with match
+/// side: DR | CR | BOTH
+/// Null field value = inherit from GL transaction; empty string = force blank
+model NavAccountDimensionRule {
+  id          String   @id @default(cuid())
+  navAccount  String
+  /// exact | prefix
+  matchType   String   @default("exact")
+  /// DR | CR | BOTH
+  side        String   @default("BOTH")
+  deptCode    String?
+  projectCode String?
+  subAcct     String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([navAccount, matchType])
+  @@map("nav_account_dimension_rules")
+}
+
+/// Cache of Gen_ Journal Line required (NOT NULL, no DEFAULT) columns.
+/// Replaces nav_gen_journal_required_cols (SQLite).
+/// Populated by running the column-extract script against NAV.
+/// Without rows here, pushes will fail with missing-column errors.
+model NavGenJournalCol {
+  id          String   @id @default(cuid())
+  columnName  String   @unique
+  dataType    String
+  maxLength   Int?
+  ordinalPos  Int
+  updatedAt   DateTime @updatedAt
+
+  @@index([ordinalPos])
+  @@map("nav_gen_journal_cols")
+}
+
+/// Full audit trail for every NAV sync action.
+/// Never deleted — append-only record of all sync activity.
+/// action values:
+///   PREVIEW          — Finance viewed the sync preview
+///   PUSH_STARTED     — push initiated for a GLTransaction
+///   PUSH_SUCCESS     — lines confirmed in NAV, Pulse flipped to SYNCED
+///   PUSH_SKIPPED     — transaction skipped (already pushed, unbalanced, etc.)
+///   PUSH_FAILED      — NAV write failed, stored error message
+///   MAPPING_CREATED  — new Pulse→NAV account mapping added
+///   MAPPING_UPDATED  — existing mapping changed
+///   MAPPING_DELETED  — mapping removed
+///   DIM_RULE_CHANGED — dimension rule added/updated/deleted
+///   CONFIG_CHANGED   — NavSyncConfig key changed
+model NavSyncAuditLog {
+  id              String   @id @default(cuid())
+  /// See action values above
+  action          String
+  /// GLTransaction.id — set for push-related actions
+  glTransactionId String?
+  referenceType   String?
+  referenceNumber String?
+  navDocumentNo   String?
+  navBatchName    String?
+  lineCount       Int?
+  /// Signed amount of the transaction (DR total)
+  amount          Decimal? @db.Decimal(15, 2)
+  /// Who triggered the action (Pulse user)
+  userId          String?
+  userName        String?
+  /// Free-form detail / JSON payload (config old→new value, error context, etc.)
+  detail          String?
+  errorMessage    String?
+  durationMs      Int?
+  /// sandbox | prod
+  env             String   @default("sandbox")
+  createdAt       DateTime @default(now())
+
+  @@index([action])
+  @@index([glTransactionId])
+  @@index([createdAt])
+  @@map("nav_sync_audit_log")
+}
+
+/// Sync configuration key-value store.
+/// Replaces nav_sync_config (SQLite).
+model NavSyncConfig {
+  key         String   @id
+  value       String
+  label       String   @default("")
+  description String   @default("")
+  updatedAt   DateTime @updatedAt
+
+  @@map("nav_sync_config")
+}

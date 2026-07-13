@@ -1,0 +1,55 @@
+// Prisma Schema - Locations & Hierarchy
+
+
+model Location {
+  id                   String   @id @default(uuid())
+  name                 String
+  code                 String   @unique
+  description          String?
+  parentId             String?
+  locationType         String
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  areaId               String?
+  defaultAccountCodeId String?
+  departmentId         String?
+  latitude             Decimal? @db.Decimal(10, 8)
+  longitude            Decimal? @db.Decimal(11, 8)
+
+  // NEW: Budget Area fields (for locations with locationType='Area')
+  budgetAreaCode String?
+  budgetAreaName String?
+  isBudgetArea   Boolean @default(false)
+
+  // Equipment and Location Hierarchy
+  equipmentAtLocation Equipment[]              @relation("Equipment_location")
+  equipmentBudgetArea Equipment[]              @relation("Equipment_budgetArea")
+  parentBudgetArea    Location?                @relation("Location_budgetArea", fields: [areaId], references: [id])
+  childBudgetAreas    Location[]               @relation("Location_budgetArea")
+  defaultAccountCode  AccountCode?             @relation("Location_defaultAccountCode", fields: [defaultAccountCodeId], references: [id])
+  department          Department?              @relation("Location_department", fields: [departmentId], references: [id])
+  parentLocation      Location?                @relation("LocationToLocation", fields: [parentId], references: [id])
+  childLocations      Location[]               @relation("LocationToLocation")
+  userAssignments     UserLocationAssignment[]
+  hazards             Hazard[]
+  safetyInspections   SafetyInspection[]
+
+  // Budget Area Relations (for locations with isBudgetArea=true)
+  consumableUsages       ConsumableUsage[]           @relation("ConsumableUsage_budgetArea")
+  areaBudgets            AreaBudget[]                @relation("AreaBudget_budgetArea")
+  requisitionAllocations RequisitionLineAllocation[] @relation("RequisitionAllocation_budgetArea")
+  poLineAllocations      POLineChargeAllocation[]    @relation("POLineAllocation_budgetArea")
+  directIssues           DirectIssue[]               @relation("DirectIssue_budgetArea")
+  glTransactionLines     GLTransactionLine[]         @relation("GLTransactionLine_budgetArea")
+
+  @@index([code])
+  @@index([parentId])
+  @@index([defaultAccountCodeId])
+  @@index([areaId])
+  @@index([departmentId])
+  @@index([latitude, longitude])
+  @@index([locationType])
+  @@index([isBudgetArea])
+  @@index([budgetAreaCode])
+}

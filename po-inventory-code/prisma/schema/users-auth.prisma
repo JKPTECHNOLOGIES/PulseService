@@ -1,0 +1,300 @@
+// Prisma Schema - Users, Roles & Authentication
+
+
+enum UserEnvironment {
+  PROD
+  SANDBOX
+}
+
+
+model Permission {
+  id              String           @id @default(uuid())
+  resource        String
+  action          String
+  description     String?
+  category        String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  rolePermissions RolePermission[]
+
+  @@unique([resource, action])
+  @@index([resource])
+  @@index([action])
+  @@index([category])
+  @@index([isActive])
+  @@map("permissions")
+}
+
+
+model Role {
+  id                    String                @id @default(uuid())
+  name                  String                @unique
+  description           String?
+  isActive              Boolean               @default(true)
+  isSystem              Boolean               @default(false)
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  createdBy             String?
+  azureAdSecurityGroups String[]              @default([])
+  assignmentRules       AssignmentRule[]
+  dashboardLayouts      DashboardLayout[]
+  users                 User[]
+  auditLogs             RoleAuditLog[]
+  defaultDashboard      RoleDefaultDashboard?
+  permissions           RolePermission[]
+
+  @@index([name])
+  @@index([isActive])
+  @@index([isSystem])
+  @@map("roles")
+}
+
+
+model AllowedDomain {
+  id          String   @id @default(uuid())
+  domain      String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+
+  @@index([domain])
+  @@index([isActive])
+  @@map("allowed_domains")
+}
+
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  createdBy    String?
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+
+model RoleAuditLog {
+  id            String   @id @default(uuid())
+  roleId        String
+  action        String
+  changedBy     String
+  changedByName String
+  changes       Json?
+  previousValue Json?
+  newValue      Json?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+  role          Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@index([roleId])
+  @@index([action])
+  @@index([changedBy])
+  @@index([createdAt])
+  @@map("role_audit_logs")
+}
+
+
+model User {
+  id                                 String                            @id @default(uuid())
+  email                              String                            @unique
+  username                           String                            @unique
+  passwordHash                       String
+  firstName                          String
+  lastName                           String
+  phone                              String?
+  roleId                             String
+  isActive                           Boolean                           @default(true)
+  lastLogin                          DateTime?
+  createdAt                          DateTime                          @default(now())
+  updatedAt                          DateTime                          @updatedAt
+  defaultLaborRate                   Decimal?                          @db.Decimal(10, 2)
+  availabilityCalendar               Json?
+  currentEnvironment                 UserEnvironment                   @default(PROD)
+  activityFeed                       ActivityFeed[]
+  assignedToRules                    AssignmentRule[]                  @relation("AssignmentRule_assignToUser")
+  createdAssignmentRules             AssignmentRule[]                  @relation("AssignmentRule_creator")
+  auditLogs                          AuditLog[]                        @relation("AuditLog_user")
+  convertedRequisitionLines          RequisitionLine[]                 @relation("RequisitionLineConverter")
+  dashboardLayout                    DashboardLayout?
+  documents                          Document[]
+  verifiedEquipmentCompliance        EquipmentCompliance[]
+  equipmentFailures                  EquipmentFailure[]
+  equipmentMeterReadings             EquipmentMeterReading[]
+  equipmentNotebooks                 EquipmentNotebook[]
+  addedEquipmentSafetyTags           EquipmentSafetyTag[]
+  approvedEquipmentTransfers         EquipmentTransfer[]               @relation("EquipmentTransfer_approvedByIdToUser")
+  requestedEquipmentTransfers        EquipmentTransfer[]               @relation("EquipmentTransfer_requestedByIdToUser")
+  events                             Event[]
+  cancelledReservations              InventoryReservation[]            @relation("InventoryReservation_cancelledByToUser")
+  confirmedReservations              InventoryReservation[]            @relation("InventoryReservation_confirmedByToUser")
+  consumedReservations               InventoryReservation[]            @relation("InventoryReservation_consumedByToUser")
+  reservations                       InventoryReservation[]            @relation("InventoryReservation_reservedByToUser")
+  notifications                      Notification[]
+  notificationPreferences            NotificationPreference?
+  createdPMAutomationRules           PMAutomationRule[]                @relation("PMAutomationRule_creator")
+  createdPMInstances                 PMInstance[]                      @relation("PMInstance_creator")
+  createdPMSchedules                 PMSchedule[]                      @relation("PMSchedule_creator")
+  createdPMTemplates                 PMTemplate[]                      @relation("PMTemplate_creator")
+  recentlyViewed                     RecentlyViewed[]
+  requisitionsFinalApproved          Requisition[]                     @relation("RequisitionFinalApprover")
+  requisitions                       Requisition[]
+  requisitionsApproved               RequisitionApproval[]             @relation("RequisitionApprover")
+  requisitionsDelegated              RequisitionApproval[]             @relation("RequisitionApprovalDelegate")
+  reservationReviewLogs              ReservationReviewLog[]            @relation("ReservationReviewLog_reviewer")
+  savedSearches                      SavedSearch[]
+  role                               Role                              @relation(fields: [roleId], references: [id])
+  delegatedAuthorities               UserApprovalAuthority[]           @relation("DelegatedAuthorities")
+  authoritiesGranted                 UserApprovalAuthority[]           @relation("GrantedAuthorities")
+  authoritiesRevoked                 UserApprovalAuthority[]           @relation("RevokedAuthorities")
+  approvalAuthorities                UserApprovalAuthority[]           @relation("UserApprovalAuthorities")
+  equipmentCategoryAssignments       UserEquipmentCategoryAssignment[]
+  favorites                          UserFavorite[]
+  locationAssignments                UserLocationAssignment[]
+  userPreference                     UserPreference?
+  quickActions                       UserQuickAction[]
+  userSkills                         UserSkill[]
+  approvedWorkOrders                 WorkOrder[]                       @relation("WorkOrder_approvedByIdToUser")
+  assignedWorkOrders                 WorkOrder[]                       @relation("WorkOrder_assignedToIdToUser")
+  createdWorkOrders                  WorkOrder[]                       @relation("WorkOrder_createdByIdToUser")
+  lastModifiedWorkOrders             WorkOrder[]                       @relation("WorkOrder_lastModifiedByIdToUser")
+  plannedWorkOrders                  WorkOrder[]                       @relation("WorkOrder_plannerIdToUser")
+  requestedWorkOrders                WorkOrder[]                       @relation("WorkOrder_requestedByIdToUser")
+  verifiedWorkOrderCompliance        WorkOrderCompliance[]
+  createdWorkOrderLabor              WorkOrderLabor[]                  @relation("WorkOrderLabor_creator")
+  updatedWorkOrderLabor              WorkOrderLabor[]                  @relation("WorkOrderLabor_updater")
+  laborEntries                       WorkOrderLabor[]                  @relation("UserLaborEntries")
+  addedWorkOrderSafetyTags           WorkOrderSafetyTag[]
+  createdAccountCodeBudgets          AccountCodeBudget[]               @relation("AccountCodeBudget_creator")
+  createdAccountCodes                AccountCode[]                     @relation("AccountCode_creator")
+  createdAreaBudgets                 AreaBudget[]                      @relation("AreaBudget_creator")
+  acknowledgedBudgetAlerts           BudgetAlert[]                     @relation("BudgetAlert_acknowledger")
+  createdBudgetPeriods               BudgetPeriod[]                    @relation("BudgetPeriod_creator")
+  createdBudgetTransactions          BudgetTransaction[]               @relation("BudgetTransaction_creator")
+  reversedBudgetTransactions         BudgetTransaction[]               @relation("BudgetTransactionReverser")
+  bulkActionExecutions               BulkActionExecution[]             @relation("BulkActionExecutor")
+  createdGLTransactions              GLTransaction[]                   @relation("GLTransactionCreator")
+  postedGLTransactions               GLTransaction[]                   @relation("GLTransactionPoster")
+  reversedGLTransactions             GLTransaction[]                   @relation("GLTransactionReverser")
+  reviewedCostVariances              CostVariance[]
+  dashboards                         Dashboard[]
+  createdDepartmentBudgets           DepartmentBudget[]                @relation("DepartmentBudget_creator")
+  createdDepartments                 Department[]                      @relation("Department_creator")
+  managedDepartments                 Department[]                      @relation("Department_manager")
+  directIssueReturns                 DirectIssueReturn[]               @relation("DirectIssueReturn_returner")
+  issuedDirectIssues                 DirectIssue[]                     @relation("DirectIssue_issuer")
+  documentAccessLogs                 DocumentAccess[]                  @relation("DocumentAccessUser")
+  documentComments                   DocumentComment[]                 @relation("DocumentCommentAuthor")
+  documentSharesGiven                DocumentShare[]                   @relation("DocumentShareSharer")
+  documentSharesReceived             DocumentShare[]                   @relation("DocumentShareUser")
+  documentVersionsUploaded           DocumentVersion[]                 @relation("DocumentVersionUploader")
+  emailLogs                          EmailLog[]                        @relation("EmailLog_user")
+  createdEquipmentBOMTemplates       EquipmentBOMTemplate[]            @relation("EquipmentBOMTemplate_creator")
+  createdEquipmentBOMs               EquipmentBOM[]                    @relation("EquipmentBOM_creator")
+  createdEquipmentPMChecklistItems   EquipmentPMChecklistItem[]        @relation("EquipmentPMChecklistItem_creator")
+  uploadedEquipmentPMChecklistPhotos EquipmentPMChecklistPhoto[]       @relation("EquipmentPMChecklistPhoto_uploader")
+  assignedHazards                    Hazard[]                          @relation("HazardAssignee")
+  identifiedHazards                  Hazard[]                          @relation("HazardIdentifier")
+  acceptedImprovementSuggestions     ImprovementSuggestion[]           @relation("ImprovementSuggestionAcceptor")
+  createdLearningModels              LearningModel[]                   @relation("LearningModelCreator")
+  authorizedLOTOExecutions           LOTOExecution[]                   @relation("LOTOExecutionAuthorizer")
+  lockedOutLOTOExecutions            LOTOExecution[]                   @relation("LOTOExecutionLockoutPerson")
+  restoredLOTOExecutions             LOTOExecution[]                   @relation("LOTOExecutionRestorer")
+  verifiedLOTOExecutions             LOTOExecution[]                   @relation("LOTOExecutionVerifier")
+  appliedLOTOLocks                   LOTOLock[]                        @relation("LOTOLockApplier")
+  removedLOTOLocks                   LOTOLock[]                        @relation("LOTOLockRemover")
+  approvedLOTOProcedures             LOTOProcedure[]                   @relation("LOTOProcedureApprover")
+  createdLOTOProcedures              LOTOProcedure[]                   @relation("LOTOProcedureCreator")
+  appliedLOTOTags                    LOTOTag[]                         @relation("LOTOTagApplier")
+  removedLOTOTags                    LOTOTag[]                         @relation("LOTOTagRemover")
+  lotoVerifications                  LOTOVerification[]                @relation("LOTOVerificationVerifier")
+  cycleCountAudits                   MasterCycleCountAudit[]           @relation("CycleCountAudit_user")
+  finalCounts                        MasterCycleCountItem[]            @relation("CountItem_finalCounter")
+  firstCounts                        MasterCycleCountItem[]            @relation("CountItem_firstCounter")
+  secondCounts                       MasterCycleCountItem[]            @relation("CountItem_secondCounter")
+  approvedCycleCounts                MasterCycleCount[]                @relation("MasterCycleCount_approver")
+  reviewedCycleCounts                MasterCycleCount[]                @relation("MasterCycleCount_reviewer")
+  startedCycleCounts                 MasterCycleCount[]                @relation("MasterCycleCount_starter")
+  completedPMChecklistItems          PMChecklistCompletion[]           @relation("PMChecklistCompletion_completer")
+  uploadedPMCompletionPhotos         PMCompletionPhoto[]               @relation("PMCompletionPhoto_uploader")
+  addedPMTemplateEquipment           PMTemplateEquipment[]             @relation("PMTemplateEquipment_addedBy")
+  completedPMWorkOrders              PMWorkOrder[]                     @relation("PMWorkOrder_completer")
+  receivedPOLineReceipts             POLineReceipt[]                   @relation("POLineReceipt_receiver")
+  createdProjectBudgets              ProjectBudget[]                   @relation("ProjectBudget_creator")
+  createdProjects                    Project[]                         @relation("Project_creator")
+  managedProjects                    Project[]                         @relation("Project_manager")
+  createdPurchaseOrders              PurchaseOrder[]                   @relation("PurchaseOrder_creator")
+  buyerPurchaseOrders                PurchaseOrder[]                   @relation("PurchaseOrder_buyer")
+  invoiceApproverPurchaseOrders      PurchaseOrder[]                   @relation("PurchaseOrder_invoiceApprover")
+  recentActivities                   RecentActivity[]                  @relation("RecentActivityUser")
+  reportDistributions                ReportDistribution[]              @relation("ReportDistributionRecipient")
+  reportExecutions                   ReportExecution[]                 @relation("ReportExecutionExecutor")
+  createdReportSchedules             ReportSchedule[]                  @relation("ReportScheduleCreator")
+  createdReportTemplates             ReportTemplate[]                  @relation("ReportTemplateCreator")
+  createdCostSnapshots               ProjectCostSnapshot[]             @relation("ProjectCostSnapshot_creator")
+  investigatedSafetyIncidents        SafetyIncident[]                  @relation("SafetyIncidentInvestigator")
+  reportedSafetyIncidents            SafetyIncident[]                  @relation("SafetyIncidentReporter")
+  conductedSafetyInspections         SafetyInspection[]                @relation("SafetyInspectionInspector")
+  instructedSafetyTrainings          SafetyTrainingCompletion[]        @relation("SafetyTrainingInstructor")
+  safetyTrainingCompletions          SafetyTrainingCompletion[]        @relation("SafetyTrainingUser")
+  searchHistory                      SearchHistory[]
+  assignedWOIssueNotifications       WorkOrderIssueNotification[]      @relation("WorkOrderIssueNotification_assignee")
+  closedWOIssueNotifications         WorkOrderIssueNotification[]      @relation("WorkOrderIssueNotification_closer")
+  foundWOIssueNotifications          WorkOrderIssueNotification[]      @relation("WorkOrderIssueNotification_finder")
+  reviewedWOIssueNotifications       WorkOrderIssueNotification[]      @relation("WorkOrderIssueNotification_reviewer")
+  createdWorkOrderLaborLogs          WorkOrderLaborLog[]               @relation("WorkOrderLaborLog_creator")
+  enteredWorkOrderLaborLogs          WorkOrderLaborLog[]               @relation("WorkOrderLaborLog_enterer")
+  laborLogs                          WorkOrderLaborLog[]               @relation("UserLaborLogs")
+  updatedWorkOrderLaborLogs          WorkOrderLaborLog[]               @relation("WorkOrderLaborLog_updater")
+  workOrderProgressNotes             WorkOrderProgressNote[]
+  createdWorkOrderSkills             WorkOrderSkill[]                  @relation("WorkOrderSkill_creator")
+  reservedWorkOrderParts             WorkOrderPart[]                   @relation("WorkOrderPart_reservedBy")
+  cancelledWorkOrderParts            WorkOrderPart[]                   @relation("WorkOrderPart_cancelledBy")
+  tabwareSyncLogs                    TabwareSyncLog[]                  @relation("TabwareSyncLog_user")
+  technicianAssignments              WorkOrderTechnician[]             @relation("WorkOrderTechnician_technician")
+  workOrderTechAssignments           WorkOrderTechnician[]             @relation("WorkOrderTechnician_assigner")
+  workOrderTechRemovals              WorkOrderTechnician[]             @relation("WorkOrderTechnician_remover")
+  plannerAcks                        WorkOrderPlannerAck[]             @relation("WorkOrderPlannerAck_user")
+
+  // GL Configuration System relations
+  createdGLRules GLTransactionRule[] @relation("GLRule_creator")
+  updatedGLRules GLTransactionRule[] @relation("GLRule_updater")
+
+  // BOM Change History relation
+  bomChangeHistory EquipmentBOMChangeHistory[] @relation("BOMChangeHistory_user")
+
+  // PM Template Document relations
+  pmTemplateDocuments PMTemplateDocument[]
+
+  // Shift Handover relations
+  shiftReportsCreated        ShiftReport[]            @relation("ShiftReportCreatedBy")
+  shiftReportsReceived       ShiftReport[]            @relation("ShiftReportReceivedBy")
+  shiftProductionEstimates   ShiftProductionEstimate[] @relation("ShiftProductionCreatedBy")
+  shiftSectionsCreated       ShiftStatusSection[]     @relation("ShiftSectionCreatedBy")
+  shiftSectionsUpdated       ShiftStatusSection[]     @relation("ShiftSectionUpdatedBy")
+  shiftEmailsSent            ShiftEmailNotification[] @relation("ShiftEmailSentBy")
+  shiftAuditLogs             ShiftAuditLog[]          @relation("ShiftAuditChangedBy")
+  shiftAutoSaves             ShiftAutoSave[]          @relation("ShiftAutoSaveUser")
+
+  // Master Data Change Request relations
+  masterDataRequestsCreated  MasterDataChangeRequest[] @relation("MasterDataRequest_requester")
+  masterDataRequestsReviewed MasterDataChangeRequest[] @relation("MasterDataRequest_reviewer")
+
+  // Suggestion Box relations
+  suggestionsCreated         Suggestion[]             @relation("Suggestion_requester")
+  suggestionsHandled         Suggestion[]             @relation("Suggestion_handler")
+
+  @@index([email])
+  @@index([roleId])
+  @@index([isActive])
+  @@index([isActive, roleId])
+}

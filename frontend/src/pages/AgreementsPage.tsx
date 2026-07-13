@@ -1,10 +1,20 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import {
+  PlusIcon,
+  ArrowDownTrayIcon,
+  PaperAirplaneIcon,
+} from "@heroicons/react/24/outline";
 import clsx from "clsx";
-import { useAgreements, useCreateAgreement } from "../hooks/useAgreements";
+import {
+  useAgreements,
+  useCreateAgreement,
+  useSendAgreement,
+} from "../hooks/useAgreements";
 import { useCustomers } from "../hooks/useCustomers";
 import Button from "../components/ui/Button";
+import IconButton from "../components/ui/IconButton";
+import { Can } from "../components/ui/Can";
 import Modal from "../components/ui/Modal";
 import Pagination from "../components/ui/Pagination";
 import { StatusBadge } from "../components/ui/Badge";
@@ -12,6 +22,7 @@ import EmptyState from "../components/ui/EmptyState";
 import DataTable, { Column, SortState } from "../components/ui/DataTable";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import { NumberInput } from "../components/ui/NumberInput";
+import { downloadPdf } from "../lib/pdf";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import type { ServiceAgreement } from "../types";
@@ -39,6 +50,7 @@ export default function AgreementsPage() {
   const { data: customersData } = useCustomers({ limit: 200 });
   const customers = customersData?.data ?? [];
   const createAgreement = useCreateAgreement();
+  const sendAgreement = useSendAgreement();
 
   const [newOpen, setNewOpen] = useState(false);
   const [form, setForm] = useState({
@@ -161,7 +173,45 @@ export default function AgreementsPage() {
         </span>
       ),
     },
+    {
+      key: "lastSent",
+      header: "Last Sent",
+      sortValue: (ag) =>
+        ag.lastSentAt ? new Date(ag.lastSentAt).getTime() : 0,
+      exportValue: (ag) => (ag.lastSentAt ? formatDate(ag.lastSentAt) : ""),
+      render: (ag) => (
+        <span className="text-gray-500 text-xs">
+          {ag.lastSentAt ? formatDate(ag.lastSentAt) : "—"}
+        </span>
+      ),
+    },
   ];
+
+  const rowActions = (ag: ServiceAgreement) => (
+    <>
+      <IconButton
+        label="Download PDF"
+        onClick={() => {
+          void downloadPdf(
+            `/agreements/${ag.id}/pdf`,
+            `Agreement-${ag.agreementNumber}.pdf`,
+          );
+        }}
+      >
+        <ArrowDownTrayIcon className="h-4 w-4" />
+      </IconButton>
+      <Can permission="agreements.manage">
+        <IconButton
+          label="Send agreement"
+          onClick={() => {
+            sendAgreement.mutate(ag.id);
+          }}
+        >
+          <PaperAirplaneIcon className="h-4 w-4" />
+        </IconButton>
+      </Can>
+    </>
+  );
 
   return (
     <div className="space-y-5">
@@ -219,6 +269,7 @@ export default function AgreementsPage() {
               sort={sort}
               onSortChange={setSort}
               csvFilename="agreements"
+              rowActions={rowActions}
               renderMobileCard={(ag) => (
                 <div>
                   <div className="flex items-center justify-between gap-2">

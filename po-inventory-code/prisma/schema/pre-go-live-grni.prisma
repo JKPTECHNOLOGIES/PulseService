@@ -1,0 +1,29 @@
+// Pre-go-live GR/NI opening balance.
+//
+// The authoritative set of goods received before go-live that were still
+// uninvoiced at go-live. Seeded once from Finance's opening-balance list
+// (scripts/seed-pre-go-live-grni.js) and ties to NAV account 2302's opening
+// balance ($121,038.70). The Received-Not-Invoiced report computes the remaining
+// liability live from this set — each item clears when an approved invoice for
+// its PO line posts in Pulse.
+//
+// NOTE: this model documents a table that was first created via raw SQL so the
+// dev server didn't need a Prisma client regen. The column/type definitions
+// here MUST match that table exactly so `prisma db push` keeps it (and its
+// seeded rows) intact rather than dropping it.
+model PreGoLiveGrni {
+  id            String   @id
+  supplierName  String   @map("supplier_name")
+  poNumber      String   @map("po_number")
+  sku           String?
+  description   String?
+  qtyOpen       Float    @default(0) @map("qty_open")
+  unitCost      Float    @default(0) @map("unit_cost")
+  remainingCost Float    @default(0) @map("remaining_cost")
+  storesAccount String?  @map("stores_account")
+  dateCompleted String?  @map("date_completed")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([poNumber], map: "pre_go_live_grni_po_idx")
+  @@map("pre_go_live_grni")
+}

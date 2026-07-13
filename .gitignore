@@ -36,6 +36,8 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+# Microsoft Office temp/owner lock files
+~$*
 
 # Misc
 *.local

@@ -1,0 +1,581 @@
+// Prisma Schema - Purchasing & PO Management
+
+
+model PurchaseOrderReturn {
+  id                     String               @id @default(uuid())
+  rmaNumber              String               @unique
+  purchaseOrderId        String
+  supplierId             String
+  returnType             RMAReturnType
+  status                 RMAStatus            @default(DRAFT)
+  reason                 String
+  description            String?
+  requestedById          String
+  requestedByName        String
+  requestedAt            DateTime             @default(now())
+  submittedAt            DateTime?
+  submittedBy            String?
+  submittedByName        String?
+  approvedAt             DateTime?
+  approvedBy             String?
+  approvedByName         String?
+  rejectedAt             DateTime?
+  rejectedBy             String?
+  rejectedByName         String?
+  rejectionReason        String?
+  processedAt            DateTime?
+  processedBy            String?
+  processedByName        String?
+  shippedAt              DateTime?
+  shippedBy              String?
+  shippedByName          String?
+  trackingNumber         String?
+  carrier                String?
+  receivedBySupplierAt   DateTime?
+  creditIssuedAt         DateTime?
+  creditIssuedBy         String?
+  creditIssuedByName     String?
+  creditAmount           Decimal?             @db.Decimal(12, 2)
+  creditMethod           String?
+  creditReferenceNumber  String?
+  completedAt            DateTime?
+  completedBy            String?
+  completedByName        String?
+  cancelledAt            DateTime?
+  cancelledBy            String?
+  cancelledByName        String?
+  cancellationReason     String?
+  totalAmount            Decimal              @db.Decimal(12, 2)
+  restockingFee          Decimal              @default(0) @db.Decimal(12, 2)
+  shippingCost           Decimal              @default(0) @db.Decimal(12, 2)
+  netRefundAmount        Decimal              @db.Decimal(12, 2)
+  notes                  String?
+  internalNotes          String?
+  supplierRMANumber      String?
+  expectedResolutionDate DateTime?
+  actualResolutionDate   DateTime?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  purchaseOrder          PurchaseOrder        @relation(fields: [purchaseOrderId], references: [id])
+  supplier               Supplier             @relation(fields: [supplierId], references: [id])
+  approvalHistory        RMAApprovalHistory[]
+  lines                  POLineReturn[]
+  documents              Document[]
+
+  @@index([rmaNumber])
+  @@index([purchaseOrderId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([returnType])
+  @@index([requestedById])
+  @@index([requestedAt])
+  @@index([submittedAt])
+  @@index([approvedAt])
+  @@index([completedAt])
+  @@map("purchase_order_returns")
+}
+
+
+model POLineReturn {
+  id                String              @id @default(uuid())
+  returnId          String
+  poLineId          String
+  poLineReceiptId   String?
+  inventoryItemId   String?
+  description       String
+  quantityToReturn  Decimal             @db.Decimal(10, 2)
+  quantityReturned  Decimal             @default(0) @db.Decimal(10, 2)
+  unitPrice         Decimal             @db.Decimal(18, 6)
+  totalPrice        Decimal             @db.Decimal(18, 6)
+  condition         ReturnCondition
+  conditionNotes    String?
+  disposition       ReturnDisposition?
+  dispositionNotes  String?
+  lotNumber         String?
+  serialNumbers     String[]            @default([])
+  defectDescription String?
+  photosRequired    Boolean             @default(false)
+  photoUrls         String[]            @default([])
+  inspectionNotes   String?
+  inspectedAt       DateTime?
+  inspectedBy       String?
+  inspectedByName   String?
+  restockedAt       DateTime?
+  restockedBy       String?
+  restockedByName   String?
+  restockLocation   String?
+  scrapedAt         DateTime?
+  scrapedBy         String?
+  scrapedByName     String?
+  scrapReason       String?
+  notes             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  inventoryItem     InventoryItem?      @relation(fields: [inventoryItemId], references: [id])
+  poLine            POLine              @relation(fields: [poLineId], references: [id])
+  poLineReceipt     POLineReceipt?      @relation(fields: [poLineReceiptId], references: [id])
+  return            PurchaseOrderReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+  @@index([poLineId])
+  @@index([poLineReceiptId])
+  @@index([inventoryItemId])
+  @@index([condition])
+  @@index([disposition])
+  @@index([inspectedAt])
+  @@index([restockedAt])
+  @@map("po_line_returns")
+}
+
+
+model RMAApprovalHistory {
+  id             String              @id @default(uuid())
+  returnId       String
+  approverUserId String
+  approverName   String
+  action         String
+  previousStatus RMAStatus?
+  newStatus      RMAStatus
+  comments       String?
+  approvedAt     DateTime            @default(now())
+  return         PurchaseOrderReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+  @@index([approverUserId])
+  @@index([approvedAt])
+  @@index([action])
+  @@map("rma_approval_history")
+}
+
+
+model POLine {
+  id               String       @id @default(uuid())
+  purchaseOrderId  String
+  inventoryItemId  String?
+  description      String
+  lineNumber         Int          @default(0) @map("line_number")
+  quantity           Decimal      @db.Decimal(10, 2)
+  unitPrice          Decimal      @db.Decimal(18, 6)
+  unitOfMeasure      String?      @map("unit_of_measure")
+  totalPrice         Decimal      @db.Decimal(18, 6)
+  approvedUnitPrice  Decimal?     @db.Decimal(18, 6) // Snapshot of unitPrice at PO approval time
+  approvedTotalPrice Decimal?     @db.Decimal(18, 6) // Snapshot of totalPrice at PO approval time
+  receivedQuantity   Decimal      @default(0) @db.Decimal(10, 2)
+  notes            String?
+  longTextOverride String?   @map("long_text_override") // PO-specific copy of material longText; editable per PO without touching the material master
+  deliveryDate     DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  lineType         LineItemType
+
+  // REQUISITION TRACKING FIELDS
+  requisitionId     String?
+  requisitionLineId String?
+  requisitionNumber String?
+
+  // WORK ORDER TRACKING FIELDS
+  workOrderId     String?
+  workOrderNumber String?
+
+  // Repairable return — direct FK to the serial being received back.
+  // Only populated when lineType = REPAIRABLE_RETURN.
+  repairableItemId  String?  @map("repairable_item_id")
+
+  // Service/Consumable fields
+  consumableCategory  String?
+  contractNumber      String?
+  deliverables        String?
+  estimatedHours      Decimal?  @db.Decimal(8, 2)
+  expirationTracking  Boolean   @default(false)
+  hourlyRate          Decimal?  @db.Decimal(18, 6)
+  manufacturer        String?
+  modelNumber         String?
+  monthlyUsageRate    Decimal?  @db.Decimal(10, 2)
+  packageSize         String?
+  sdsRequired         Boolean   @default(false)
+  serviceEndDate      DateTime?
+  serviceEquipmentId  String?
+  serviceLocation     String?
+  serviceProvider     String?
+  serviceStartDate    DateTime?
+  serviceType         String?
+  serviceWorkOrderId  String?
+  slaDetails          String?
+  storageRequirements String?
+
+  // Invoice Matching Fields
+  requiresInvoiceMatch Boolean @default(false) // True for SERVICE types
+  invoiceMatched       Boolean @default(false) // Set to true when invoice approved
+  canReceive           Boolean @default(true) // False for services until invoice matched
+
+  // Dollar-Based Invoice Approval Tracking
+  approvedInvoiceAmount Decimal @default(0) @db.Decimal(18, 6) // Total approved invoice amount for this line
+  receivedAmount        Decimal @default(0) @db.Decimal(18, 6) // Total dollar amount received so far
+
+  // ── LINE-LEVEL CANCELLATION ──────────────────────────────────────────────
+  // A status for an INDIVIDUAL line, independent of PurchaseOrder.status, so a
+  // single line can be cancelled without affecting the rest of the PO (e.g. a
+  // repairable part is scrapped from the PO when the vendor cannot fix it).
+  // CANCELLED lines are excluded from PO totals, receiving, and invoice matching
+  // and must never be re-opened — a new line is added instead.
+  lineStatus       POLineStatus @default(OPEN)
+  cancelledAt      DateTime?
+  cancelledBy      String?
+  cancelledByName  String?
+  cancelledReason  String?
+  // Distinguishes WHY the line was cancelled (e.g. REPAIRABLE_SCRAP) so reports
+  // and downstream logic can react without parsing the free-text reason.
+  cancellationType POLineCancellationType?
+
+  // For a replacement line created via "scrap & replace": the scrapped serial
+  // this new line replaces. DB-driven traceability so the PO can show the old
+  // (SCRAPPED) serial alongside the replacement line that supersedes it. When
+  // this replacement line is received, the normal serial generator mints the
+  // next-in-line serial for the same SKU.
+  replacesRepairableItemId String? @map("replaces_repairable_item_id")
+
+  // Relations
+  inventoryItem     InventoryItem?           @relation(fields: [inventoryItemId], references: [id])
+  purchaseOrder     PurchaseOrder            @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  chargeAllocations POLineChargeAllocation[]
+  receipts          POLineReceipt[]
+  returns           POLineReturn[]
+  invoiceLineItems  InvoiceLineItem[]
+
+  // NEW RELATIONS FOR REQUISITION TRACKING
+  requisition      Requisition?      @relation(fields: [requisitionId], references: [id])
+  requisitionLines RequisitionLine[] @relation("RequisitionLinePOLine")
+
+  // WORK ORDER RELATION
+  workOrder        WorkOrder?        @relation("POLine_workOrder", fields: [workOrderId], references: [id])
+  repairableItem    RepairableItem? @relation("POLine_repairableItem", fields: [repairableItemId], references: [id])
+  replacesRepairableItem RepairableItem? @relation("POLine_replacesRepairable", fields: [replacesRepairableItemId], references: [id])
+
+  @@index([inventoryItemId])
+  @@index([purchaseOrderId])
+  @@index([lineType])
+  @@index([serviceType])
+  @@index([consumableCategory])
+  // NEW INDEXES FOR REQUISITION TRACKING
+  @@index([requisitionId])
+  @@index([requisitionLineId])
+  // NEW INDEXES FOR WORK ORDER TRACKING
+  @@index([workOrderId])
+  @@index([requiresInvoiceMatch])
+  @@index([invoiceMatched])
+  // E1: Composite index for dedup query performance (partial unique index applied via migration SQL)
+  @@index([purchaseOrderId, requisitionLineId], name: "POLine_purchaseOrderId_requisitionLineId_idx")
+  @@index([repairableItemId])
+  @@index([lineStatus])
+  @@index([replacesRepairableItemId])
+}
+
+
+enum POLineStatus {
+  OPEN
+  CANCELLED
+}
+
+
+enum POLineCancellationType {
+  // Repairable part scrapped from the PO (vendor could not repair it).
+  REPAIRABLE_SCRAP
+  // Generic single-line cancellation (reserved for future use).
+  MANUAL
+}
+
+
+enum ReceiptStatus {
+  ACTIVE
+  REVERSED
+  VOIDED
+}
+
+
+model POLineReceipt {
+  id                String            @id @default(uuid())
+  poLineId          String
+  receiptNumber     String            @unique
+  quantityReceived  Decimal           @db.Decimal(10, 2)
+  unitCost          Decimal           @db.Decimal(18, 6)
+  totalCost         Decimal           @db.Decimal(18, 6)
+  receivedBy        String
+  receivedByName    String
+  receivedAt        DateTime          @default(now())
+  invoiceNumber     String?
+  invoiceDate       DateTime?
+  invoiceId         String?
+  status            ReceiptStatus     @default(ACTIVE)
+  notes             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  bin               String?
+  lotNumber         String?
+  serialNumbers     String[]          @default([])
+  storeId           String?
+  documentNumber    String? // NEW: Packing slip, receiving number, or other document ID
+  isReturn                 Boolean           @default(false) // Flag to identify returns/corrections
+  originalReceiptId        String?           // Reference to original receipt if this is a return
+  /// True when this receipt was physically received AND invoiced in Tabware (the prior system)
+  /// before the PulsePlant go-live date. The Tabware invoice was never imported into PulsePlant,
+  /// so without this flag the receipt appears "open" even though it was fully settled.
+  /// Set either during go-live data migration OR manually via the RNI Opening Balance "Mark as Settled" action.
+  tabwareSettledAtGoLive   Boolean           @default(false)
+  /// Human-readable reason provided when manually marking a receipt as settled.
+  /// e.g. "Invoice already processed in NAV from prior system"
+  tabwareSettledReason     String?
+  /// UTC timestamp of when Finance marked this receipt as settled.
+  tabwareSettledAt         DateTime?
+  /// User ID of the Finance user who clicked Mark as Settled.
+  tabwareSettledBy         String?
+  /// Display name of that user (denormalised for audit log readability).
+  tabwareSettledByName     String?
+  // ─── WAC Processing (RECEIPT_DATE mode only) ────────────────────────────────────
+  // Stamped when this receipt is included in a monthly WAC run.
+  // Only used when FinanceSettings.wacEligibilityMode = RECEIPT_DATE.
+  // In PO_CLOSED mode, WAC is tracked at the PO level (PurchaseOrder.wacProcessedAt).
+  wacProcessedAt  DateTime?          @map("wac_processed_at")
+  wacRunId        String?            @map("wac_run_id")
+  wacRun          InventoryWACRun?   @relation(fields: [wacRunId], references: [id])
+  consumableUsages  ConsumableUsage[]
+  invoice           Invoice?          @relation(fields: [invoiceId], references: [id])
+  poLine            POLine            @relation(fields: [poLineId], references: [id], onDelete: Cascade)
+  receiver          User              @relation("POLineReceipt_receiver", fields: [receivedBy], references: [id])
+  returns           POLineReturn[]
+  serviceReceipts   ServiceReceipt[]
+  originalReceipt   POLineReceipt?    @relation("ReceiptReturns", fields: [originalReceiptId], references: [id])
+  returnReceipts    POLineReceipt[]   @relation("ReceiptReturns")
+  // Repairable serials auto-created by this receipt (one receipt → many serials).
+  autoGeneratedSerials RepairableItem[] @relation("RepairableItem_sourceReceipt")
+
+  @@index([poLineId])
+  @@index([receiptNumber])
+  @@index([receivedBy])
+  @@index([receivedAt])
+  @@index([invoiceNumber])
+  @@index([invoiceId])
+  @@index([storeId])
+  @@index([bin])
+  @@index([documentNumber])
+  @@index([isReturn])
+  @@index([originalReceiptId])
+  @@index([tabwareSettledAtGoLive])
+  @@index([wacProcessedAt])
+  @@index([wacRunId])
+  @@map("po_line_receipts")
+}
+
+
+model ServiceReceipt {
+  id              String        @id @default(uuid())
+  poLineReceiptId String
+  serviceDate     DateTime
+  serviceProvider String?
+  hoursOrUnits    Decimal?      @db.Decimal(10, 2)
+  completionNotes String?
+  qualityRating   Int?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  poLineReceipt   POLineReceipt @relation(fields: [poLineReceiptId], references: [id], onDelete: Cascade)
+
+  @@index([poLineReceiptId])
+  @@index([serviceDate])
+  @@map("service_receipts")
+}
+
+
+model ConsumableUsage {
+  id              String        @id @default(uuid())
+  poLineReceiptId String
+  usedBy          String?
+  usedByName      String?
+  usedAt          DateTime      @default(now())
+  departmentId    String?
+  areaId          String?
+  purpose         String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  poLineReceipt   POLineReceipt @relation(fields: [poLineReceiptId], references: [id], onDelete: Cascade)
+  area            Location?     @relation("ConsumableUsage_budgetArea", fields: [areaId], references: [id])
+
+  @@index([poLineReceiptId])
+  @@index([usedBy])
+  @@index([usedAt])
+  @@index([departmentId])
+  @@index([areaId])
+  @@map("consumable_usages")
+}
+
+
+model PurchaseOrder {
+  id                   String                @id @default(uuid())
+  poNumber             String                @unique
+  supplierId           String
+  status               String                @default("Draft")
+  orderDate            DateTime              @default(now())
+  expectedDate         DateTime?
+  receivedDate         DateTime?
+  sentAt               DateTime?
+  submittedAt          DateTime?
+  approvedAt           DateTime?
+  closedAt             DateTime?
+  closedBy             String?
+  closedReason         String?
+  totalAmount          Decimal               @db.Decimal(18, 6)
+  approvedTotal        Decimal?              @db.Decimal(18, 6) // Snapshot of totalAmount at PO approval time
+  // ─── Tax & Shipping ────────────────────────────────────────────────────────
+  // taxAmount: Purchase-order-level tax. Only populated when tax module is
+  // enabled in FinanceSettings. Defaults to 0 so existing POs are unaffected.
+  taxAmount            Decimal               @default(0) @db.Decimal(18, 6)
+  // shippingCost: Previously referenced in service code but never persisted.
+  // Now properly stored so it is consistent across create/update/total calc.
+  shippingCost         Decimal               @default(0) @db.Decimal(18, 6)
+  paymentTermsOverride String?          // PO-level override; if set, takes precedence over supplier.paymentTerms
+  notes                String?
+  deliveryTerms        String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  createdBy            String?
+  buyerId              String?               // The purchasing manager assigned as buyer
+  invoiceApproverId    String?               // Invoice approver for SERVICE POs - who should approve invoices for this PO
+  requisitionIds       String[]              @default([])
+  requisitionNumbers   String[]              @default([])
+  workOrderIds         String[]              @default([])
+  workOrderNumbers     String[]              @default([])
+  cancelledReason      String?
+  cancelledBy          String?
+  cancelledAt          DateTime?
+
+  // WAC (Weighted Average Cost) tracking — set by monthly-wac.service.ts after a run
+  // consumes this PO's receipts. Prevents the same PO being processed twice.
+  wacProcessedAt  DateTime?
+  wacRunId        String?    // which InventoryWACRun consumed this PO
+  supersededByPOId     String?
+  supersededByPONumber String?
+  // Vendor address snapshot (frozen at PO creation time)
+  supplierAddressId     String?
+  supplierAddress       SupplierAddress? @relation("POSupplierAddress", fields: [supplierAddressId], references: [id], onDelete: SetNull)
+  vendorName            String?          // Company/vendor name for the address
+  vendorAddress1        String?          // Street line 1
+  vendorAddress2        String?          // Street line 2
+  vendorCity            String?
+  vendorState           String?
+  vendorZip             String?
+  vendorCountry         String?          @default("USA")
+
+  // Ship To address override (where goods are delivered).
+  // When ALL of these are null the printed PO/PDF falls back to the company
+  // (branding) "Receiving Department" address — i.e. existing POs are unaffected.
+  // Populated when a buyer enters a destination other than the default plant.
+  shipToName            String?          // Destination company / location name
+  shipToAttention       String?          // Attention / department line (e.g. "Receiving Department")
+  shipToAddress1        String?          // Street line 1
+  shipToAddress2        String?          // Street line 2
+  shipToCity            String?
+  shipToState           String?
+  shipToZip             String?
+  shipToCountry         String?          // null/blank rendered as default (USA)
+
+  documents            Document[]
+  invoices             Invoice[]
+  lines                POLine[]
+  returns              PurchaseOrderReturn[]
+  supplier             Supplier              @relation(fields: [supplierId], references: [id])
+  creator              User?                 @relation("PurchaseOrder_creator", fields: [createdBy], references: [id])
+  buyer                User?                 @relation("PurchaseOrder_buyer", fields: [buyerId], references: [id])
+  invoiceApprover      User?                 @relation("PurchaseOrder_invoiceApprover", fields: [invoiceApproverId], references: [id])
+  supersededBy         PurchaseOrder?        @relation("POSupersession", fields: [supersededByPOId], references: [id])
+  supersedes           PurchaseOrder[]       @relation("POSupersession")
+
+  // NEW RELATION FOR LINE-LEVEL TRACKING
+  requisitionLines RequisitionLine[] @relation("RequisitionLinePO")
+
+  @@index([poNumber])
+  @@index([status])
+  @@index([supplierId])
+  @@index([orderDate])                  // default sort column — was missing
+  @@index([status, orderDate(sort: Desc)]) // common pattern: filter by status, sort by date
+  @@index([createdAt])                  // for date-range queries on createdAt
+  @@index([createdBy])
+  @@index([buyerId])
+  @@index([invoiceApproverId])
+  @@index([supersededByPOId])
+  @@index([cancelledBy])
+  @@index([supplierAddressId])
+}
+
+
+enum ReturnCondition {
+  GOOD
+  DAMAGED
+  EXPIRED
+  WRONG_ITEM
+  DEFECTIVE
+  UNOPENED
+  OPENED_UNUSED
+}
+
+
+enum RMAStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PROCESSING
+  SHIPPED
+  RECEIVED_BY_SUPPLIER
+  CREDIT_ISSUED
+  COMPLETED
+  CANCELLED
+}
+
+
+enum RMAReturnType {
+  DEFECTIVE
+  WRONG_ITEM
+  DAMAGED_IN_TRANSIT
+  NOT_AS_DESCRIBED
+  OVERSTOCKED
+  EXPIRED
+  WARRANTY_CLAIM
+  OTHER
+}
+
+
+enum ReturnDisposition {
+  RESTOCK
+  SCRAP
+  RETURN_TO_SUPPLIER
+  REPAIR
+  PENDING_INSPECTION
+}
+
+
+enum LineItemType {
+  INVENTORY
+  SERVICE
+  CONSUMABLE
+  NON_STOCK
+  /// Physical repairable part returning from vendor repair.
+  /// Created automatically when IM chooses "Send to Vendor" on a repair WO.
+  /// Receiving this line type auto-completes the repair and returns the part to stock.
+  REPAIRABLE_RETURN
+}
+
+/// Atomic document number counters.
+/// Each row owns one sequence (PO, REQ, RECEIPT, etc.).
+/// Generation is a single UPDATE nextValue += 1 — no scans, no races.
+model DocumentCounter {
+  /// Logical name of the sequence, e.g. "PO" or "REQ"
+  name      String   @id
+  /// Last value that was issued. Next issued = nextValue + 1.
+  /// Seed this to the current max before enabling counter-based generation.
+  nextValue Int
+  /// Human-readable description of what this counter is for
+  description String  @default("")
+  updatedAt DateTime @updatedAt
+
+  @@map("document_counters")
+}

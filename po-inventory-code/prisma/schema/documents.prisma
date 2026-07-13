@@ -1,0 +1,244 @@
+// Prisma Schema - Document Management
+
+
+model DocumentType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+  @@map("document_types")
+}
+
+
+model Document {
+  id                    String                      @id @default(uuid())
+  title                 String
+  description           String?
+  fileName              String
+  filePath              String
+  fileSize              Int
+  mimeType              String
+  version               String                      @default("1.0")
+  documentType          String
+  equipmentId           String?
+  workOrderId           String?
+  requisitionId         String?
+  purchaseOrderId       String?
+  pmScheduleId          String?
+  pmWorkOrderId         String?
+  inventoryItemId       String?
+  woIssueNotificationId String?
+  invoiceId             String?
+  supplierId            String?
+  masterDataRequestId   String?
+  purchaseOrderReturnId String?
+  suggestionId          String?
+  uploadedById          String
+  tags                  String[]
+  isSecured             Boolean                     @default(false)
+  isActive              Boolean                     @default(true)
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  equipment             Equipment?                  @relation(fields: [equipmentId], references: [id])
+  inventoryItem         InventoryItem?              @relation(fields: [inventoryItemId], references: [id])
+  invoice               Invoice?                    @relation(fields: [invoiceId], references: [id])
+  pmSchedule            PMSchedule?                 @relation(fields: [pmScheduleId], references: [id])
+  pmWorkOrder           PMWorkOrder?                @relation(fields: [pmWorkOrderId], references: [id])
+  purchaseOrder         PurchaseOrder?              @relation(fields: [purchaseOrderId], references: [id])
+  requisition           Requisition?                @relation(fields: [requisitionId], references: [id])
+  uploadedBy            User                        @relation(fields: [uploadedById], references: [id])
+  supplier              Supplier?                   @relation(fields: [supplierId], references: [id])
+  workOrder             WorkOrder?                  @relation(fields: [workOrderId], references: [id])
+  woIssueNotification   WorkOrderIssueNotification? @relation(fields: [woIssueNotificationId], references: [id])
+  masterDataRequest     MasterDataChangeRequest?    @relation(fields: [masterDataRequestId], references: [id])
+  purchaseOrderReturn   PurchaseOrderReturn?        @relation(fields: [purchaseOrderReturnId], references: [id])
+  suggestion            Suggestion?                 @relation(fields: [suggestionId], references: [id])
+  expiration            DocumentExpiration?
+  equipmentCompliance   EquipmentCompliance[]
+  workOrderCompliance   WorkOrderCompliance[]
+  accessLogs            DocumentAccess[]
+  comments              DocumentComment[]
+  shares                DocumentShare[]
+  tagRelations          DocumentTagRelation[]
+  versions              DocumentVersion[]
+  pmChecklistPhoto      EquipmentPMChecklistPhoto?  @relation("EquipmentPMChecklistPhoto_document")
+  pmCompletionPhotos    PMCompletionPhoto?
+  lotoProcedureVersions LOTOProcedureVersion[]      @relation("LOTOProcedureVersion_document")
+  entityLinks           DocumentEntityLink[]
+  pmTemplateDocument    PMTemplateDocument?
+
+  @@index([documentType])
+  @@index([equipmentId])
+  @@index([uploadedById])
+  @@index([workOrderId])
+  @@index([requisitionId])
+  @@index([purchaseOrderId])
+  @@index([pmScheduleId])
+  @@index([pmWorkOrderId])
+  @@index([inventoryItemId])
+  @@index([woIssueNotificationId])
+  @@index([invoiceId])
+  @@index([supplierId])
+  @@index([masterDataRequestId])
+  @@index([purchaseOrderReturnId])
+  @@index([suggestionId])
+  @@index([isSecured])
+}
+
+
+model DocumentVersion {
+  id         String   @id @default(uuid())
+  documentId String
+  version    Int
+  fileUrl    String
+  fileSize   Int
+  fileName   String
+  mimeType   String
+  changes    String?
+  uploadedBy String
+  createdAt  DateTime @default(now())
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploader   User     @relation("DocumentVersionUploader", fields: [uploadedBy], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([version])
+  @@map("document_versions")
+}
+
+
+model DocumentShare {
+  id         String    @id @default(uuid())
+  documentId String
+  sharedWith String
+  permission String
+  sharedBy   String
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sharer     User      @relation("DocumentShareSharer", fields: [sharedBy], references: [id], onDelete: Cascade)
+  user       User      @relation("DocumentShareUser", fields: [sharedWith], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([sharedWith])
+  @@map("document_shares")
+}
+
+
+model DocumentTag {
+  id          String                @id @default(uuid())
+  name        String                @unique
+  color       String?
+  description String?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  documents   DocumentTagRelation[]
+
+  @@map("document_tags")
+}
+
+
+model DocumentTagRelation {
+  id         String      @id @default(uuid())
+  documentId String
+  tagId      String
+  createdAt  DateTime    @default(now())
+  document   Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag        DocumentTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, tagId])
+  @@index([documentId])
+  @@index([tagId])
+  @@map("document_tag_relations")
+}
+
+
+model DocumentComment {
+  id         String            @id @default(uuid())
+  documentId String
+  content    String
+  authorId   String
+  parentId   String?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  author     User              @relation("DocumentCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  document   Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  parent     DocumentComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    DocumentComment[] @relation("CommentReplies")
+
+  @@index([documentId])
+  @@index([authorId])
+  @@index([parentId])
+  @@map("document_comments")
+}
+
+
+model DocumentAccess {
+  id         String   @id @default(uuid())
+  documentId String
+  userId     String
+  action     String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User     @relation("DocumentAccessUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("document_access_logs")
+}
+
+
+model DocumentExpiration {
+  id               String    @id @default(uuid())
+  documentId       String    @unique
+  expiryDate       DateTime
+  reminderDays     Int       @default(30)
+  lastReminderSent DateTime?
+  isExpired        Boolean   @default(false)
+  notifyUserIds    String[]
+  sentThresholds   Int[]     @default([])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  document         Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([expiryDate])
+  @@index([isExpired])
+}
+
+
+enum DocumentLinkEntityType {
+  WORK_ORDER
+  REQUISITION
+  PURCHASE_ORDER
+}
+
+enum DocumentLinkType {
+  DIRECT     // Uploaded directly to this entity
+  LINKED     // Manually linked by user from another entity
+  PROPAGATED // Auto-linked during REQ→PO conversion
+  INHERITED  // Auto-linked via entity relationships (e.g., REQ doc visible on WO)
+}
+
+model DocumentEntityLink {
+  id         String                 @id @default(uuid())
+  documentId String
+  entityType DocumentLinkEntityType
+  entityId   String
+  linkType   DocumentLinkType       @default(DIRECT)
+  linkedBy   String?                // userId who created the link (null for auto-links)
+  linkedAt   DateTime               @default(now())
+  notes      String?                // Optional context about the link
+
+  document   Document               @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, entityType, entityId])
+  @@index([entityType, entityId])
+  @@index([documentId])
+}

@@ -1,0 +1,81 @@
+// Prisma Schema - Master Data Change Requests
+//
+// A lightweight request-intake system that lets any operational user ask for a
+// change to a piece of master data (Equipment, Inventory, PM, ...). The user
+// searches the source record, the UI captures a read-only snapshot of its
+// current field values, and the user free-types the change they want. Data
+// stewards then review / approve / reject the request from the same screen.
+//
+// This is intentionally an *intake* system — it records the request and a
+// snapshot of the record at request time. It does not mutate the underlying
+// master data directly; an approver applies the change in the source module.
+
+enum MasterDataEntityType {
+  EQUIPMENT
+  INVENTORY
+  PM
+  LOCATION
+  SUPPLIER
+}
+
+/// Whether the request asks to MODIFY an existing master-data record or to
+/// CREATE a brand-new one (e.g. new equipment / inventory item / PM).
+enum MasterDataRequestType {
+  CREATE
+  MODIFY
+}
+
+enum MasterDataRequestStatus {
+  OPEN
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum MasterDataRequestPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model MasterDataChangeRequest {
+  id            String                    @id @default(uuid())
+  /// Human-readable sequence number, e.g. MDR-000123 (documentCounter "MDR-<year>")
+  requestNumber String                    @unique
+  entityType    MasterDataEntityType
+  /// CREATE (new record) vs MODIFY (change an existing record)
+  requestType   MasterDataRequestType     @default(MODIFY)
+  /// The source record's primary key (Equipment.id, InventoryItem.id, ...).
+  /// Null for CREATE requests, where no source record exists yet.
+  entityId      String?
+  /// Denormalized display label. For MODIFY this is the existing record
+  /// ("P-101 - Feed Pump"); for CREATE it is the proposed name/identifier.
+  entityLabel   String
+  /// Read-only snapshot of the source record's key fields at request time
+  entitySnapshot Json?
+  /// The free-typed change the requester wants made
+  changeDetails String                    @db.Text
+  /// Optional reason / justification for the change
+  justification String?                   @db.Text
+  priority      MasterDataRequestPriority @default(NORMAL)
+  status        MasterDataRequestStatus   @default(OPEN)
+  requestedById String
+  reviewedById  String?
+  reviewNotes   String?                   @db.Text
+  reviewedAt    DateTime?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+
+  requestedBy User       @relation("MasterDataRequest_requester", fields: [requestedById], references: [id])
+  reviewedBy  User?      @relation("MasterDataRequest_reviewer", fields: [reviewedById], references: [id])
+  documents   Document[]
+
+  @@index([entityType, entityId])
+  @@index([status])
+  @@index([requestedById])
+  @@index([createdAt])
+  @@map("master_data_change_requests")
+}

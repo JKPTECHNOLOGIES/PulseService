@@ -1,0 +1,170 @@
+====================================================================
+  PLANNED SERVICE AGREEMENT — REUSABLE TEMPLATE
+====================================================================
+  Fields in {{DOUBLE_BRACES}} are merge fields — replace each one per
+  customer. Blocks marked [OPTIONAL] can be kept or deleted. A full
+  field reference and a filled example follow at the bottom of this file.
+--------------------------------------------------------------------
+
+
+{{COMPANY_NAME}}
+PLANNED SERVICE AGREEMENT
+
+{{COMPANY_NAME}}, herein referred to as {{COMPANY_SHORT_NAME}}, and
+{{CUSTOMER_NAME}}, hereinafter referred to as Customer, hereby agrees that
+{{COMPANY_SHORT_NAME}} will service the {{EQUIPMENT_CATEGORY}} equipment at the
+following location: {{SERVICE_ADDRESS}}.
+
+                          TYPE OF SERVICE
+{{SERVICE_PLAN_NAME}}
+{{SERVICE_PLAN_DESCRIPTION}}
+
+CONDITIONS
+
+Routine Service consists of ({{INSPECTION_COUNT}}) regularly scheduled
+inspections with all labor necessary to perform the inspections.
+
+Inspections consist of the following: {{INSPECTION_CHECKLIST}}
+
+Normal business hours are {{BUSINESS_HOURS}}. ({{BUSINESS_HOURS_EXCLUSIONS}})
+
+The equipment covered under this agreement must be in a condition satisfactory
+to {{COMPANY_SHORT_NAME}}. Pre-existing equipment deficiencies will be noted
+during the first inspection. Customer may either authorize
+{{COMPANY_SHORT_NAME}} to correct any deficiencies noted at the quoted prices
+or cancel this agreement.
+
+Equipment List
+{{EQUIPMENT_LIST}}
+
+The cost of this agreement is {{AGREEMENT_PRICE}} per {{BILLING_PERIOD}},
+payable {{PAYMENT_TERMS}}.
+
+The effective date of this agreement is {{TERM_START_DATE}} –
+{{TERM_END_DATE}}. This agreement will renew automatically {{RENEWAL_PERIOD}}
+and may be terminated by either party with {{TERMINATION_NOTICE_DAYS}} days
+written notice.
+
+The {{EQUIPMENT_CATEGORY}} system or systems that are covered are intended to
+provide a comfortable living environment for your home or business. While it is
+the intent of our service agreement to curtail trouble calls, it is possible
+that component failures or other system problems related to condensate or
+refrigerant leaks may occur. As these circumstances are mechanical in nature
+and beyond our immediate, direct control, {{COMPANY_SHORT_NAME}} will accept no
+responsibility for any property and or consequential damages resulting from any
+failures of this nature. Environmental issues, such as mold and mildew,
+excessive dust or inconsistencies in human comfort are also specifically
+excluded from the scope of your service agreement.
+
+
+{{COMPANY_SHORT_NAME}} Authorized Representative _______________________  Date __________
+
+Customer Authorized Signature ___________________________________________  Date __________
+
+
+{{COMPANY_NAME}} {{COMPANY_LICENSE_NUMBER}} {{COMPANY_ADDRESS}}. {{COMPANY_PHONE}} {{COMPANY_WEBSITE}}
+
+
+====================================================================
+  MERGE FIELD REFERENCE
+====================================================================
+  Company (usually constant across all agreements)
+  ------------------------------------------------------------------
+  {{COMPANY_NAME}} .............. Full legal company name
+  {{COMPANY_SHORT_NAME}} ........ Short name used throughout the body
+  {{COMPANY_LICENSE_NUMBER}} .... Contractor license #
+  {{COMPANY_ADDRESS}} ........... Company mailing address
+  {{COMPANY_PHONE}} ............. Company phone
+  {{COMPANY_WEBSITE}} ........... Company website
+
+  Customer / job (per agreement)
+  ------------------------------------------------------------------
+  {{CUSTOMER_NAME}} ............. Customer's full name (with title)
+  {{SERVICE_ADDRESS}} ........... Address where equipment is serviced
+  {{EQUIPMENT_CATEGORY}} ........ e.g. "air conditioning"
+  {{EQUIPMENT_LIST}} ............ Itemized equipment covered
+
+  Plan details (per agreement, often from a preset tier)
+  ------------------------------------------------------------------
+  {{SERVICE_PLAN_NAME}} ......... e.g. "Planned Service Agreement"
+  {{SERVICE_PLAN_DESCRIPTION}} .. One-line summary of the plan
+  {{INSPECTION_COUNT}} .......... Number of scheduled inspections
+  {{INSPECTION_CHECKLIST}} ...... What each inspection covers
+  {{BUSINESS_HOURS}} ............ e.g. "8:00 a.m. – 8:00 p.m. Mon–Sat"
+  {{BUSINESS_HOURS_EXCLUSIONS}} . e.g. "Holidays excluded"
+
+  Commercial terms (per agreement)
+  ------------------------------------------------------------------
+  {{AGREEMENT_PRICE}} ........... e.g. "$2,100.00"
+  {{BILLING_PERIOD}} ............ e.g. "year"
+  {{PAYMENT_TERMS}} ............. e.g. "at time of acceptance"
+  {{TERM_START_DATE}} ........... e.g. "2/01/2026"
+  {{TERM_END_DATE}} ............. e.g. "1/31/2027"
+  {{RENEWAL_PERIOD}} ............ e.g. "annually"
+  {{TERMINATION_NOTICE_DAYS}} ... e.g. "30"
+
+
+====================================================================
+  FILLED EXAMPLE (mock — based on the Fox agreement)
+====================================================================
+
+Prime Comfort Solutions
+PLANNED SERVICE AGREEMENT
+
+Prime Comfort Solutions, herein referred to as Prime, and Mr. Timothy Fox,
+hereinafter referred to as Customer, hereby agrees that Prime will service the
+air conditioning equipment at the following location: 8476 SE Mangrove Street,
+Hobe Sound, FL 33458.
+
+                          TYPE OF SERVICE
+Planned Service Agreement
+Planned Service on equipment with preferred rates on service repairs.
+
+CONDITIONS
+
+Routine Service consists of (4) regularly scheduled inspections with all labor
+necessary to perform the inspections.
+
+Inspections consist of the following: Inspect coils and/or clean as needed (in
+place). Clean and/or replace standard air filters. Clean and treat condensate
+drain pans & lines. Lubricate motors per OEM specifications. Measure temperature
+difference through coil. Check all electrical connections and readings. Check
+all electrical controls for proper operation. Check heating for seasonal
+operation.
+
+Normal business hours are 8:00 a.m. – 8:00 p.m. Monday through Saturday.
+(Holidays excluded)
+
+The equipment covered under this agreement must be in a condition satisfactory
+to Prime. Pre-existing equipment deficiencies will be noted during the first
+inspection. Customer may either authorize Prime to correct any deficiencies
+noted at the quoted prices or cancel this agreement.
+
+Equipment List
+7 – Central air conditioning systems & 1 – Mini split system
+
+The cost of this agreement is $2,100.00 per year, payable at time of acceptance.
+
+The effective date of this agreement is 2/01/2026 – 1/31/2027. This agreement
+will renew automatically annually and may be terminated by either party with 30
+days written notice.
+
+The air conditioning system or systems that are covered are intended to provide
+a comfortable living environment for your home or business. While it is the
+intent of our service agreement to curtail trouble calls, it is possible that
+component failures or other system problems related to condensate or refrigerant
+leaks may occur. As these circumstances are mechanical in nature and beyond our
+immediate, direct control, Prime will accept no responsibility for any property
+and or consequential damages resulting from any failures of this nature.
+Environmental issues, such as mold and mildew, excessive dust or inconsistencies
+in human comfort are also specifically excluded from the scope of your service
+agreement.
+
+
+Prime Authorized Representative _______________________  Date __________
+
+Customer Authorized Signature ___________________________________________  Date __________
+
+
+Prime Comfort Solutions #CAC1823441  6670 White Drive, Suite B, West Palm Beach,
+Florida 33407.  561-217-4822  www.primecomfortac.com

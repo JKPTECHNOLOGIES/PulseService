@@ -71,6 +71,37 @@ export function useUpdateAgreement() {
   });
 }
 
+interface SendResult {
+  success: boolean;
+  data: ServiceAgreement;
+  emailPreviewUrl?: string | null;
+  emailWarning?: string | null;
+}
+
+export function useSendAgreement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<SendResult>(`/agreements/${id}/send`),
+    onSuccess: (res, id) => {
+      void qc.invalidateQueries({ queryKey: ["agreement", id] });
+      void qc.invalidateQueries({ queryKey: ["agreements"] });
+      if (res.emailWarning) {
+        toast(res.emailWarning, { icon: "\u26A0\uFE0F", duration: 6000 });
+      } else {
+        toast.success("Agreement emailed to customer");
+      }
+      // In demo mode (no real SMTP) the backend returns an Ethereal preview URL
+      // so you can see the email that would have been delivered.
+      if (res.emailPreviewUrl) {
+        window.open(res.emailPreviewUrl, "_blank", "noopener");
+      }
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to send agreement"));
+    },
+  });
+}
+
 export function useScheduleVisit() {
   const qc = useQueryClient();
   return useMutation({

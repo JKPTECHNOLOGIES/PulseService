@@ -1,0 +1,392 @@
+// Prisma Schema - General Ledger & GL Configuration
+
+
+// General Ledger Transaction
+model GLTransaction {
+  id               String    @id @default(cuid())
+  transactionDate  DateTime  @default(now())
+  postingDate      DateTime?
+  fiscalPeriodId   String
+  transactionType  String // ENCUMBRANCE, EXPENDITURE, RECEIPT, ADJUSTMENT, REVERSAL
+  status           String    @default("PENDING") // PENDING, POSTED, REVERSED, FAILED
+  referenceType    String // Requisition, PurchaseOrder, POLineReceipt, DirectIssue
+  referenceId      String
+  referenceNumber  String
+  description      String?
+  totalAmount      Decimal   @db.Decimal(12, 2)
+  createdBy        String
+  createdByName    String?
+  createdAt        DateTime  @default(now())
+  postedBy         String?
+  postedByName     String?
+  postedAt         DateTime?
+  reversedBy       String?
+  reversedByName   String?
+  reversedAt       DateTime?
+  reversalReason   String?
+  erpSyncStatus    String?   @default("PENDING") // PENDING, SYNCED, FAILED
+  erpSyncedAt      DateTime?
+  erpBatchId       String?
+  erpTransactionId String?
+
+  // Reversal tracking - links reversal transactions to their originals
+  originalGLTransactionId String? // For reversal transactions, ID of the original transaction being reversed
+
+  // GL Rule traceability - links transaction back to the rule that generated it
+  glTransactionRuleId     String?
+
+  fiscalPeriod       BudgetPeriod        @relation(fields: [fiscalPeriodId], references: [id])
+  creator            User                @relation("GLTransactionCreator", fields: [createdBy], references: [id])
+  poster             User?               @relation("GLTransactionPoster", fields: [postedBy], references: [id])
+  reverser           User?               @relation("GLTransactionReverser", fields: [reversedBy], references: [id])
+  lines              GLTransactionLine[]
+  budgetTransactions BudgetTransaction[]
+  glTransactionRule  GLTransactionRule?  @relation("GLTransaction_rule", fields: [glTransactionRuleId], references: [id])
+
+  // Self-referential relation for reversal tracking
+  originalGLTransaction GLTransaction?  @relation("ReversalOf", fields: [originalGLTransactionId], references: [id], onDelete: SetNull)
+  reversals             GLTransaction[] @relation("ReversalOf")
+
+  // NAV sync push state
+  navJournalPush NavJournalPush? @relation("GLTransaction_navPush")
+
+  @@unique([referenceType, referenceId, transactionType, status], name: "unique_gl_transaction")
+  @@index([referenceType, referenceId])
+  @@index([referenceId, referenceType])
+  @@index([status])
+  @@index([erpSyncStatus])
+  @@index([erpSyncStatus, referenceType, transactionType])
+  @@index([fiscalPeriodId])
+  @@index([originalGLTransactionId])
+  @@index([glTransactionRuleId])
+}
+
+
+// GL Transaction Lines (debit/credit entries)
+model GLTransactionLine {
+  id              String  @id @default(cuid())
+  glTransactionId String
+  lineNumber      Int
+  entryType       String // DEBIT, CREDIT
+  glAccountId     String
+  amount          Decimal @db.Decimal(12, 2)
+  accountCodeId   String?
+  departmentId    String?
+  projectId       String?
+  areaId          String?
+  description     String?
+
+  glTransaction GLTransaction @relation(fields: [glTransactionId], references: [id], onDelete: Cascade)
+  glAccount     GLAccount     @relation(fields: [glAccountId], references: [id])
+  accountCode   AccountCode?  @relation(fields: [accountCodeId], references: [id])
+  department    Department?   @relation(fields: [departmentId], references: [id])
+  project       Project?      @relation(fields: [projectId], references: [id])
+  area          Location?     @relation("GLTransactionLine_budgetArea", fields: [areaId], references: [id])
+
+  @@index([glTransactionId])
+  @@index([glTransactionId, entryType])
+  @@index([glAccountId])
+  @@index([glAccountId, glTransactionId])
+}
+
+
+// GL Account Master (Chart of Accounts)
+model GLAccount {
+  id                 String    @id @default(cuid())
+  accountNumber      String    @unique
+  accountName        String
+  accountType        String // ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
+  accountSubType     String? // INVENTORY, ENCUMBRANCE, ACCRUED_EXPENSE, etc.
+  normalBalance      String // DEBIT, CREDIT
+  isActive           Boolean   @default(true)
+  parentAccountId    String?
+  level              Int       @default(1)
+  sortOrder          Int?
+  description        String?
+  currentBalance     Decimal   @default(0) @db.Decimal(15, 2)
+  openingBalance     Decimal?  @db.Decimal(15, 2)
+  openingBalanceDate DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  parentAccount    GLAccount?          @relation("GLAccountHierarchy", fields: [parentAccountId], references: [id])
+  childAccounts    GLAccount[]         @relation("GLAccountHierarchy")
+  transactionLines GLTransactionLine[]
+  accountCodes     AccountCode[]       @relation("AccountCode_glAccount")
+
+  // GL Configuration System relations
+  ruleActions    GLRuleAction[]
+  accountLookups GLAccountLookup[]
+
+  // Finance Settings (tax GL account)
+  financeSettingsTaxAccounts FinanceSettings[] @relation("FinanceSettings_taxGLAccount")
+
+}
+
+
+// Cost Variance Tracking
+model CostVariance {
+  id                   String    @id @default(cuid())
+  referenceType        String // Requisition, PurchaseOrder, POLineReceipt
+  referenceId          String
+  referenceNumber      String
+  lineItemId           String?
+  inventoryItemId      String?
+  description          String
+  estimatedCost        Decimal   @db.Decimal(12, 2) // From requisition
+  committedCost        Decimal?  @db.Decimal(12, 2) // From PO
+  actualCost           Decimal?  @db.Decimal(12, 2) // From receipt
+  estimatedVsCommitted Decimal?  @db.Decimal(12, 2) // committed - estimated
+  committedVsActual    Decimal?  @db.Decimal(12, 2) // actual - committed
+  totalVariance        Decimal?  @db.Decimal(12, 2) // actual - estimated
+  variancePercent      Decimal?  @db.Decimal(5, 2)
+  varianceReason       String?
+  isSignificant        Boolean   @default(false) // > 10% variance
+  reviewedBy           String?
+  reviewedAt           DateTime?
+  reviewNotes          String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+  reviewer      User?          @relation(fields: [reviewedBy], references: [id])
+
+  @@index([referenceType, referenceId])
+  @@index([isSignificant])
+  @@index([inventoryItemId])
+}
+
+
+// ============================================================================
+// GL CONFIGURATION SYSTEM - Configurable GL Transaction Mapping
+// ============================================================================
+
+/// GL Transaction Rule - Master configuration for GL account mapping rules
+/// Defines when and how GL entries are created for different transaction events
+model GLTransactionRule {
+  id            String      @id @default(cuid())
+  ruleNumber    String      @unique // GL-001, GL-002, etc.
+  name          String
+  description   String?
+  eventType     GLEventType // Transaction event that triggers this rule
+  isActive      Boolean     @default(true)
+  priority      Int         @default(0) // Higher = evaluated first
+  effectiveFrom DateTime    @default(now())
+  effectiveTo   DateTime?
+
+  // Audit fields
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedBy String
+  updatedAt DateTime @updatedAt
+  version   Int      @default(1)
+
+  // Reversal rule tracking
+  isReversalRule Boolean @default(false) // True if this rule is for a reversal event type
+  forwardRuleId  String? // For reversal rules, ID of the corresponding forward rule
+  autoGenerated  Boolean @default(false) // True if this rule was auto-generated from a forward rule
+
+  // Relations
+  conditions   GLRuleCondition[]
+  actions      GLRuleAction[]
+  auditLogs    GLRuleAuditLog[]
+  transactions GLTransaction[]   @relation("GLTransaction_rule")
+  creator      User              @relation("GLRule_creator", fields: [createdBy], references: [id])
+  updater      User              @relation("GLRule_updater", fields: [updatedBy], references: [id])
+
+  // Self-referential relation for reversal rule tracking (one-to-many: one forward rule can have multiple reversal rules)
+  forwardRule   GLTransactionRule?  @relation("ReversalRule", fields: [forwardRuleId], references: [id], onDelete: SetNull)
+  reversalRules GLTransactionRule[] @relation("ReversalRule")
+
+  @@index([eventType, isActive, priority])
+  @@index([effectiveFrom, effectiveTo])
+  @@index([createdBy])
+  @@index([updatedBy])
+  @@index([forwardRuleId])
+  @@index([isReversalRule])
+  @@map("gl_transaction_rules")
+}
+
+
+/// GL Rule Condition - Filters that determine when a rule applies
+/// All conditions must match for the rule to be applied (AND logic within rule)
+model GLRuleCondition {
+  id              String              @id @default(cuid())
+  ruleId          String
+  sequence        Int // Order of evaluation
+  conditionType   GLConditionType
+  operator        GLConditionOperator
+  value           String // JSON-encoded value
+  logicalOperator String              @default("AND") // AND, OR - how to combine with next condition
+
+  rule GLTransactionRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId, sequence])
+  @@map("gl_rule_conditions")
+}
+
+
+/// GL Rule Action - GL entries to create when rule matches
+/// Defines debit/credit pairs and account resolution logic
+model GLRuleAction {
+  id             String          @id @default(cuid())
+  ruleId         String
+  sequence       Int // Order of execution
+  actionType     GLActionType // DEBIT or CREDIT
+  glAccountId    String? // Target GL account (if accountSource = FIXED)
+  accountSource  GLAccountSource // How to determine the GL account
+  accountFormula String? // Formula for LOOKUP or FORMULA source
+  amountFormula  String          @default("FULL_AMOUNT") // FULL_AMOUNT, PERCENTAGE:50, FORMULA:amount*0.1
+  description    String
+
+  // Dimension tracking - which dimensions to track on GL transaction line
+  trackAccountCode Boolean @default(true)
+  trackDepartment  Boolean @default(true)
+  trackArea        Boolean @default(false)
+  trackProject     Boolean @default(false)
+
+  rule      GLTransactionRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  glAccount GLAccount?        @relation(fields: [glAccountId], references: [id])
+
+  @@index([ruleId, sequence])
+  @@index([glAccountId])
+  @@map("gl_rule_actions")
+}
+
+
+/// GL Rule Audit Log - Complete change history for GL rules
+/// Tracks all modifications to rules for compliance and troubleshooting
+model GLRuleAuditLog {
+  id            String   @id @default(cuid())
+  ruleId        String
+  action        String // CREATED, UPDATED, ACTIVATED, DEACTIVATED, DELETED
+  changedBy     String
+  changedByName String
+  changes       Json? // Detailed change log
+  previousValue Json? // Previous state of the rule
+  newValue      Json? // New state of the rule
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  rule GLTransactionRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId, createdAt])
+  @@index([changedBy])
+  @@index([action])
+  @@map("gl_rule_audit_logs")
+}
+
+
+/// GL Account Lookup - Mapping table for dynamic account resolution
+/// Used when accountSource = LOOKUP to map composite keys to GL accounts
+model GLAccountLookup {
+  id            String    @id @default(cuid())
+  lookupKey     String // Composite key: "DEPT:OPS|CATEGORY:MAINT"
+  glAccountId   String
+  description   String?
+  isActive      Boolean   @default(true)
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  createdBy     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  glAccount GLAccount @relation(fields: [glAccountId], references: [id])
+
+  @@unique([lookupKey, effectiveFrom])
+  @@index([lookupKey, isActive])
+  @@index([glAccountId])
+  @@index([createdBy])
+  @@map("gl_account_lookups")
+}
+
+
+// ============================================================================
+// GL CONFIGURATION ENUMS
+// ============================================================================
+
+/// GL Event Type - Transaction events that trigger GL entries
+/// Each event type represents a specific business transaction
+enum GLEventType {
+  // Purchasing Cycle Events
+  REQ_APPROVE // Requisition approval - creates encumbrance
+  PO_APPROVE // PO approval - converts encumbrance to commitment
+  PO_RECEIPT_INV // PO receipt for inventory items
+  PO_RECEIPT_SVC // PO receipt for services
+  PO_RECEIPT_CON // PO receipt for consumables
+  PO_RECEIPT_NSI // PO receipt for non-stock inventory items
+  PO_RETURN // Return to supplier
+  FREIGHT_CAP // Freight cost capitalized to inventory
+  FREIGHT_EXP // Freight cost expensed
+  PO_TAX // Tax expense on purchase order (when tax module is enabled)
+  INVOICE_MATCH // Invoice matched to PO receipt - clears Received Not Invoiced
+  INVOICE_PAY // Invoice payment
+  PRICE_VAR // Price variance between PO and invoice
+
+  // Inventory Events
+  DIRECT_ISSUE // Direct issue from inventory to expense
+  DIRECT_RETURN // Return of direct issue
+  INV_ADJ_INC // Inventory adjustment - increase (found items)
+  INV_ADJ_DEC // Inventory adjustment - decrease (loss, damage)
+  REPAIR_ISSUE // Issue parts to repair work order
+
+  // Labor & Asset Events
+  LABOR_EXP // Labor expense
+  LABOR_CAP // Labor capitalization to asset
+  EQUIP_USAGE // Equipment rental/usage — DEAD CODE: no UI uses this. Kept for existing DB records.
+
+  // Work Order Events
+  WO_COMPLETE // Work order completion/capitalization
+
+  // NOTE: Reversal event types removed - reversals are handled by direct entry copying
+  // See gl-reversal.service.ts for implementation details
+}
+
+
+/// GL Condition Type - Types of conditions that can filter rule application
+enum GLConditionType {
+  ACCOUNT_CODE // Match specific account code(s)
+  ACCOUNT_CODE_CATEGORY // Match account code category
+  DEPARTMENT // Match specific department(s)
+  AREA // Match specific area(s)
+  PROJECT // Match specific project(s)
+  ITEM_TYPE // Match line item type (INVENTORY, SERVICE, CONSUMABLE)
+  AMOUNT_RANGE // Match amount range
+  SUPPLIER // Match specific supplier(s)
+  INVENTORY_CATEGORY // Match inventory category
+  CUSTOM_FIELD // Match custom field value
+}
+
+
+/// GL Condition Operator - Comparison operators for condition evaluation
+enum GLConditionOperator {
+  EQUALS // Exact match
+  NOT_EQUALS // Not equal to
+  IN // Value in list
+  NOT_IN // Value not in list
+  GREATER_THAN // Numeric greater than
+  LESS_THAN // Numeric less than
+  GREATER_THAN_OR_EQUAL // Numeric greater than or equal
+  LESS_THAN_OR_EQUAL // Numeric less than or equal
+  BETWEEN // Numeric between two values
+  CONTAINS // String contains
+  STARTS_WITH // String starts with
+  ENDS_WITH // String ends with
+}
+
+
+/// GL Action Type - Type of GL entry (debit or credit)
+enum GLActionType {
+  DEBIT // Debit entry
+  CREDIT // Credit entry
+}
+
+
+/// GL Account Source - How to determine which GL account to use
+enum GLAccountSource {
+  FIXED // Use specific GL account (glAccountId)
+  ACCOUNT_CODE_LINK // Use AccountCode.glAccountId
+  LOOKUP // Lookup from GLAccountLookup table
+  FORMULA // Calculate from formula
+}

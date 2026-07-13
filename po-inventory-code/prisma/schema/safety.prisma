@@ -1,0 +1,274 @@
+// Prisma Schema - Safety Tags, Compliance & Inspections
+
+
+model SafetyTag {
+  id                  String               @id @default(uuid())
+  code                String               @unique
+  name                String
+  description         String?
+  severity            String
+  color               String?
+  icon                String?
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  equipmentSafetyTags EquipmentSafetyTag[]
+  workOrderSafetyTags WorkOrderSafetyTag[]
+
+  @@index([code])
+  @@index([severity])
+  @@index([isActive])
+}
+
+
+model EquipmentSafetyTag {
+  id          String    @id @default(uuid())
+  equipmentId String
+  safetyTagId String
+  notes       String?
+  addedBy     String
+  addedAt     DateTime  @default(now())
+  expiresAt   DateTime?
+  addedByUser User      @relation(fields: [addedBy], references: [id])
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  safetyTag   SafetyTag @relation(fields: [safetyTagId], references: [id], onDelete: Cascade)
+
+  @@unique([equipmentId, safetyTagId])
+  @@index([equipmentId])
+  @@index([safetyTagId])
+  @@index([addedBy])
+  @@index([expiresAt])
+}
+
+
+model WorkOrderSafetyTag {
+  id          String    @id @default(uuid())
+  workOrderId String
+  safetyTagId String
+  notes       String?
+  addedBy     String
+  addedAt     DateTime  @default(now())
+  addedByUser User      @relation(fields: [addedBy], references: [id])
+  safetyTag   SafetyTag @relation(fields: [safetyTagId], references: [id], onDelete: Cascade)
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([workOrderId, safetyTagId])
+  @@index([workOrderId])
+  @@index([safetyTagId])
+  @@index([addedBy])
+}
+
+
+model ComplianceRequirement {
+  id                  String                @id @default(uuid())
+  code                String                @unique
+  name                String
+  description         String?
+  category            String
+  regulatoryBody      String?
+  frequency           String?
+  documentRequired    Boolean               @default(false)
+  isActive            Boolean               @default(true)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  equipmentCompliance EquipmentCompliance[]
+  workOrderCompliance WorkOrderCompliance[]
+
+  @@index([code])
+  @@index([category])
+  @@index([isActive])
+}
+
+
+model EquipmentCompliance {
+  id                      String                @id @default(uuid())
+  equipmentId             String
+  complianceRequirementId String
+  status                  String                @default("pending")
+  lastVerifiedDate        DateTime?
+  nextVerificationDate    DateTime?
+  verifiedBy              String?
+  documentId              String?
+  notes                   String?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  complianceRequirement   ComplianceRequirement @relation(fields: [complianceRequirementId], references: [id], onDelete: Cascade)
+  document                Document?             @relation(fields: [documentId], references: [id])
+  equipment               Equipment             @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  verifier                User?                 @relation(fields: [verifiedBy], references: [id])
+
+  @@unique([equipmentId, complianceRequirementId])
+  @@index([equipmentId])
+  @@index([complianceRequirementId])
+  @@index([status])
+  @@index([nextVerificationDate])
+}
+
+
+model WorkOrderCompliance {
+  id                      String                @id @default(uuid())
+  workOrderId             String
+  complianceRequirementId String
+  status                  String                @default("pending")
+  verifiedBy              String?
+  verifiedAt              DateTime?
+  documentId              String?
+  notes                   String?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  complianceRequirement   ComplianceRequirement @relation(fields: [complianceRequirementId], references: [id], onDelete: Cascade)
+  document                Document?             @relation(fields: [documentId], references: [id])
+  verifier                User?                 @relation(fields: [verifiedBy], references: [id])
+  workOrder               WorkOrder             @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([workOrderId, complianceRequirementId])
+  @@index([workOrderId])
+  @@index([complianceRequirementId])
+  @@index([status])
+}
+
+
+model SafetyIncident {
+  id                String     @id @default(uuid())
+  incidentNumber    String     @unique
+  title             String
+  description       String
+  severity          String
+  type              String
+  location          String?
+  locationId        String?
+  equipmentId       String?
+  reportedBy        String
+  occurredAt        DateTime
+  reportedAt        DateTime   @default(now())
+  status            String
+  rootCause         String?
+  correctiveActions String?
+  preventiveActions String?
+  investigatedBy    String?
+  closedAt          DateTime?
+  attachments       Json?
+  witnesses         Json?
+  injuredPersons    Json?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  equipment         Equipment? @relation(fields: [equipmentId], references: [id])
+  investigator      User?      @relation("SafetyIncidentInvestigator", fields: [investigatedBy], references: [id])
+  reporter          User       @relation("SafetyIncidentReporter", fields: [reportedBy], references: [id], onDelete: Cascade)
+
+  @@index([severity])
+  @@index([status])
+  @@index([reportedBy])
+  @@index([occurredAt])
+  @@map("safety_incidents")
+}
+
+
+model SafetyInspection {
+  id               String     @id @default(uuid())
+  inspectionNumber String     @unique
+  title            String
+  type             String
+  locationId       String?
+  equipmentId      String?
+  inspectorId      String
+  scheduledDate    DateTime
+  completedDate    DateTime?
+  status           String
+  score            Int?
+  findings         Json?
+  hazardsFound     Int        @default(0)
+  violationsFound  Int        @default(0)
+  recommendations  String?
+  followUpRequired Boolean    @default(false)
+  followUpDate     DateTime?
+  attachments      Json?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  equipment        Equipment? @relation(fields: [equipmentId], references: [id])
+  inspector        User       @relation("SafetyInspectionInspector", fields: [inspectorId], references: [id], onDelete: Cascade)
+  location         Location?  @relation(fields: [locationId], references: [id])
+
+  @@index([status])
+  @@index([inspectorId])
+  @@index([scheduledDate])
+  @@map("safety_inspections")
+}
+
+
+model Hazard {
+  id              String     @id @default(uuid())
+  hazardNumber    String     @unique
+  title           String
+  description     String
+  category        String
+  severity        String
+  likelihood      String
+  riskLevel       String
+  locationId      String?
+  equipmentId     String?
+  identifiedBy    String
+  identifiedDate  DateTime   @default(now())
+  status          String
+  controlMeasures String?
+  assignedTo      String?
+  targetDate      DateTime?
+  resolvedDate    DateTime?
+  attachments     Json?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  assignee        User?      @relation("HazardAssignee", fields: [assignedTo], references: [id])
+  equipment       Equipment? @relation(fields: [equipmentId], references: [id])
+  identifier      User       @relation("HazardIdentifier", fields: [identifiedBy], references: [id], onDelete: Cascade)
+  location        Location?  @relation(fields: [locationId], references: [id])
+
+  @@index([severity])
+  @@index([riskLevel])
+  @@index([status])
+  @@index([identifiedBy])
+  @@map("hazards")
+}
+
+
+model SafetyTraining {
+  id             String                     @id @default(uuid())
+  title          String
+  description    String?
+  type           String
+  category       String
+  duration       Int
+  validityPeriod Int?
+  isRequired     Boolean                    @default(false)
+  materials      Json?
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  completions    SafetyTrainingCompletion[]
+
+  @@index([type])
+  @@index([isRequired])
+  @@map("safety_trainings")
+}
+
+
+model SafetyTrainingCompletion {
+  id             String         @id @default(uuid())
+  trainingId     String
+  userId         String
+  completedDate  DateTime
+  expiryDate     DateTime?
+  score          Int?
+  certificateUrl String?
+  instructorId   String?
+  status         String
+  createdAt      DateTime       @default(now())
+  instructor     User?          @relation("SafetyTrainingInstructor", fields: [instructorId], references: [id])
+  training       SafetyTraining @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  user           User           @relation("SafetyTrainingUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([trainingId, userId, completedDate])
+  @@index([trainingId])
+  @@index([userId])
+  @@index([status])
+  @@index([expiryDate])
+  @@map("safety_training_completions")
+}

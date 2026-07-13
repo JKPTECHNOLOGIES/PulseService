@@ -1,0 +1,543 @@
+// Prisma Schema - Preventive Maintenance
+
+
+model PMInstance {
+  id            String       @id @default(uuid())
+  pmTemplateId  String
+  equipmentId   String
+  meterReading  Decimal?     @db.Decimal(12, 2)
+  status        String       @default("Scheduled")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  completedDate DateTime?
+  createdById   String?
+  notes         String?
+  pmScheduleId  String?
+  scheduledDate DateTime
+  workOrderId   String?
+  equipmentIds  String[]
+  creator       User?        @relation("PMInstance_creator", fields: [createdById], references: [id])
+  equipment     Equipment    @relation(fields: [equipmentId], references: [id])
+  pmSchedule    PMSchedule?  @relation(fields: [pmScheduleId], references: [id])
+  pmTemplate    PMTemplate   @relation(fields: [pmTemplateId], references: [id])
+  workOrder     WorkOrder?   @relation(fields: [workOrderId], references: [id])
+  pmWorkOrder   PMWorkOrder?
+
+  @@index([pmScheduleId])
+  @@index([pmTemplateId])
+  @@index([equipmentId])
+  @@index([scheduledDate])
+  @@index([status])
+  @@index([createdById])
+  @@index([workOrderId])
+  @@index([scheduledDate, status])
+  @@index([equipmentId, scheduledDate])
+}
+
+
+model PMSchedule {
+  id                String       @id @default(uuid())
+  pmTemplateId      String
+  equipmentId       String
+  isActive          Boolean      @default(true)
+  startDate         DateTime
+  endDate           DateTime?
+  lastCompletedDate DateTime?
+  nextDueDate       DateTime
+  meterReading      Decimal?     @db.Decimal(12, 2)
+  status            String       @default("Active")
+  notes             String?
+  allowOverlappingWorkOrders Boolean @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  createdBy         String
+  equipmentIds      String[]
+  documents         Document[]
+  instances         PMInstance[]
+  creator           User         @relation("PMSchedule_creator", fields: [createdBy], references: [id])
+  equipment         Equipment    @relation(fields: [equipmentId], references: [id])
+  pmTemplate        PMTemplate   @relation(fields: [pmTemplateId], references: [id])
+
+  @@index([pmTemplateId])
+  @@index([equipmentId])
+  @@index([nextDueDate])
+  @@index([status])
+  @@index([isActive])
+  @@index([createdBy])
+  @@index([status, nextDueDate])
+}
+
+
+model PMTemplate {
+  id               String                @id @default(uuid())
+  name             String
+  description      String?
+  frequencyType    String
+  frequencyValue   Int
+  generateOffset   Int                   @default(7)
+  estimatedHours   Decimal?              @db.Decimal(8, 2)
+  checklist        Json?
+  safetyNotes      String?
+  isActive         Boolean               @default(true)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  category         String?
+  createdBy        String
+  documents        Json?
+  priority           String                @default("Medium")
+  requiresShutdown   Boolean               @default(false)
+  defaultTrade       String[]              @default([])
+  defaultOutageTypes String[]              @default(["NO"])
+  requiresLoto       Boolean               @default(false)
+  tools              Json?
+  allowOverlappingWorkOrders Boolean       @default(false)
+  instances        PMInstance[]
+  schedules        PMSchedule[]
+  creator          User                  @relation("PMTemplate_creator", fields: [createdBy], references: [id])
+  equipmentLinks   PMTemplateEquipment[]
+  pmWorkOrders     PMWorkOrder[]
+  templateDocuments PMTemplateDocument[]
+
+  @@index([category])
+  @@index([priority])
+  @@index([isActive])
+  @@index([createdBy])
+}
+
+
+// TODO: Future feature — not yet implemented.
+// No application service reads or writes this model via Prisma client.
+// Do NOT remove from schema (schema migrations are production-sensitive).
+// Implement automation rule evaluation in a dedicated PM automation service before using.
+model PMAutomationRule {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  ruleType    String
+  trigger     String
+  conditions  Json
+  actions     Json
+  isActive    Boolean  @default(true)
+  priority    Int      @default(0)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  creator     User     @relation("PMAutomationRule_creator", fields: [createdBy], references: [id])
+
+  @@index([isActive, priority])
+  @@index([trigger])
+  @@index([ruleType])
+  @@index([createdBy])
+}
+
+
+// TODO: Unimplemented aggregation model — never written or read by any service.
+// Dashboard statistics are computed live from PMSchedule and PMInstance queries,
+// which are always accurate. If pre-aggregated stats are ever needed for performance,
+// implement a nightly job to populate this table and update all stat API routes.
+// Do NOT remove from schema (schema migrations are production-sensitive).
+model PMStatistic {
+  id                String   @id @default(uuid())
+  date              DateTime
+  totalScheduled    Int      @default(0)
+  totalCompleted    Int      @default(0)
+  totalOverdue      Int      @default(0)
+  totalSkipped      Int      @default(0)
+  complianceRate    Decimal  @db.Decimal(5, 2)
+  avgCompletionTime Decimal? @db.Decimal(8, 2)
+  totalCost         Decimal  @db.Decimal(12, 2)
+  equipmentId       String?
+  templateId        String?
+  metadata          Json?
+  createdAt         DateTime @default(now())
+
+  @@index([date])
+  @@index([equipmentId])
+  @@index([templateId])
+}
+
+
+model EquipmentPMChecklistItem {
+  id             String                      @id @default(uuid())
+  equipmentId    String
+  itemNumber     Int
+  description    String
+  checkType      PMCheckType
+  expectedValue  String?
+  unit           String?
+  frequency      String?
+  isCritical     Boolean                     @default(false)
+  notes          String?
+  photoRequired  Boolean                     @default(false)
+  tags           String[]                    @default([])
+  category       String?
+  requiredSkills String[]                    @default([])
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  createdBy      String
+  creator        User                        @relation("EquipmentPMChecklistItem_creator", fields: [createdBy], references: [id])
+  equipment      Equipment                   @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  photos         EquipmentPMChecklistPhoto[]
+  completions    PMChecklistCompletion[]
+
+  @@unique([equipmentId, itemNumber])
+  @@index([equipmentId])
+  @@index([itemNumber])
+  @@index([createdBy])
+  @@index([tags])
+  @@index([category])
+  @@index([requiredSkills])
+  @@map("equipment_pm_checklist_items")
+}
+
+
+model EquipmentPMChecklistPhoto {
+  id              String                   @id @default(uuid())
+  checklistItemId String
+  documentId      String                   @unique
+  fileName        String
+  filePath        String
+  fileSize        Int
+  mimeType        String
+  description     String?
+  isReference     Boolean                  @default(true)
+  uploadedBy      String
+  uploadedAt      DateTime                 @default(now())
+  checklistItem   EquipmentPMChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  document        Document                 @relation("EquipmentPMChecklistPhoto_document", fields: [documentId], references: [id], onDelete: Cascade)
+  uploader        User                     @relation("EquipmentPMChecklistPhoto_uploader", fields: [uploadedBy], references: [id])
+
+  @@index([checklistItemId])
+  @@index([documentId])
+  @@index([uploadedBy])
+  @@map("equipment_pm_checklist_photos")
+}
+
+
+// Per-tag color assignment for PM checklist tags.
+// `name` is the normalized (lowercased, trimmed) tag key used for matching;
+// `label` preserves the original casing for display; `color` is a palette key
+// (e.g. "blue", "violet") resolved to Tailwind classes on the client. Tags with
+// no row here fall back to a deterministic hash-based color.
+model PMChecklistTagColor {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  label     String
+  color     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  @@index([name])
+  @@map("pm_checklist_tag_colors")
+}
+
+
+model PMTemplateEquipment {
+  id           String     @id @default(uuid())
+  pmTemplateId String
+  equipmentId  String
+  isActive     Boolean    @default(true)
+  includedTags String[]   @default([])
+  excludedTags String[]   @default([])
+  category     String?
+  addedAt      DateTime   @default(now())
+  addedBy      String
+  addedByUser  User       @relation("PMTemplateEquipment_addedBy", fields: [addedBy], references: [id])
+  equipment    Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  pmTemplate   PMTemplate @relation(fields: [pmTemplateId], references: [id], onDelete: Cascade)
+
+  @@unique([pmTemplateId, equipmentId])
+  @@index([pmTemplateId])
+  @@index([equipmentId])
+  @@index([addedBy])
+  @@map("pm_template_equipment")
+}
+
+
+model PMWorkOrder {
+  id                   String                       @id @default(uuid())
+  workOrderId          String                       @unique
+  pmInstanceId         String                       @unique
+  pmTemplateId         String
+  equipmentIds         String[]
+  status               PMWorkOrderStatus            @default(IN_PROGRESS)
+  startedAt            DateTime?
+  completedAt          DateTime?
+  completedBy          String?
+  checklistCompletedAt DateTime?
+  issuesFound          Boolean                      @default(false)
+  issueCount           Int                          @default(0)
+  notes                String?
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  documents            Document[]
+  checklistCompletions PMChecklistCompletion[]
+  completer            User?                        @relation("PMWorkOrder_completer", fields: [completedBy], references: [id])
+  pmInstance           PMInstance                   @relation(fields: [pmInstanceId], references: [id])
+  pmTemplate           PMTemplate                   @relation(fields: [pmTemplateId], references: [id])
+  workOrder            WorkOrder                    @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  notifications        WorkOrderIssueNotification[]
+  documentSnapshots    PMWorkOrderDocumentSnapshot[]
+
+  @@index([workOrderId])
+  @@index([pmInstanceId])
+  @@index([pmTemplateId])
+  @@index([status])
+  @@index([completedBy])
+  @@map("pm_work_orders")
+}
+
+
+model PMChecklistCompletion {
+  id               String                   @id @default(uuid())
+  pmWorkOrderId    String
+  equipmentId      String
+  checklistItemId  String
+  status           PMCheckStatus
+  actualValue      String?
+  passed           Boolean?
+  issueFound       Boolean                  @default(false)
+  issueDescription String?
+  completedBy      String
+  completedAt      DateTime                 @default(now())
+  notes            String?
+  checklistItem    EquipmentPMChecklistItem @relation(fields: [checklistItemId], references: [id])
+  completer        User                     @relation("PMChecklistCompletion_completer", fields: [completedBy], references: [id])
+  equipment        Equipment                @relation(fields: [equipmentId], references: [id])
+  pmWorkOrder      PMWorkOrder              @relation(fields: [pmWorkOrderId], references: [id], onDelete: Cascade)
+  photos           PMCompletionPhoto[]
+
+  @@unique([pmWorkOrderId, equipmentId, checklistItemId])
+  @@index([pmWorkOrderId])
+  @@index([equipmentId])
+  @@index([checklistItemId])
+  @@index([issueFound])
+  @@index([completedBy])
+  @@map("pm_checklist_completions")
+}
+
+
+model PMCompletionPhoto {
+  id           String                @id @default(uuid())
+  completionId String
+  documentId   String                @unique
+  fileName     String
+  filePath     String
+  fileSize     Int
+  mimeType     String
+  description  String?
+  uploadedBy   String
+  uploadedAt   DateTime              @default(now())
+  completion   PMChecklistCompletion @relation(fields: [completionId], references: [id], onDelete: Cascade)
+  document     Document              @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploader     User                  @relation("PMCompletionPhoto_uploader", fields: [uploadedBy], references: [id])
+
+  @@index([completionId])
+  @@index([documentId])
+  @@index([uploadedBy])
+  @@map("pm_completion_photos")
+}
+
+
+model WorkOrderIssueNotification {
+  id                 String               @id @default(uuid())
+  notificationNumber String               @unique
+  workOrderId        String?
+  pmWorkOrderId      String?
+  equipmentId        String?
+  equipmentTag       String?
+  issueType          WOIssueType
+  severity           WOIssueSeverity
+  title              String
+  description        String
+  foundBy            String?
+  foundByUsername    String?
+  foundAt            DateTime             @default(now())
+  status             WONotificationStatus @default(PENDING)
+  assignedTo         String?
+  reviewedBy         String?
+  reviewedAt         DateTime?
+  resolution         WOIssueResolution?
+  resolutionNotes    String?
+  workOrderCreated   String?
+  closedAt           DateTime?
+  closedBy           String?
+  closedByUsername   String?
+  documents          Document[]
+  equipmentFailures  EquipmentFailure[]
+  assignee           User?                @relation("WorkOrderIssueNotification_assignee", fields: [assignedTo], references: [id])
+  closer             User?                @relation("WorkOrderIssueNotification_closer", fields: [closedBy], references: [id])
+  equipment          Equipment?           @relation(fields: [equipmentId], references: [id])
+  finder             User?                @relation("WorkOrderIssueNotification_finder", fields: [foundBy], references: [id])
+  pmWorkOrder        PMWorkOrder?         @relation(fields: [pmWorkOrderId], references: [id], onDelete: Cascade)
+  reviewer           User?                @relation("WorkOrderIssueNotification_reviewer", fields: [reviewedBy], references: [id])
+  workOrder          WorkOrder?           @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([notificationNumber])
+  @@index([workOrderId])
+  @@index([pmWorkOrderId])
+  @@index([equipmentId])
+  @@index([status])
+  @@index([severity])
+  @@index([assignedTo])
+  @@index([foundBy])
+  @@index([reviewedBy])
+  @@index([closedBy])
+  @@index([foundByUsername])
+  @@map("wo_issue_notifications")
+}
+
+
+enum PMCheckType {
+  VISUAL_INSPECTION
+  MEASUREMENT
+  FUNCTIONAL_TEST
+  LUBRICATION
+  ADJUSTMENT
+  CLEANING
+  REPLACEMENT
+  OTHER
+}
+
+
+enum PMCheckStatus {
+  PASS
+  FAIL
+  NOT_APPLICABLE
+  NEEDS_ATTENTION
+  DEFERRED
+}
+
+
+enum PMWorkOrderStatus {
+  IN_PROGRESS
+  CHECKLIST_COMPLETE
+  ISSUES_PENDING
+  COMPLETED
+  CANCELLED
+}
+
+
+enum WOIssueType {
+  SAFETY_CONCERN
+  EQUIPMENT_FAILURE
+  ABNORMAL_READING
+  LEAK_DETECTED
+  WEAR_EXCESSIVE
+  MISSING_COMPONENT
+  DAMAGE_FOUND
+  PERFORMANCE_ISSUE
+  OTHER
+}
+
+
+enum WOIssueSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+
+enum WONotificationStatus {
+  PENDING
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+
+enum WOIssueResolution {
+  WORK_ORDER_CREATED
+  IMMEDIATE_REPAIR
+  SCHEDULED_REPAIR
+  NO_ACTION_NEEDED
+  DEFERRED
+}
+
+
+model PMTemplateDocument {
+  id              String    @id @default(uuid())
+  pmTemplateId    String
+  documentId      String    @unique
+  groupId         String    // UUID - all versions of the same logical document share this
+  versionNumber   Int       @default(1)
+  versionLabel    String?   // e.g., "V1", "Rev A", user-defined
+  title           String    // Human-readable document title
+  description     String?
+  fileName        String
+  filePath        String
+  fileSize        Int
+  mimeType        String
+  isActive        Boolean   @default(true) // Only one version per groupId should be active
+  supersededById  String?   @unique // Points to the newer version that replaced this one
+  uploadedById    String
+  effectiveFrom   DateTime  @default(now()) // When this version became active
+  effectiveUntil  DateTime? // When this version was superseded
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  pmTemplate      PMTemplate @relation(fields: [pmTemplateId], references: [id])
+  document        Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  supersededBy    PMTemplateDocument? @relation("DocumentVersionChain", fields: [supersededById], references: [id])
+  supersedes      PMTemplateDocument? @relation("DocumentVersionChain")
+  uploadedBy      User       @relation(fields: [uploadedById], references: [id])
+  workOrderSnapshots PMWorkOrderDocumentSnapshot[]
+
+  @@index([pmTemplateId])
+  @@index([groupId])
+  @@index([pmTemplateId, groupId, isActive])
+  @@index([uploadedById])
+}
+
+
+model PMWorkOrderDocumentSnapshot {
+  id                    String   @id @default(uuid())
+  pmWorkOrderId         String
+  pmTemplateDocumentId  String
+  groupId               String   // Denormalized from PMTemplateDocument for query efficiency
+  versionNumber         Int      // Denormalized - the version that was active at WO generation
+  versionLabel          String?  // Denormalized
+  title                 String   // Denormalized
+  fileName              String   // Denormalized
+  filePath              String   // Denormalized - path to the actual file
+  fileSize              Int      // Denormalized
+  mimeType              String   // Denormalized
+  snapshotAt            DateTime @default(now()) // When the snapshot was taken
+  createdAt             DateTime @default(now())
+
+  pmWorkOrder           PMWorkOrder        @relation(fields: [pmWorkOrderId], references: [id], onDelete: Cascade)
+  pmTemplateDocument    PMTemplateDocument @relation(fields: [pmTemplateDocumentId], references: [id])
+
+  @@unique([pmWorkOrderId, pmTemplateDocumentId])
+  @@index([pmWorkOrderId])
+  @@index([pmTemplateDocumentId])
+  @@index([groupId])
+}
+
+
+model PMSchedulerConfig {
+  id          String   @id @default("singleton")
+  enabled     Boolean  @default(false)
+  intervalMs  Int      @default(3600000)
+  lastUpdated DateTime @updatedAt
+  updatedBy   String?
+
+  @@map("pm_scheduler_config")
+}
+
+
+model PMSchedulerHistory {
+  id             String   @id @default(cuid())
+  runAt          DateTime @default(now())
+  success        Boolean
+  message        String?
+  duration       Int?
+  generatedCount Int      @default(0)
+
+  @@index([runAt])
+  @@index([success])
+  @@map("pm_scheduler_history")
+}

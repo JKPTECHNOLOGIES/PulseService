@@ -1,0 +1,75 @@
+// Prisma Schema - Resources & Skills
+
+
+model Resource {
+  id                   String          @id @default(uuid())
+  name                 String
+  type                 String
+  employeeId           String?         @unique
+  email                String?
+  phone                String?
+  defaultCostRate      Decimal         @db.Decimal(10, 2)
+  isActive             Boolean         @default(true)
+  availabilityCalendar Json?
+  notes                String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  skills               ResourceSkill[]
+
+  @@index([isActive])
+  @@index([type])
+}
+
+
+model ResourceSkill {
+  id                String    @id @default(uuid())
+  resourceId        String
+  skillId           String
+  proficiencyLevel  String
+  certificationDate DateTime?
+  expiryDate        DateTime?
+  createdAt         DateTime  @default(now())
+  resource          Resource  @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  skill             Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([resourceId, skillId])
+  @@index([resourceId])
+  @@index([skillId])
+}
+
+
+model Skill {
+  id             String          @id @default(uuid())
+  name           String          @unique
+  description    String?
+  category       String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  resourceSkills ResourceSkill[]
+  userSkills     UserSkill[]
+
+  @@index([name])
+  @@index([category])
+}
+
+
+model WorkOrderSkill {
+  id               String   @id @default(uuid())
+  skillId          String   @unique
+  name             String
+  description      String?
+  category         String?
+  proficiencyLevel String   @default("Intermediate")
+  isCritical       Boolean  @default(false)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  createdBy        String
+  creator          User     @relation("WorkOrderSkill_creator", fields: [createdBy], references: [id])
+
+  @@index([skillId])
+  @@index([category])
+  @@index([isActive])
+  @@index([createdBy])
+  @@map("work_order_skills")
+}

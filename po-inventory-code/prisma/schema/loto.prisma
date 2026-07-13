@@ -1,0 +1,419 @@
+// Prisma Schema - Lockout/Tagout (LOTO)
+
+
+model LOTOProcedure {
+  id               String                   @id @default(uuid())
+  procedureNumber  String                   @unique
+  title            String
+  description      String
+  version          Int                      @default(1)
+  status           LOTOProcedureStatus      @default(DRAFT)
+  isPrimary        Boolean                  @default(false)
+  requiredLocks    Int                      @default(1)
+  requiredTags     Int                      @default(1)
+  minimumPersonnel Int                      @default(1)
+  estimatedTime    Int?
+  safetyNotes      String?
+  approvedBy       String?
+  approvedAt       DateTime?
+  createdBy        String
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  equipmentLinks   EquipmentLOTOProcedure[]
+  decontaminations LOTODecontamination[]
+  energySources    LOTOEnergySource[]
+  executions       LOTOExecution[]
+  isolationPoints  LOTOIsolationPoint[]
+  procedureSteps   LOTOProcedureStep[]
+  versions         LOTOProcedureVersion[]
+  approver         User?                    @relation("LOTOProcedureApprover", fields: [approvedBy], references: [id])
+  creator          User                     @relation("LOTOProcedureCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  workOrderLinks   WorkOrderLOTO[]
+
+  @@index([status])
+  @@index([isPrimary])
+  @@index([createdBy])
+  @@index([approvedBy])
+  @@map("loto_procedures")
+}
+
+
+model EquipmentLOTOProcedure {
+  id          String        @id @default(uuid())
+  equipmentId String
+  procedureId String
+  isPrimary   Boolean       @default(false)
+  assignedAt  DateTime      @default(now())
+  assignedBy  String
+  notes       String?
+  equipment   Equipment     @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  procedure   LOTOProcedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+
+  @@unique([equipmentId, procedureId])
+  @@index([equipmentId])
+  @@index([procedureId])
+  @@index([isPrimary])
+  @@map("equipment_loto_procedures")
+}
+
+
+model LOTOEnergySource {
+  id          String          @id @default(uuid())
+  procedureId String
+  sourceType  LOTOEnergyType
+  description String
+  voltage     String?
+  amperage    String?
+  pressure    String?
+  temperature String?
+  location    String?
+  hazardLevel LOTOHazardLevel
+  sortOrder   Int             @default(0)
+  procedure   LOTOProcedure   @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+
+  @@index([procedureId])
+  @@index([sourceType])
+  @@map("loto_energy_sources")
+}
+
+
+model LOTOIsolationPoint {
+  id                 String            @id @default(uuid())
+  procedureId        String
+  pointNumber        String
+  description        String
+  location           String
+  isolationType      LOTOIsolationType
+  lockRequired       Boolean           @default(true)
+  tagRequired        Boolean           @default(true)
+  verificationMethod String?
+  safetyNotes        String?
+  sortOrder          Int               @default(0)
+  procedure          LOTOProcedure     @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+
+  @@index([procedureId])
+  @@index([isolationType])
+  @@map("loto_isolation_points")
+}
+
+
+model LOTOProcedureStep {
+  id                   String        @id @default(uuid())
+  procedureId          String
+  stepType             LOTOStepType
+  stepNumber           Int
+  description          String
+  safetyWarning        String?
+  requiredTools        String?
+  estimatedTime        Int?
+  requiresVerification Boolean       @default(false)
+  verificationCriteria String?
+  sortOrder            Int           @default(0)
+  procedure            LOTOProcedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+
+  @@index([procedureId, stepType])
+  @@index([stepNumber])
+  @@map("loto_procedure_steps")
+}
+
+
+model LOTODecontamination {
+  id              String        @id @default(uuid())
+  procedureId     String
+  contaminantType String
+  description     String
+  deconMethod     String
+  requiredPPE     String?
+  disposalMethod  String?
+  safetyNotes     String?
+  sortOrder       Int           @default(0)
+  procedure       LOTOProcedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+
+  @@index([procedureId])
+  @@map("loto_decontaminations")
+}
+
+
+model WorkOrderLOTO {
+  id            String              @id @default(uuid())
+  workOrderId   String
+  procedureId   String?
+  isRequired    Boolean             @default(true)
+  requiresBuild Boolean             @default(false)
+  status        WorkOrderLOTOStatus @default(NOT_STARTED)
+  assignedTo    String?
+  assignedAt    DateTime?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  verifiedBy    String?
+  verifiedAt    DateTime?
+  notes         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  procedure     LOTOProcedure?      @relation(fields: [procedureId], references: [id])
+  workOrder     WorkOrder           @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@index([procedureId])
+  @@index([status])
+  @@index([isRequired])
+  @@map("work_order_loto")
+}
+
+
+model LOTOExecutionStep {
+  id          String         @id @default(uuid())
+  executionId String
+  stepType    LOTOStepType
+  stepNumber  Int
+  description String
+  status      LOTOStepStatus @default(PENDING)
+  completedBy String?
+  completedAt DateTime?
+  verifiedBy  String?
+  verifiedAt  DateTime?
+  notes       String?
+  photoUrls   String[]       @default([])
+  execution   LOTOExecution  @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([stepType])
+  @@index([status])
+  @@map("loto_execution_steps")
+}
+
+
+model LOTOProcedureTemplate {
+  id                String   @id @default(uuid())
+  templateNumber    String   @unique
+  name              String
+  description       String?
+  equipmentCategory String?
+  isActive          Boolean  @default(true)
+  usageCount        Int      @default(0)
+  createdBy         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([equipmentCategory])
+  @@index([isActive])
+  @@map("loto_procedure_templates")
+}
+
+
+model LOTOProcedureVersion {
+  id             String         @id @default(uuid())
+  procedureId    String
+  versionNumber  Int
+  changeType     LOTOChangeType
+  changesSummary String
+  changesDetail  Json
+  changedBy      String
+  changedAt      DateTime       @default(now())
+  approvedBy     String?
+  approvedAt     DateTime?
+  documentId     String?
+  procedure      LOTOProcedure  @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+  document       Document?      @relation("LOTOProcedureVersion_document", fields: [documentId], references: [id])
+
+  @@index([procedureId])
+  @@index([versionNumber])
+  @@index([changedAt])
+  @@index([documentId])
+  @@map("loto_procedure_versions")
+}
+
+
+model LOTOExecution {
+  id              String              @id @default(uuid())
+  executionNumber String              @unique
+  procedureId     String
+  equipmentId     String
+  workOrderId     String?
+  status          LOTOExecutionStatus @default(AUTHORIZED)
+  authorizedBy    String
+  authorizedAt    DateTime            @default(now())
+  lockedOutBy     String?
+  lockedOutAt     DateTime?
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  restoredBy      String?
+  restoredAt      DateTime?
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  participants    String[]            @default([])
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  executionSteps  LOTOExecutionStep[]
+  authorizer      User                @relation("LOTOExecutionAuthorizer", fields: [authorizedBy], references: [id], onDelete: Cascade)
+  equipment       Equipment           @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  lockoutPerson   User?               @relation("LOTOExecutionLockoutPerson", fields: [lockedOutBy], references: [id])
+  procedure       LOTOProcedure       @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+  restorer        User?               @relation("LOTOExecutionRestorer", fields: [restoredBy], references: [id])
+  verifier        User?               @relation("LOTOExecutionVerifier", fields: [verifiedBy], references: [id])
+  workOrder       WorkOrder?          @relation(fields: [workOrderId], references: [id])
+  locks           LOTOLock[]
+  tags            LOTOTag[]
+  verifications   LOTOVerification[]
+
+  @@index([procedureId])
+  @@index([equipmentId])
+  @@index([status])
+  @@index([authorizedBy])
+  @@map("loto_executions")
+}
+
+
+model LOTOLock {
+  id             String        @id @default(uuid())
+  executionId    String
+  lockNumber     String
+  isolationPoint String
+  appliedBy      String
+  appliedAt      DateTime      @default(now())
+  removedBy      String?
+  removedAt      DateTime?
+  status         String
+  createdAt      DateTime      @default(now())
+  applier        User          @relation("LOTOLockApplier", fields: [appliedBy], references: [id], onDelete: Cascade)
+  execution      LOTOExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  remover        User?         @relation("LOTOLockRemover", fields: [removedBy], references: [id])
+
+  @@unique([executionId, lockNumber])
+  @@index([executionId])
+  @@index([status])
+  @@map("loto_locks")
+}
+
+
+model LOTOTag {
+  id             String        @id @default(uuid())
+  executionId    String
+  tagNumber      String
+  isolationPoint String
+  warningMessage String
+  appliedBy      String
+  appliedAt      DateTime      @default(now())
+  removedBy      String?
+  removedAt      DateTime?
+  status         String
+  createdAt      DateTime      @default(now())
+  applier        User          @relation("LOTOTagApplier", fields: [appliedBy], references: [id], onDelete: Cascade)
+  execution      LOTOExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  remover        User?         @relation("LOTOTagRemover", fields: [removedBy], references: [id])
+
+  @@unique([executionId, tagNumber])
+  @@index([executionId])
+  @@index([status])
+  @@map("loto_tags")
+}
+
+
+model LOTOVerification {
+  id               String        @id @default(uuid())
+  executionId      String
+  verificationStep String
+  verifiedBy       String
+  verifiedAt       DateTime      @default(now())
+  result           String
+  notes            String?
+  createdAt        DateTime      @default(now())
+  execution        LOTOExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  verifier         User          @relation("LOTOVerificationVerifier", fields: [verifiedBy], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([result])
+  @@map("loto_verifications")
+}
+
+
+enum LOTOProcedureStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ACTIVE
+  UNDER_REVIEW
+  DEPRECATED
+  ARCHIVED
+}
+
+
+enum LOTOEnergyType {
+  ELECTRICAL
+  MECHANICAL
+  HYDRAULIC
+  PNEUMATIC
+  THERMAL
+  CHEMICAL
+  GRAVITATIONAL
+  STORED_ENERGY
+  OTHER
+}
+
+
+enum LOTOHazardLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+
+enum LOTOIsolationType {
+  CIRCUIT_BREAKER
+  DISCONNECT_SWITCH
+  VALVE
+  BLIND_FLANGE
+  DOUBLE_BLOCK_BLEED
+  LOCKOUT_DEVICE
+  PLUG
+  OTHER
+}
+
+
+enum LOTOStepType {
+  LOCKOUT
+  TESTING
+  RESTORATION
+}
+
+
+enum LOTOStepStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  VERIFIED
+  SKIPPED
+  FAILED
+}
+
+
+enum WorkOrderLOTOStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  VERIFIED
+  CANCELLED
+}
+
+
+enum LOTOExecutionStatus {
+  AUTHORIZED
+  LOCKED_OUT
+  VERIFIED
+  RESTORED
+  COMPLETED
+  CANCELLED
+}
+
+
+enum LOTOChangeType {
+  CREATED
+  MINOR_EDIT
+  MAJOR_REVISION
+  APPROVED
+  DEPRECATED
+  ARCHIVED
+}

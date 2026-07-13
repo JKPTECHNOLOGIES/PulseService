@@ -1,0 +1,43 @@
+// Prisma Schema - Project Cost Tracking Snapshots
+//
+// Immutable period-end snapshots of the cost-tracking report.
+// Finance creates a snapshot (e.g. "Q1 2026 Close") and the full computed
+// report data is saved permanently so it never changes even if receipts,
+// POs, or WOs are modified after the fact.
+//
+// The snapshot is calculated using an "as-of date" query:
+//   - POs: orderDate <= snapshotDate
+//   - Receipts: receivedAt <= snapshotDate (summed from actual receipt records)
+//   - Work Orders: createdAt <= snapshotDate
+
+model ProjectCostSnapshot {
+  id           String   @id @default(uuid())
+
+  // Display metadata
+  name         String                // "Q1 2026 Close", "March Month-End"
+  description  String?               // Optional finance notes
+  snapshotDate DateTime              // The "as of" date the data represents
+
+  // Who and when
+  createdAt    DateTime @default(now())
+  createdBy    String
+  creator      User     @relation("ProjectCostSnapshot_creator", fields: [createdBy], references: [id])
+
+  // Immutable report payload — full CostTrackingReport JSON
+  portfolioData Json
+
+  // Snapshot-time filters (statuses used, lifetimeView, etc.)
+  filters      Json
+
+  // Denormalized top-level figures for quick listing without deserializing JSON
+  projectCount   Int     @default(0)
+  totalBudget    Decimal @default(0) @db.Decimal(18, 2)
+  totalSpend     Decimal @default(0) @db.Decimal(18, 2)
+  totalOpen      Decimal @default(0) @db.Decimal(18, 2)
+  totalCommitted Decimal @default(0) @db.Decimal(18, 2)
+
+  @@index([snapshotDate])
+  @@index([createdAt])
+  @@index([createdBy])
+  @@map("project_cost_snapshots")
+}

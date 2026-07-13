@@ -810,6 +810,7 @@ model ServiceAgreement {
   terms            String?
   notes            String?
   nextBillingDate  DateTime?
+  lastSentAt       DateTime? // last time the agreement PDF was emailed to the customer
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

@@ -589,6 +589,7 @@ export interface ServiceAgreement {
   amount: number;
   autoRenew: boolean;
   nextBillingDate?: string;
+  lastSentAt?: string;
   terms?: string;
   notes?: string;
   customer?: Customer;

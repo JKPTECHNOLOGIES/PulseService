@@ -1,0 +1,13 @@
+// Prisma Schema - Supplier Document Compliance Settings
+// This model stores the global compliance configuration for supplier documents.
+
+model SupplierComplianceSettings {
+  id                    String   @id @default(uuid())
+  requiredDocumentTypes String[] @default([])
+  reminderThresholds    Int[]    @default([])
+  recipientPermission   String   @default("purchasing:update")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("supplier_compliance_settings")
+}

@@ -1,0 +1,174 @@
+// Prisma Schema - Finance Settings & Branding Settings
+
+// Controls which receipts the monthly WAC run considers eligible.
+// PO_CLOSED   — original: only receipts on fully Closed POs (closedAt in period).
+//               Safe for simple purchasing workflows.
+// RECEIPT_DATE — recommended for long-running/blanket POs: includes ALL active
+//               non-return receipts where receivedAt falls in the run period,
+//               regardless of PO status. Requires wacProcessedAt on POLineReceipt.
+enum WACEligibilityMode {
+  PO_CLOSED
+  RECEIPT_DATE
+}
+
+// ─── Branding Settings (singleton) ───────────────────────────────────────────
+// Stores all user-facing company/app branding so the system can be white-labeled.
+model BrandingSettings {
+  id                String   @id @default(uuid())
+
+  // Company identity
+  companyName       String   @default("Columbia River Nitrogen")  // Full legal / display name
+  companyShortName  String   @default("CRN")                     // Abbreviation used in column headers, labels
+  appName           String   @default("PulsePlant")              // Product / application name shown in sidebar, title
+  systemName        String   @default("CRN Plant Management")    // Longer system label used in emails, footers
+
+  // Physical address (used on POs, PDFs)
+  addressLine1      String   @default("63149 Columbia River Hwy")
+  addressLine2      String?  @default("")
+  city              String   @default("Deer Island")
+  state             String   @default("OR")
+  zip               String   @default("97054")
+  phone             String   @default("503-366-8900")
+
+  // Footer / legal
+  copyrightHolder   String   @default("CRN Plant Management")
+  poFooterText      String   @default("By accepting this purchase order, you agree to the terms and conditions outlined on this purchase order or filed with CRN.")
+
+  // Custom Terms & Conditions (used when FinanceSettings.customTermsAndConditionsEnabled = true)
+  // Stored as rich text / HTML from the WYSIWYG admin editor.
+  // When null the system falls back to the hard-coded T&C clauses in the PO print template.
+  customTermsText   String?  @db.Text
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  updatedBy         String?
+
+  @@map("branding_settings")
+}
+
+model FinanceSettings {
+  id                              String       @id @default(uuid())
+  defaultWorkOrderAccountCodeId   String?
+  defaultWorkOrderDepartmentId    String?
+  requireAccountCodeForWorkOrders Boolean      @default(false)
+  requireDepartmentForWorkOrders  Boolean      @default(false)
+
+  // ─── Inventory Purchase Defaults ──────────────────────────────────────────
+  // When set, these values are stamped on GL transaction lines generated for
+  // INVENTORY-type PO lines that have no explicit charge allocations.
+  // This ensures inventory replenishment POs always carry the correct Dept Code
+  // and Account Code when exported to NAV (e.g. "Store Room Inventory" dept).
+  defaultInventoryAccountCodeId   String?
+  defaultInventoryDepartmentId    String?
+  poVarianceThresholdPercent      Decimal?     @db.Decimal(5, 2) @default(10.00) // Max allowed PO price increase % before auto-cancel
+
+  // ─── Work Order Requisition Module ────────────────────────────────────────
+  // When enabled, users can create purchase requisitions directly from a work
+  // order detail view without navigating to the full requisition module.
+  workOrderRequisitionsEnabled            Boolean      @default(false)
+
+  // ─── TAR Management Module ────────────────────────────────────────────────
+  // Full turnaround / annual shutdown management module.
+  // When enabled: TAR nav section unlocked, TAR cost links visible on POs and WOs.
+  tarManagementEnabled                    Boolean      @default(false)
+
+  // ─── Custom PO Terms & Conditions Module ──────────────────────────────────
+  // When enabled the rich-text T&C stored in BrandingSettings.customTermsText
+  // overrides the hard-coded T&C clauses on the PO print template.
+  customTermsAndConditionsEnabled         Boolean      @default(false)
+
+  // ─── Buyer Assignment Module ───────────────────────────────────────────────
+  // When enabled: buyers can be assigned to requisitions and POs,
+  // and buyer-based filtering is available on all purchasing list views.
+  buyerAssignmentEnabled                  Boolean      @default(false)
+
+  // ─── Go-Live Date ─────────────────────────────────────────────────────────
+  // The date this customer started using PulsePlant as the system of record.
+  // NULL = no cutoff; all data is treated as live (default for fresh-start customers).
+  //
+  // When set, ALL financial processing (GR/NI accruals, NAV sync, invoice matching
+  // requirements, financial KPIs) automatically scopes to on-or-after this date.
+  // Historical data imported from the prior system remains fully visible and
+  // actionable but is NOT treated as a financial obligation in PulsePlant.
+  //
+  // This applies universally: every customer that migrates from another system
+  // sets their go-live date here. No data changes or patches required.
+  goLiveDate                      DateTime?    @map("go_live_date")
+
+  // Display name of the prior system (e.g. "TabWare", "SAP", "Maximo").
+  // Used in report banners and UI labels to explain why pre-cutover data is excluded.
+  // NULL when goLiveDate is null (fresh-start customers have no prior system).
+  priorSystemName                 String?      @map("prior_system_name")
+
+  // ─── AP / Finance Notification Email ─────────────────────────────────────
+  // When set, supplier-related notification emails (new vendor added, secured
+  // document changed) are routed to this shared inbox (e.g. ap@company.com)
+  // instead of emailing individual Finance/Purchasing Manager users.
+  // In-app (Pulse) notifications are always delivered to individual users.
+  apEmail                         String?      @map("ap_email")
+
+  // ─── Service PO Auto-Receive ──────────────────────────────────────────────
+  // When true, service invoice lines are automatically received immediately
+  // after requestor approval, using the per-line amounts set by Finance at
+  // invoice upload time (InvoiceLineItem.totalAmount). The Inventory Manager
+  // receiving step is bypassed entirely.
+  // When false (default), the existing flow applies: Inventory Managers receive
+  // a notification and manually record receipts on the receive page.
+  serviceAutoReceiveEnabled       Boolean      @default(false) @map("service_auto_receive_enabled")
+
+  // ─── Budget Dimension Visibility ──────────────────────────────────────────
+  // Controls which budget dimension types are SHOWN on the Budget Dashboard and
+  // which types generate threshold notification emails.
+  // Tracking (GL writes, consumed/reserved amounts) continues for ALL types
+  // regardless of these flags — data is never lost by hiding a dimension.
+  // Default true so all dimensions are visible for new installations.
+  showAccountCodeBudgets    Boolean      @default(true)  @map("show_account_code_budgets")
+  showDepartmentBudgets     Boolean      @default(true)  @map("show_department_budgets")
+  showProjectBudgets        Boolean      @default(true)  @map("show_project_budgets")
+  showAreaBudgets           Boolean      @default(true)  @map("show_area_budgets")
+
+  // ─── Labor Cost Tracking Module ───────────────────────────────────────────
+  // When true (default), labor cost tracking is fully enabled: technician hourly
+  // rates are visible in /resources, cost columns appear on work order labor cards
+  // and reports, and cost totals are calculated.
+  // When false: all dollar amounts related to labor are hidden across the UI and
+  // reports; only hours are tracked. Setting this to false also clears all
+  // User.defaultLaborRate and User.defaultOvertimeRate values.
+  laborCostTrackingEnabled              Boolean      @default(true)
+
+  // ─── Tax Module Configuration ─────────────────────────────────────────────
+  // taxModuleEnabled: false by default — current client does not use tax.
+  // Set to true for future clients that require sales/purchase tax on POs.
+  taxModuleEnabled                Boolean      @default(false)
+  // taxRate: stored as a fraction (e.g. 0.0825 = 8.25%).
+  // Only applied when taxModuleEnabled = true.
+  taxRate                         Decimal      @default(0) @db.Decimal(6, 4) // e.g. 0.0825 for 8.25%
+  // taxGLAccountId: optional GL account for tax debit entries.
+  // Required for GL posting when taxModuleEnabled = true.
+  taxGLAccountId                  String?
+  // taxLabel: display label shown on PO documents (e.g. "HST", "GST", "Sales Tax")
+  taxLabel                        String?      @default("Tax")
+
+  // ─── WAC Eligibility Mode ─────────────────────────────────────────────────
+  // PO_CLOSED (default): WAC runs on fully Closed POs — safe for simple workflows.
+  // RECEIPT_DATE: WAC runs on receipt date — required for open/blanket POs that
+  //               never formally close (e.g. year-long standing orders with 100s of parts).
+  //               Default for new installations per CRN go-live configuration.
+  wacEligibilityMode  WACEligibilityMode  @default(RECEIPT_DATE) @map("wac_eligibility_mode")
+
+  createdAt                       DateTime     @default(now())
+  updatedAt                       DateTime     @updatedAt
+  updatedBy                       String?
+  defaultWorkOrderAccountCode     AccountCode? @relation("FinanceSettings_defaultAccountCode", fields: [defaultWorkOrderAccountCodeId], references: [id])
+  defaultWorkOrderDepartment      Department?  @relation("FinanceSettings_defaultDepartment", fields: [defaultWorkOrderDepartmentId], references: [id])
+  defaultInventoryAccountCode     AccountCode? @relation("FinanceSettings_defaultInventoryAccountCode", fields: [defaultInventoryAccountCodeId], references: [id])
+  defaultInventoryDepartment      Department?  @relation("FinanceSettings_defaultInventoryDepartment", fields: [defaultInventoryDepartmentId], references: [id])
+  taxGLAccount                    GLAccount?   @relation("FinanceSettings_taxGLAccount", fields: [taxGLAccountId], references: [id], onDelete: SetNull)
+
+  @@index([defaultWorkOrderAccountCodeId])
+  @@index([defaultWorkOrderDepartmentId])
+  @@index([defaultInventoryAccountCodeId])
+  @@index([defaultInventoryDepartmentId])
+  @@index([taxGLAccountId])
+  @@map("finance_settings")
+}

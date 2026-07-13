@@ -1,0 +1,46 @@
+// Prisma Schema - External System Sync
+
+
+model TabwareSyncLog {
+  id             String    @id @default(uuid())
+  entityType     String // 'suppliers', 'inventory', 'purchase-orders', 'requisitions'
+  status         String // 'in-progress', 'completed', 'failed'
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  startedBy      String
+  recordsTotal   Int       @default(0)
+  recordsCreated Int       @default(0)
+  recordsUpdated Int       @default(0)
+  recordsSkipped Int       @default(0)
+  recordsErrors  Int       @default(0)
+  errorLog       Json?
+  options        Json?
+  duration       Int? // seconds
+
+  user User @relation("TabwareSyncLog_user", fields: [startedBy], references: [id])
+
+  @@index([entityType])
+  @@index([status])
+  @@index([startedAt])
+  @@map("tabware_sync_logs")
+}
+
+
+/// Audit trail for NAVMOCK bridge sync operations
+model NavSyncLog {
+  id              String   @id @default(uuid())
+  tableName       String   @map("tableName") @db.VarChar(50)
+  recordId        String   @map("recordId")
+  syncType        String   @map("syncType") @db.VarChar(30)
+  syncDirection   String   @map("syncDirection") @db.VarChar(20)
+  oldValue        String?  @map("oldValue")
+  newValue        String?  @map("newValue")
+  syncedBy        String   @map("syncedBy") @db.VarChar(100)
+  syncedAt        DateTime @default(now()) @map("syncedAt")
+  success         Boolean  @default(true)
+  errorMessage    String?  @map("errorMessage")
+
+  @@map("nav_sync_log")
+  @@index([tableName, recordId])
+  @@index([syncedAt])
+}

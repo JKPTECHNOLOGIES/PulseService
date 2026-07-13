@@ -1,0 +1,97 @@
+// Prisma Schema - Reports & Scheduling
+
+
+model ReportTemplate {
+  id          String            @id @default(uuid())
+  name        String
+  description String?
+  category    String
+  type        String
+  config      Json
+  isPublic    Boolean           @default(false)
+  createdBy   String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  executions  ReportExecution[]
+  schedules   ReportSchedule[]
+  creator     User              @relation("ReportTemplateCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([category])
+  @@index([createdBy])
+  @@map("report_templates")
+}
+
+
+model ReportSchedule {
+  id         String            @id @default(uuid())
+  templateId String
+  name       String
+  frequency  String
+  dayOfWeek  Int?
+  dayOfMonth Int?
+  time       String
+  timezone   String            @default("UTC")
+  recipients Json
+  format     String
+  isActive   Boolean           @default(true)
+  lastRunAt  DateTime?
+  nextRunAt  DateTime?
+  createdBy  String
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  executions ReportExecution[]
+  creator    User              @relation("ReportScheduleCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  template   ReportTemplate    @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@index([isActive, nextRunAt])
+  @@index([createdBy])
+  @@map("report_schedules")
+}
+
+
+model ReportExecution {
+  id            String               @id @default(uuid())
+  templateId    String
+  scheduleId    String?
+  status        String
+  format        String
+  fileUrl       String?
+  fileSize      Int?
+  parameters    Json?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  error         String?
+  executedBy    String?
+  createdAt     DateTime             @default(now())
+  distributions ReportDistribution[]
+  executor      User?                @relation("ReportExecutionExecutor", fields: [executedBy], references: [id])
+  schedule      ReportSchedule?      @relation(fields: [scheduleId], references: [id])
+  template      ReportTemplate       @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@index([scheduleId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("report_executions")
+}
+
+
+model ReportDistribution {
+  id          String          @id @default(uuid())
+  executionId String
+  recipientId String?
+  email       String?
+  method      String
+  status      String
+  sentAt      DateTime?
+  error       String?
+  createdAt   DateTime        @default(now())
+  execution   ReportExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  recipient   User?           @relation("ReportDistributionRecipient", fields: [recipientId], references: [id])
+
+  @@index([executionId])
+  @@index([recipientId])
+  @@index([status])
+  @@map("report_distributions")
+}

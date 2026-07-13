@@ -1,0 +1,223 @@
+// Prisma Schema - Analytics, Dashboards & ML
+
+
+model Dashboard {
+  id          String            @id @default(uuid())
+  name        String
+  description String?
+  isDefault   Boolean           @default(false)
+  layout      Json
+  userId      String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  widgets     DashboardWidget[]
+  user        User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("dashboards")
+}
+
+
+model DashboardWidget {
+  id          String    @id @default(uuid())
+  dashboardId String
+  widgetType  String
+  title       String
+  config      Json
+  position    Json
+  refreshRate Int       @default(300)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@index([dashboardId])
+  @@map("dashboard_widgets")
+}
+
+
+model KPIDefinition {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String
+  metric      String
+  calculation Json
+  unit        String?
+  target      Decimal? @db.Decimal(10, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@map("kpi_definitions")
+}
+
+
+model AnalyticsSnapshot {
+  id        String   @id @default(uuid())
+  category  String
+  metric    String
+  value     Decimal  @db.Decimal(15, 4)
+  metadata  Json?
+  timestamp DateTime @default(now())
+
+  @@index([category, metric, timestamp])
+  @@map("analytics_snapshots")
+}
+
+
+model LearningModel {
+  id           String               @id @default(uuid())
+  name         String
+  description  String?
+  type         String
+  category     String
+  algorithm    String
+  version      String
+  accuracy     Decimal?             @db.Decimal(5, 4)
+  config       Json
+  trainingData Json?
+  isActive     Boolean              @default(false)
+  trainedAt    DateTime?
+  createdBy    String
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  creator      User                 @relation("LearningModelCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  predictions  LearningPrediction[]
+  trainings    ModelTraining[]
+
+  @@index([type])
+  @@index([category])
+  @@index([isActive])
+  @@index([createdBy])
+  @@map("learning_models")
+}
+
+
+model ModelTraining {
+  id                 String        @id @default(uuid())
+  modelId            String
+  status             String
+  datasetSize        Int
+  trainingAccuracy   Decimal?      @db.Decimal(5, 4)
+  validationAccuracy Decimal?      @db.Decimal(5, 4)
+  parameters         Json
+  metrics            Json?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  error              String?
+  createdAt          DateTime      @default(now())
+  model              LearningModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([modelId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("model_trainings")
+}
+
+
+model LearningPrediction {
+  id            String        @id @default(uuid())
+  modelId       String
+  entityType    String
+  entityId      String
+  prediction    Json
+  confidence    Decimal       @db.Decimal(5, 4)
+  features      Json
+  actualOutcome Json?
+  wasAccurate   Boolean?
+  createdAt     DateTime      @default(now())
+  model         LearningModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([modelId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("learning_predictions")
+}
+
+
+model ImprovementSuggestion {
+  id            String    @id @default(uuid())
+  category      String
+  type          String
+  title         String
+  description   String
+  impact        String
+  effort        String
+  priority      Int
+  basedOn       Json
+  metrics       Json?
+  status        String
+  acceptedBy    String?
+  acceptedAt    DateTime?
+  implementedAt DateTime?
+  feedback      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  acceptor      User?     @relation("ImprovementSuggestionAcceptor", fields: [acceptedBy], references: [id])
+
+  @@index([category])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+  @@map("improvement_suggestions")
+}
+
+
+model KeyboardShortcut {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  key         String
+  action      String
+  context     String?
+  isGlobal    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+  @@index([isActive])
+  @@map("keyboard_shortcuts")
+}
+
+
+model BulkAction {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  entityType  String
+  action      String
+  icon        String?
+  permissions Json?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([entityType])
+  @@index([isActive])
+  @@map("bulk_actions")
+}
+
+
+model BulkActionExecution {
+  id          String    @id @default(uuid())
+  actionId    String
+  entityType  String
+  entityIds   String[]
+  status      String
+  result      Json?
+  error       String?
+  executedBy  String
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  executor    User      @relation("BulkActionExecutor", fields: [executedBy], references: [id], onDelete: Cascade)
+
+  @@index([actionId])
+  @@index([status])
+  @@index([executedBy])
+  @@index([createdAt])
+  @@map("bulk_action_executions")
+}

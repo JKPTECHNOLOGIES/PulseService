@@ -1,0 +1,548 @@
+// Prisma Schema - Budgets, Projects, Departments & Accounting
+
+
+model Project {
+  id                     String                      @id @default(uuid())
+  code                   String                      @unique
+  name                   String
+  description            String?
+  startDate              DateTime?
+  endDate                DateTime?
+  status                 ProjectStatus               @default(ACTIVE)
+  managerId              String?
+  accountCodeId          String?
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+  createdBy              String
+  accountCode            AccountCode?                @relation("Project_accountCode", fields: [accountCodeId], references: [id])
+  workOrders             WorkOrder[]
+  poLineAllocations      POLineChargeAllocation[]    @relation("Project_poAllocations")
+  budgets                ProjectBudget[]
+  creator                User                        @relation("Project_creator", fields: [createdBy], references: [id])
+  manager                User?                       @relation("Project_manager", fields: [managerId], references: [id])
+  requisitionAllocations RequisitionLineAllocation[] @relation("RequisitionAllocation_project")
+  requisitionBudgetHeaders RequisitionBudgetHeader[] @relation("RequisitionBudget_project")
+  glTransactionLines     GLTransactionLine[]
+  directIssues           DirectIssue[]               @relation("DirectIssue_project")
+
+  @@index([code])
+  @@index([status])
+  @@index([managerId])
+  @@index([createdBy])
+  @@index([accountCodeId])
+  @@map("projects")
+}
+
+
+model AccountCode {
+  id                     String                      @id @default(uuid())
+  code                   String                      @unique
+  name                   String
+  description            String?
+  category               String?
+  isActive               Boolean                     @default(true)
+  glAccountId            String?
+  postingType            String? // Posting, Header, Total, Delete
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+  createdBy              String
+  glAccount              GLAccount?                  @relation("AccountCode_glAccount", fields: [glAccountId], references: [id])
+  equipmentDefaults      Equipment[]                 @relation("Equipment_defaultAccountCode")
+  locationDefaults       Location[]                  @relation("Location_defaultAccountCode")
+  projectDefaults        Project[]                   @relation("Project_accountCode")
+  budgets                AccountCodeBudget[]
+  creator                User                        @relation("AccountCode_creator", fields: [createdBy], references: [id])
+  directIssues           DirectIssue[]
+  repairableItems        RepairableItem[]            @relation("RepairableItemAccountCode")
+  poLineAllocations      POLineChargeAllocation[]    @relation("AccountCode_poAllocations")
+  requisitionBudgets     RequisitionBudgetHeader[]   @relation("RequisitionBudget_accountCode")
+  requisitionAllocations RequisitionLineAllocation[] @relation("RequisitionAllocation_accountCode")
+  glTransactionLines     GLTransactionLine[]
+  financeSettings                 FinanceSettings[]           @relation("FinanceSettings_defaultAccountCode")
+  financeSettingsInventory        FinanceSettings[]           @relation("FinanceSettings_defaultInventoryAccountCode")
+
+  @@index([code])
+  @@index([category])
+  @@index([isActive])
+  @@index([createdBy])
+  @@index([glAccountId])
+  @@index([postingType])
+  @@map("account_codes")
+}
+
+
+model Department {
+  id                     String                      @id @default(uuid())
+  code                   String                      @unique
+  name                   String
+  description            String?
+  managerId              String?
+  isActive               Boolean                     @default(true)
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+  createdBy              String
+  equipment              Equipment[]                 @relation("Equipment_department")
+  locations              Location[]                  @relation("Location_department")
+  budgets                DepartmentBudget[]
+  projectBudgets         ProjectBudget[]
+  creator                User                        @relation("Department_creator", fields: [createdBy], references: [id])
+  manager                User?                       @relation("Department_manager", fields: [managerId], references: [id])
+  directIssues           DirectIssue[]
+  repairableItems        RepairableItem[]            @relation("RepairableItemDepartment")
+  poLineAllocations      POLineChargeAllocation[]    @relation("Department_poAllocations")
+  requisitionAllocations RequisitionLineAllocation[] @relation("RequisitionAllocation_department")
+  glTransactionLines     GLTransactionLine[]
+  financeSettings                 FinanceSettings[]           @relation("FinanceSettings_defaultDepartment")
+  financeSettingsInventory        FinanceSettings[]           @relation("FinanceSettings_defaultInventoryDepartment")
+
+  @@index([code])
+  @@index([managerId])
+  @@index([isActive])
+  @@index([createdBy])
+  @@map("departments")
+}
+
+
+model BudgetPeriod {
+  id                 String              @id @default(uuid())
+  name               String
+  fiscalYear         Int
+  startDate          DateTime
+  endDate            DateTime
+  isCurrent          Boolean             @default(false)
+  isLocked           Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  createdBy          String
+  accountCodeBudgets AccountCodeBudget[]
+  areaBudgets        AreaBudget[]
+  creator            User                @relation("BudgetPeriod_creator", fields: [createdBy], references: [id])
+  departmentBudgets  DepartmentBudget[]
+  directIssues       DirectIssue[]
+  projectBudgets     ProjectBudget[]
+  glTransactions     GLTransaction[]
+
+  @@unique([fiscalYear, name])
+  @@index([fiscalYear])
+  @@index([isCurrent])
+  @@index([isLocked])
+  @@index([createdBy])
+  @@map("budget_periods")
+}
+
+
+model AccountCodeBudget {
+  id              String              @id @default(uuid())
+  accountCodeId   String
+  budgetPeriodId  String
+  allocatedAmount Decimal             @db.Decimal(12, 2)
+  consumedAmount  Decimal             @default(0) @db.Decimal(12, 2)
+  reservedAmount  Decimal             @default(0) @db.Decimal(12, 2)
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  createdBy       String
+  accountCode     AccountCode         @relation(fields: [accountCodeId], references: [id], onDelete: Cascade)
+  budgetPeriod    BudgetPeriod        @relation(fields: [budgetPeriodId], references: [id], onDelete: Cascade)
+  creator         User                @relation("AccountCodeBudget_creator", fields: [createdBy], references: [id])
+  transactions    BudgetTransaction[]
+
+  @@unique([accountCodeId, budgetPeriodId])
+  @@index([accountCodeId])
+  @@index([budgetPeriodId])
+  @@index([createdBy])
+  @@map("account_code_budgets")
+}
+
+
+model DepartmentBudget {
+  id              String              @id @default(uuid())
+  departmentId    String
+  budgetPeriodId  String
+  allocatedAmount Decimal             @db.Decimal(12, 2)
+  consumedAmount  Decimal             @default(0) @db.Decimal(12, 2)
+  reservedAmount  Decimal             @default(0) @db.Decimal(12, 2)
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  createdBy       String
+  transactions    BudgetTransaction[]
+  budgetPeriod    BudgetPeriod        @relation(fields: [budgetPeriodId], references: [id], onDelete: Cascade)
+  creator         User                @relation("DepartmentBudget_creator", fields: [createdBy], references: [id])
+  department      Department          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, budgetPeriodId])
+  @@index([departmentId])
+  @@index([budgetPeriodId])
+  @@index([createdBy])
+  @@map("department_budgets")
+}
+
+
+model ProjectBudget {
+  id              String              @id @default(uuid())
+  projectId       String
+  budgetPeriodId  String
+  departmentId    String?
+  allocatedAmount Decimal             @db.Decimal(12, 2)
+  consumedAmount  Decimal             @default(0) @db.Decimal(12, 2)
+  reservedAmount  Decimal             @default(0) @db.Decimal(12, 2)
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  createdBy       String
+  transactions    BudgetTransaction[]
+  budgetPeriod    BudgetPeriod        @relation(fields: [budgetPeriodId], references: [id], onDelete: Cascade)
+  creator         User                @relation("ProjectBudget_creator", fields: [createdBy], references: [id])
+  department      Department?         @relation(fields: [departmentId], references: [id])
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, budgetPeriodId])
+  @@index([projectId])
+  @@index([budgetPeriodId])
+  @@index([departmentId])
+  @@index([createdBy])
+  @@map("project_budgets")
+}
+
+
+model AreaBudget {
+  id              String              @id @default(uuid())
+  areaId          String
+  budgetPeriodId  String
+  allocatedAmount Decimal             @db.Decimal(12, 2)
+  consumedAmount  Decimal             @default(0) @db.Decimal(12, 2)
+  reservedAmount  Decimal             @default(0) @db.Decimal(12, 2)
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  createdBy       String
+  area            Location            @relation("AreaBudget_budgetArea", fields: [areaId], references: [id], onDelete: Cascade)
+  budgetPeriod    BudgetPeriod        @relation(fields: [budgetPeriodId], references: [id], onDelete: Cascade)
+  creator         User                @relation("AreaBudget_creator", fields: [createdBy], references: [id])
+  transactions    BudgetTransaction[]
+
+  @@unique([areaId, budgetPeriodId])
+  @@index([areaId])
+  @@index([budgetPeriodId])
+  @@index([createdBy])
+  @@map("area_budgets")
+}
+
+
+model BudgetTransaction {
+  id                  String                @id @default(uuid())
+  budgetType          BudgetType
+  accountCodeBudgetId String?
+  departmentBudgetId  String?
+  projectBudgetId     String?
+  areaBudgetId        String?
+  transactionType     BudgetTransactionType
+  amount              Decimal               @db.Decimal(12, 2)
+  referenceType       String?
+  referenceId         String?
+  referenceNumber     String?
+  description         String?
+  previousBalance     Decimal               @db.Decimal(12, 2)
+  newBalance          Decimal               @db.Decimal(12, 2)
+  transactionDate     DateTime              @default(now())
+  createdAt           DateTime              @default(now())
+  createdBy           String
+  status              String                @default("POSTED") // POSTED, REVERSED
+  glTransactionId     String?
+  reversedBy          String?
+  reversedAt          DateTime?
+  reversalReason      String?
+  accountCodeBudget   AccountCodeBudget?    @relation(fields: [accountCodeBudgetId], references: [id])
+  areaBudget          AreaBudget?           @relation(fields: [areaBudgetId], references: [id])
+  creator             User                  @relation("BudgetTransaction_creator", fields: [createdBy], references: [id])
+  departmentBudget    DepartmentBudget?     @relation(fields: [departmentBudgetId], references: [id])
+  projectBudget       ProjectBudget?        @relation(fields: [projectBudgetId], references: [id])
+  glTransaction       GLTransaction?        @relation(fields: [glTransactionId], references: [id])
+  reverser            User?                 @relation("BudgetTransactionReverser", fields: [reversedBy], references: [id])
+
+  @@index([budgetType])
+  @@index([transactionType])
+  @@index([referenceType, referenceId])
+  @@index([transactionDate])
+  @@index([createdBy])
+  @@map("budget_transactions")
+}
+
+
+model RequisitionBudgetHeader {
+  id            String          @id @default(uuid())
+  requisitionId String          @unique
+  budgetType    RequisitionType @default(CHARGE_TO_ACCOUNT)
+  accountCodeId String?
+  workOrderId   String?
+  projectId     String?
+  totalAmount   Decimal         @db.Decimal(12, 2)
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  accountCode   AccountCode?    @relation("RequisitionBudget_accountCode", fields: [accountCodeId], references: [id])
+  requisition   Requisition     @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  workOrder     WorkOrder?      @relation("RequisitionBudget_workOrder", fields: [workOrderId], references: [id])
+  project       Project?        @relation("RequisitionBudget_project", fields: [projectId], references: [id])
+
+  @@index([requisitionId])
+  @@index([budgetType])
+  @@index([accountCodeId])
+  @@index([workOrderId])
+  @@index([projectId])
+  @@map("requisition_budget_headers")
+}
+
+
+model RequisitionLineAllocation {
+  id                String           @id @default(uuid())
+  requisitionId     String
+  requisitionLineId String?
+  accountCodeId     String?
+  areaId            String?
+  departmentId      String?
+  projectId         String?
+  percentage        Decimal          @db.Decimal(5, 2)
+  amount            Decimal          @db.Decimal(12, 2)
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  accountCode       AccountCode?     @relation("RequisitionAllocation_accountCode", fields: [accountCodeId], references: [id])
+  area              Location?        @relation("RequisitionAllocation_budgetArea", fields: [areaId], references: [id])
+  department        Department?      @relation("RequisitionAllocation_department", fields: [departmentId], references: [id])
+  project           Project?         @relation("RequisitionAllocation_project", fields: [projectId], references: [id])
+  requisition       Requisition      @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  requisitionLine   RequisitionLine? @relation(fields: [requisitionLineId], references: [id], onDelete: Cascade)
+
+  // Prevent duplicate allocations for the same requisition line + account code combination
+  @@unique([requisitionLineId, accountCodeId], name: "unique_line_account_allocation")
+  @@index([requisitionId])
+  @@index([requisitionLineId])
+  @@index([accountCodeId])
+  @@index([areaId])
+  @@index([departmentId])
+  @@index([projectId])
+  @@map("requisition_line_allocations")
+}
+
+
+model POLineChargeAllocation {
+  id            String       @id @default(uuid())
+  poLineId      String
+  accountCodeId String?
+  areaId        String?
+  departmentId  String?
+  projectId     String?
+  percentage    Decimal      @db.Decimal(5, 2)
+  amount        Decimal      @db.Decimal(12, 2)
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  accountCode   AccountCode? @relation("AccountCode_poAllocations", fields: [accountCodeId], references: [id])
+  area          Location?    @relation("POLineAllocation_budgetArea", fields: [areaId], references: [id])
+  department    Department?  @relation("Department_poAllocations", fields: [departmentId], references: [id])
+  poLine        POLine       @relation(fields: [poLineId], references: [id], onDelete: Cascade)
+  project       Project?     @relation("Project_poAllocations", fields: [projectId], references: [id])
+
+  @@index([poLineId])
+  @@index([accountCodeId])
+  @@index([areaId])
+  @@index([departmentId])
+  @@index([projectId])
+  @@map("po_line_charge_allocations")
+}
+
+
+model BudgetAlert {
+  id             String          @id @default(uuid())
+  budgetType     BudgetType
+  budgetId       String
+  alertType      BudgetAlertType
+  threshold      Decimal         @db.Decimal(5, 2)
+  currentUsage   Decimal         @db.Decimal(5, 2)
+  message        String
+  isAcknowledged Boolean         @default(false)
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  createdAt      DateTime        @default(now())
+  acknowledger   User?           @relation("BudgetAlert_acknowledger", fields: [acknowledgedBy], references: [id])
+
+  @@index([budgetType, budgetId])
+  @@index([alertType])
+  @@index([isAcknowledged])
+  @@index([createdAt])
+  @@map("budget_alerts")
+}
+
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  CLOSED
+}
+
+
+enum BudgetType {
+  ACCOUNT_CODE
+  DEPARTMENT
+  PROJECT
+  AREA
+}
+
+
+enum BudgetTransactionType {
+  ALLOCATION
+  ADJUSTMENT
+  RESERVE
+  RELEASE
+  CONSUME
+  UNCONSUME
+  TRANSFER
+  INVENTORY_RECEIPT
+  SERVICE_RECEIPT
+  CONSUMABLE_RECEIPT
+}
+
+
+enum BudgetAlertType {
+  WARNING_75
+  WARNING_90
+  CRITICAL_100
+  OVER_BUDGET
+}
+
+
+// ============================================================================
+// PROJECT GL TRANSFER — strict project-to-project GL reclassification with a
+// 3-step approval chain (from-project owner submits → to-project owner approves
+// → Finance Manager final approval → posts a net-zero ADJUSTMENT JE on CIP 1580
+// and moves the project budget consumedAmount). See project-gl-transfer.service.ts.
+//
+// Self-contained by design: user + period + account references are stored as
+// ids plus denormalized display snapshots, matching the GL/budget subsystem
+// convention (GLTransaction.referenceNumber / createdByName, Invoice approval
+// fields). The authoritative ids drive GL posting and budget movement; the
+// denormalized code/name fields are display snapshots only.
+// ============================================================================
+
+enum ProjectGlTransferStatus {
+  PENDING_OWNER_APPROVAL // awaiting destination (winning) project owner approval
+  PENDING_FINANCE_APPROVAL // owner approved; awaiting Finance Manager final approval
+  POSTED // fully approved; GL + budget posted
+  REJECTED // rejected at owner or finance stage
+}
+
+// Discriminates the two flavours of GL transfer that share this table:
+//   PROJECT_TO_PROJECT  — net-zero CIP 1580 reclass between two projects
+//   PROJECT_TO_STOREROOM — return of project-expensed material back to the
+//     storeroom: DR 1110 Store Room Inventory / CR 1580 CIP (source project),
+//     plus a physical stock increase on the inventory item. The "owner"
+//     approval step is the SOURCE project owner (their consumed cost drops);
+//     Finance posts. See project-gl-transfer.service.ts.
+enum ProjectGlTransferType {
+  PROJECT_TO_PROJECT
+  PROJECT_TO_STOREROOM
+}
+
+model ProjectGlTransfer {
+  id             String                @id @default(uuid())
+  transferNumber String                @unique
+  transferType   ProjectGlTransferType @default(PROJECT_TO_PROJECT)
+
+  // Project A (losing / from) and Project B (winning / to).
+  // IDs are authoritative; code/name are denormalized display snapshots.
+  // toProject* is null for PROJECT_TO_STOREROOM transfers (the destination is
+  // the storeroom inventory asset account, captured below, not a project).
+  fromProjectId   String
+  fromProjectCode String
+  fromProjectName String
+  toProjectId     String?
+  toProjectCode   String?
+  toProjectName   String?
+
+  // The primary GL account locked at creation. For PROJECT_TO_PROJECT this is
+  // CIP 1580 (both legs). For PROJECT_TO_STOREROOM glAccount* is the CIP 1580
+  // CREDIT leg (source project) and destinationGlAccount* is the 1110 Store
+  // Room Inventory DEBIT leg. budgetPeriodId is the fiscal period used for both
+  // the GL transaction and the budget movement.
+  glAccountId     String
+  glAccountNumber String
+  budgetPeriodId  String
+
+  // PROJECT_TO_STOREROOM only — the destination inventory asset account and the
+  // physical stock that was returned. Null for PROJECT_TO_PROJECT.
+  destinationGlAccountId     String?
+  destinationGlAccountNumber String?
+  inventoryItemId            String?
+  inventorySku               String?
+  inventoryDescription       String?
+  storeId                    String?
+  storeName                  String?
+  quantity                   Decimal? @db.Decimal(12, 2)
+
+  amount Decimal                 @db.Decimal(12, 2)
+  reason String
+  status ProjectGlTransferStatus @default(PENDING_OWNER_APPROVAL)
+
+  // Requester = from-project owner (or an elevated role acting on their behalf)
+  requestedById   String
+  requestedByName String
+  requestedAt     DateTime @default(now())
+
+  // Step 1 — destination (winning) project owner
+  ownerApprovedById    String?
+  ownerApprovedByName  String?
+  ownerApprovedAt      DateTime?
+  ownerRejectedById    String?
+  ownerRejectedByName  String?
+  ownerRejectionReason String?
+  ownerRejectedAt      DateTime?
+
+  // Step 2 — Finance Manager final approval
+  financeApprovedById    String?
+  financeApprovedByName  String?
+  financeApprovedAt      DateTime?
+  financeRejectedById    String?
+  financeRejectedByName  String?
+  financeRejectionReason String?
+  financeRejectedAt      DateTime?
+
+  // Posting result
+  glTransactionId String?
+  postedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  history ProjectGlTransferApprovalHistory[]
+
+  @@index([status])
+  @@index([transferType])
+  @@index([fromProjectId])
+  @@index([toProjectId])
+  @@index([inventoryItemId])
+  @@index([requestedById])
+  @@index([budgetPeriodId])
+  @@map("project_gl_transfers")
+}
+
+model ProjectGlTransferApprovalHistory {
+  id             String                   @id @default(uuid())
+  transferId     String
+  stage          String // OWNER | FINANCE | REQUESTOR | SYSTEM
+  action         String // SUBMITTED | APPROVED | REJECTED | POSTED
+  actorId        String
+  actorName      String
+  comments       String?
+  previousStatus ProjectGlTransferStatus?
+  newStatus      ProjectGlTransferStatus
+  createdAt      DateTime                 @default(now())
+
+  transfer ProjectGlTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+
+  @@index([transferId])
+  @@index([actorId])
+  @@map("project_gl_transfer_approval_history")
+}

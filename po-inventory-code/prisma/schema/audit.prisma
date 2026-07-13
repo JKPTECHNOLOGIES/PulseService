@@ -1,0 +1,70 @@
+// Prisma Schema - Audit & Activity Logging
+
+
+model AuditLog {
+  id            String    @id @default(uuid())
+  userId        String?
+  action        String
+  entityType    String
+  entityId      String?
+  changes       Json?
+  ipAddress     String?
+  userAgent     String?
+  timestamp     DateTime  @default(now())
+  entityName    String?
+  isArchived    Boolean   @default(false)
+  metadata      Json?
+  retentionDate DateTime?
+  userName      String?
+  user          User?     @relation("AuditLog_user", fields: [userId], references: [id])
+
+  @@index([action])
+  @@index([entityId])
+  @@index([entityType])
+  @@index([isArchived])
+  @@index([retentionDate])
+  @@index([timestamp])
+  @@index([userId])
+}
+
+
+model SchedulerExecution {
+  id                  String   @id @default(uuid())
+  executedAt          DateTime @default(now())
+  executedBy          String
+  executedByName      String
+  workOrdersGenerated Int      @default(0)
+  schedulesProcessed  Int      @default(0)
+  errors              String[] @default([])
+  duration            Int
+  status              String
+  dryRun              Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([dryRun])
+  @@index([executedAt])
+  @@index([executedBy])
+  @@index([status])
+}
+
+
+model ActivityFeed {
+  id          String   @id @default(uuid())
+  userId      String?
+  action      String
+  entityType  String
+  entityId    String
+  entityName  String?
+  description String
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+}

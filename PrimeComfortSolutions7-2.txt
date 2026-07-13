@@ -1,0 +1,40 @@
+Notes for 1pm meeting Pulse Service
+-Imported data from field edge
+-mainly maintenance agreements 
+-can do either single tech my day calendar or company wide calendar, dispatch is available for all so they can see all jobs like that. 
+-ability to upoate a job while a field is on the job or on the field. 
+-FIELDedge doesn't allow office to make changes at the same time as tech
+-multiple trucks organizing the inventory so that they can keep track of whatever parts 
+-inventory management system
+-integrate app with quickbooks so customers can pay from quickbooks and the data is pulled from there 
+-payments pulled from quickbooks as is 
+-grabbing data from fieldedge for the pricebooks
+-internal inventory
+-they want payments and invoicing from app TO quickbooks, but if they want to run everything from the app theyll have to use stripe
+-what they trying to do is UNTIE from quickbooks, they want customers to get invoices and ACH while staying away from quickbooks
+- prob need to incorporate ACH payment processing 
+-most customers commercial, not many of them so they kinda know the deals made, so they dont need a link, i think they asking for recurring payments? 
+-they dont want quickbooks handling account recievable
+-they wanna see payment info from here not quickbooks, they want finance admins to be able to see from here 
+-invoices in this system is like all they care about, trying to get away from quickbooks 
+-the want POs to not go through quickbooks so everything here 
+-requisitions ??
+-pos when they buy equipment for customers and they used fieldedge POS before 
+-reciepts from field turns into PO and put parts in inventory on a truck 
+-seperate warehouse inventory and truck inventory
+-line items from job>tech>truck 
+-warehouse inventory goes TO truck inventory
+-serialized items are important to them 	
+-can we do price averaging when looking for prices online most companies use dollar cost avgs
+-we need the data from them to see how they want their agreements to look
+-customer levels with pricebooks so they can manage whatever discounts the customer gets through business
+-they prob dont need marketing tab too much, just a place to keep track of the messages they send to customers that already exist, so not big marketing campagns but basic info blah blah 
+-they wanna know how quotes work, we get their bill from service titan, cut that by 50% and let that go as long as possible
+-hosting = serivce.primecomfortsolutions.com - usually hosted on azure 
+rob'll get back to us 
+-fieldedge return a database for the customer? if not, we scrub manually and export it from there 
+-they just talking about inventory data export stuff -just under 1k items, either total or individually 
+-we can prob pull item inventory from quickbooks easy too 
+-they love price averaging make sure that works in pricebooks/inventory stuff 
+-we do initial import, they do manual cycle count 
+-Robert J. Sanabia (Prime Comfort)
