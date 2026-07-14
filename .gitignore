@@ -22,6 +22,11 @@ HANDOFF-CREDENTIALS.local.md
 *.db-journal
 **/dev.db
 
+# Database backups / dumps (may contain proprietary data — never commit)
+backups/
+*.sql
+*.dump
+
 # Prisma generated artifacts / local migrations
 **/prisma/migrations/
 

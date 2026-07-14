@@ -158,7 +158,7 @@ async function main() {
     const status = mapStatus(r[iStatus]);
     const quoteDate = parseDate(r[iDate]);
     const validUntil = parseDate(r[iExp]);
-    const amount = parseFloat((r[iAmt] || "0").replace(/[^0-9.\-]/g, "")) || 0;
+    const amount = parseFloat((r[iAmt] || "0").replace(/[^0-9.-]/g, "")) || 0;
     const emailed = /true/i.test(r[iEmail] || "");
     const multi = /true/i.test(r[iMulti] || "");
     const printed = /true/i.test(r[iPrint] || "");

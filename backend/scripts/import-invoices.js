@@ -136,8 +136,8 @@ async function main() {
     seen.add(invoiceNumber);
 
     const customerName = stripQuotes(r[iCust]);
-    const total = parseFloat((r[iTotal] || "0").replace(/[^0-9.\-]/g, "")) || 0;
-    const balance = parseFloat((r[iBal] || "0").replace(/[^0-9.\-]/g, "")) || 0;
+    const total = parseFloat((r[iTotal] || "0").replace(/[^0-9.-]/g, "")) || 0;
+    const balance = parseFloat((r[iBal] || "0").replace(/[^0-9.-]/g, "")) || 0;
     const amountPaid = Math.max(0, total - balance);
     const status = mapStatus(r[iPay], total, balance, amountPaid);
     const date = parseDate(r[iDate]);

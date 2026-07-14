@@ -125,7 +125,7 @@ async function main() {
     const mfg = iMfg >= 0 ? (r[iMfg] || "").trim() : "";
     const category = iCat >= 0 ? (r[iCat] || "").trim() : "";
     const type = iType >= 0 ? (r[iType] || "").trim() : "";
-    const rate = parseFloat((r[iRate] || "0").replace(/[^0-9.\-]/g, "")) || 0;
+    const rate = parseFloat((r[iRate] || "0").replace(/[^0-9.-]/g, "")) || 0;
 
     if (category) categorySet.add(category);
     byType[type || "(blank)"] = (byType[type || "(blank)"] || 0) + 1;
