@@ -27,6 +27,9 @@ backups/
 *.sql
 *.dump
 
+# Private, internal-only docs (repo is public — keep these local)
+docs/prime-comfort-demo-playbook.md
+
 # Prisma generated artifacts / local migrations
 **/prisma/migrations/
 
