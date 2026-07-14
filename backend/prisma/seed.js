@@ -158,7 +158,13 @@ async function main() {
   // ── Users ─────────────────────────────────────────────────────────────────────
   console.log("  Creating users...");
   const SALT_ROUNDS = 10;
-  const adminHash = await bcrypt.hash("admin123", SALT_ROUNDS);
+  // Admin password is env-configurable so a real/secure password is never
+  // hardcoded in this (public) repo. Falls back to a throwaway default for
+  // local dev; rotate it in a live DB with scripts/set-admin-password.js.
+  const adminHash = await bcrypt.hash(
+    process.env.SEED_ADMIN_PASSWORD || "admin123",
+    SALT_ROUNDS,
+  );
   const passHash = await bcrypt.hash("pass123", SALT_ROUNDS);
 
   const [admin, dispatcher, tech1User, tech2User, tech3User, csr] =
