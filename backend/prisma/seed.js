@@ -5,6 +5,7 @@ const bcrypt = require("bcryptjs");
 const { LOOKUPS } = require("../src/constants/lookups");
 const { DEFAULT_ROLE_PERMISSIONS } = require("../src/constants/permissions");
 const { parseItemsCsv } = require("./seed-data/parseItemsCsv");
+const { parseCustomersCsv } = require("./seed-data/parseCustomersCsv");
 
 const prisma = new PrismaClient();
 
@@ -584,6 +585,49 @@ async function main() {
     },
     include: { locations: true },
   });
+
+  // ── Real customer roster (from QuickBooks export) ───────────────────────────
+  // Sourced from prisma/seed-data/customers.csv, deduplicated by hand (see PR
+  // history): rows sharing a real address+name were merged into one customer
+  // with multiple locations (see customerMerges.js); rows that were pure
+  // accidental re-entries of the same property were dropped from the CSV
+  // entirely. customerNumber continues on from CUST-1005 above.
+  console.log("  Importing real customer roster from CSV...");
+  const importedCustomers = parseCustomersCsv(
+    path.join(__dirname, "seed-data", "customers.csv"),
+  );
+  const companySettingsRow = await prisma.companySettings.findFirst();
+  let nextCustomerNumber = companySettingsRow.nextCustomerNumber;
+  for (const c of importedCustomers) {
+    await prisma.customer.create({
+      data: {
+        customerNumber: `${companySettingsRow.customerPrefix}-${nextCustomerNumber}`,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        companyName: c.companyName,
+        email: c.email,
+        phone: c.phone,
+        type: c.type,
+        source: c.source,
+        locations: {
+          create: c.locations.map((l, i) => ({
+            address: l.address,
+            city: l.city,
+            state: l.state,
+            zip: l.zip,
+            isPrimary: i === 0,
+            type: "service",
+          })),
+        },
+      },
+    });
+    nextCustomerNumber += 1;
+  }
+  await prisma.companySettings.update({
+    where: { id: companySettingsRow.id },
+    data: { nextCustomerNumber },
+  });
+  console.log(`  Imported ${importedCustomers.length} customers.`);
 
   // ── Jobs ──────────────────────────────────────────────────────────────────────
   console.log("  Creating jobs...");
