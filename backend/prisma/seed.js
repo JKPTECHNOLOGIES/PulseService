@@ -5,10 +5,11 @@ const bcrypt = require("bcryptjs");
 const { LOOKUPS } = require("../src/constants/lookups");
 const { DEFAULT_ROLE_PERMISSIONS } = require("../src/constants/permissions");
 const { parseItemsCsv } = require("./seed-data/parseItemsCsv");
-const { parseCustomersCsv, normalizeCustomerName } = require("./seed-data/parseCustomersCsv");
+const { parseCustomersCsv, normalizeCustomerName, parseFullAddress } = require("./seed-data/parseCustomersCsv");
 const { parseQuotesCsv } = require("./seed-data/parseQuotesCsv");
 const { parseJobsCsv } = require("./seed-data/parseJobsCsv");
 const { parseInvoicesCsv } = require("./seed-data/parseInvoicesCsv");
+const { parseEquipmentCsv } = require("./seed-data/parseEquipmentCsv");
 const CUSTOMER_NAME_ALIASES = require("./seed-data/customerNameAliases");
 
 const prisma = new PrismaClient();
@@ -607,6 +608,10 @@ async function main() {
   // invoices, ...) that reference the same customer by its original name
   // resolve it, even for rows that got merged/deleted during dedup.
   const customerByRawName = new Map();
+  // normalized raw "Display Name" -> the exact Full Address it was tied to in
+  // the source export. Lets importers with per-property rows (e.g. equipment)
+  // pick the right one of a merged customer's several locations.
+  const rawNameToAddress = new Map();
   for (const c of importedCustomers) {
     const created = await prisma.customer.create({
       data: {
@@ -634,6 +639,9 @@ async function main() {
     nextCustomerNumber += 1;
     for (const rawName of c.sourceNames) {
       customerByRawName.set(normalizeCustomerName(rawName), created);
+    }
+    for (const [rawName, address] of Object.entries(c.nameToAddress)) {
+      rawNameToAddress.set(normalizeCustomerName(rawName), address);
     }
   }
   await prisma.companySettings.update({
@@ -2323,7 +2331,70 @@ async function main() {
     }),
   ]);
 
-  // ── Calls (phone log / call tracking) ─────────────────────────────────────────
+  // ── Real equipment (from QuickBooks-adjacent export) ─────────────────
+  // Sourced from prisma/seed-data/equipment.csv. Each row references its
+  // customer by the ORIGINAL (pre-dedup) per-property name, resolved via
+  // resolveCustomerByRawName(). For customers with multiple locations (the
+  // merge groups from the customers import), rawNameToAddress lets us pick
+  // the specific location this unit was installed at instead of defaulting
+  // to the first one. `type` is free-text/customizable in this app, so the
+  // source's type string ("Air Handler", "Condenser", ...) is kept as-is.
+  console.log("  Importing equipment from CSV...");
+  const importedEquipment = parseEquipmentCsv(
+    path.join(__dirname, "seed-data", "equipment.csv"),
+  );
+  let equipmentImported = 0;
+  let equipmentSkipped = 0;
+  for (const eq of importedEquipment) {
+    const customer = resolveCustomerByRawName(eq.customerRawName);
+    if (!customer) {
+      equipmentSkipped++;
+      console.warn(
+        `    No customer match for equipment "${eq.name}" ("${eq.customerRawName}") - skipped.`,
+      );
+      continue;
+    }
+
+    const mappedAddress = rawNameToAddress.get(
+      normalizeCustomerName(eq.customerRawName),
+    );
+    const locationId = findMatchingLocationId(
+      customer,
+      mappedAddress ? parseFullAddress(mappedAddress) : null,
+    );
+
+    const notesParts = [];
+    if (eq.partsWarranty) {
+      notesParts.push(`Parts warranty until ${eq.partsWarranty.toISOString().slice(0, 10)}.`);
+    }
+    if (eq.laborWarranty) {
+      notesParts.push(`Labor warranty until ${eq.laborWarranty.toISOString().slice(0, 10)}.`);
+    }
+    if (eq.replaceBy) {
+      notesParts.push(`Recommended replace-by date: ${eq.replaceBy.toISOString().slice(0, 10)}.`);
+    }
+    notesParts.push("Imported from QuickBooks-adjacent equipment export.");
+
+    await prisma.equipment.create({
+      data: {
+        customerId: customer.id,
+        locationId,
+        name: eq.name,
+        type: eq.type,
+        manufacturer: eq.manufacturer,
+        model: eq.model,
+        installDate: eq.installDate,
+        warrantyExpiry: eq.warrantyExpiry,
+        notes: notesParts.join(" "),
+      },
+    });
+    equipmentImported++;
+  }
+  console.log(
+    `  Imported ${equipmentImported} equipment records (${equipmentSkipped} skipped).`,
+  );
+
+  // ── Calls (phone log / call tracking) ────────────────────────────────
   console.log("  Creating call logs...");
   await Promise.all([
     prisma.call.create({

@@ -18,7 +18,7 @@ import {
   ShoppingCartIcon,
   QrCodeIcon,
   TagIcon,
-  // CpuChipIcon, // Equipment tab hidden for now
+  CpuChipIcon,
   ClipboardDocumentCheckIcon,
   MegaphoneIcon,
   ChartBarIcon,
@@ -139,8 +139,7 @@ const navItems = [
     icon: QrCodeIcon,
     perm: INVENTORY_FIELD,
   },
-  // Equipment tab hidden for now (route/page kept intact):
-  // { to: "/equipment", label: "Equipment", icon: CpuChipIcon },
+  { to: "/equipment", label: "Equipment", icon: CpuChipIcon },
   {
     to: "/agreements",
     label: "Agreements",

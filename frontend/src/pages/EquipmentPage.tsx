@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import {
   useEquipmentList,
@@ -85,10 +86,12 @@ function EquipmentModal({
   isOpen,
   onClose,
   equipment,
+  defaultCustomerId,
 }: {
   isOpen: boolean;
   onClose: () => void;
   equipment: Equipment | null;
+  defaultCustomerId?: string;
 }) {
   const isEditing = Boolean(equipment);
   const create = useCreateEquipment();
@@ -126,7 +129,7 @@ function EquipmentModal({
             : "",
           notes: equipment.notes ?? "",
         }
-      : {},
+      : { customerId: defaultCustomerId ?? "" },
   });
 
   // The selected customer's locations populate the location dropdown.
@@ -393,22 +396,47 @@ function EquipmentModal({
 }
 
 export default function EquipmentPage() {
+  const location = useLocation();
+  const navState = location.state as {
+    customerId?: string;
+    openNew?: boolean;
+    equipmentId?: string;
+  } | null;
+
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [warranty, setWarranty] = useState("all");
-  const [modalOpen, setModalOpen] = useState(false);
+  const [customerFilter, setCustomerFilter] = useState(
+    navState?.customerId ?? "",
+  );
+  const [modalOpen, setModalOpen] = useState(Boolean(navState?.openNew));
   const [editing, setEditing] = useState<Equipment | null>(null);
   const [sort, setSort] = useState<SortState | null>(null);
 
   const { getLabel: getTypeLabel } = useLookup("equipmentType");
   const { getLabel: getConditionLabel, getColor: getConditionColor } =
     useLookup("equipmentCondition");
+  const { data: filterCustomer } = useCustomer(customerFilter);
+
+  // Arriving from a customer's Equipment tab with a specific unit in mind
+  // (e.g. "6767 N Ocean Blvd." -> click a row) jumps straight to its edit
+  // modal instead of just landing on the filtered list.
+  const { data: linkedEquipment } = useEquipmentItem(
+    navState?.equipmentId ?? "",
+  );
+  useEffect(() => {
+    if (linkedEquipment) {
+      setEditing(linkedEquipment);
+      setModalOpen(true);
+    }
+  }, [linkedEquipment]);
 
   const { data, isLoading } = useEquipmentList({
     page,
     limit: 20,
     search: search || undefined,
     warranty: warranty !== "all" ? warranty : undefined,
+    customerId: customerFilter || undefined,
   });
 
   const equipment = data?.data ?? [];
@@ -436,7 +464,20 @@ export default function EquipmentPage() {
       header: "Customer",
       sortValue: (eq) => customerName(eq).toLowerCase(),
       exportValue: (eq) => customerName(eq),
-      render: (eq) => <span className="text-gray-700">{customerName(eq)}</span>,
+      render: (eq) =>
+        eq.customerId ? (
+          <Link
+            to={`/customers/${eq.customerId}`}
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+            className="text-gray-700 hover:text-primary-600 hover:underline"
+          >
+            {customerName(eq)}
+          </Link>
+        ) : (
+          <span className="text-gray-700">{customerName(eq)}</span>
+        ),
     },
     {
       key: "serial",
@@ -514,6 +555,28 @@ export default function EquipmentPage() {
           Add Equipment
         </Button>
       </div>
+
+      {customerFilter && (
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1 rounded-full bg-primary-50 text-primary-700 text-sm font-medium">
+            Customer:{" "}
+            {filterCustomer
+              ? `${filterCustomer.firstName} ${filterCustomer.lastName}`
+              : "…"}
+            <button
+              type="button"
+              onClick={() => {
+                setCustomerFilter("");
+                setPage(1);
+              }}
+              className="p-0.5 rounded-full hover:bg-primary-100"
+              aria-label="Clear customer filter"
+            >
+              <XMarkIcon className="h-3.5 w-3.5" />
+            </button>
+          </span>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchInput
@@ -620,6 +683,7 @@ export default function EquipmentPage() {
         key={editing?.id ?? "new"}
         isOpen={modalOpen}
         equipment={editing}
+        defaultCustomerId={customerFilter || undefined}
         onClose={() => {
           setModalOpen(false);
         }}

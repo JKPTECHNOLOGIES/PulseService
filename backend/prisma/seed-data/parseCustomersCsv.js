@@ -197,13 +197,21 @@ function parseCustomersCsv(filePath) {
           // customer by its original per-row name can resolve it too.
           sourceNames: [],
           sourceAddresses: [],
+          // raw Display Name (normalized-ready, pre-lowercasing) -> the exact
+          // Full Address that name was tied to, so other importers (e.g.
+          // equipment) can pick the right one of this customer's several
+          // locations instead of just defaulting to the first.
+          nameToAddress: {},
         };
         mergeGroupsUsed.set(merge.key, spec);
         customers.push(spec);
       }
       if (location) spec.locations.push(location);
       spec.sourceNames.push(cleanRawName);
-      if (fullAddress) spec.sourceAddresses.push(fullAddress);
+      if (fullAddress) {
+        spec.sourceAddresses.push(fullAddress);
+        spec.nameToAddress[cleanRawName] = fullAddress;
+      }
       continue;
     }
 
@@ -221,6 +229,7 @@ function parseCustomersCsv(filePath) {
       locations: location ? [location] : [],
       sourceNames: [cleanRawName],
       sourceAddresses: fullAddress ? [fullAddress] : [],
+      nameToAddress: fullAddress ? { [cleanRawName]: fullAddress } : {},
     });
   }
 

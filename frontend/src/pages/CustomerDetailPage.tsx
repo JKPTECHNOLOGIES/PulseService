@@ -18,8 +18,9 @@ import { useLookup } from "../hooks/useMetadata";
 import { useJobs } from "../hooks/useJobs";
 import { useEstimates } from "../hooks/useEstimates";
 import { useInvoices } from "../hooks/useInvoices";
+import { useEquipmentList } from "../hooks/useEquipment";
 import Button from "../components/ui/Button";
-import { StatusBadge } from "../components/ui/Badge";
+import Badge, { StatusBadge } from "../components/ui/Badge";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
 import { PageSpinner } from "../components/ui/Spinner";
 import {
@@ -29,7 +30,7 @@ import {
   formatPhone,
 } from "../utils/formatters";
 
-const TABS = ["Overview", "Work Orders", "Quotes", "Invoices"];
+const TABS = ["Overview", "Work Orders", "Quotes", "Invoices", "Equipment"];
 
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -48,14 +49,19 @@ export default function CustomerDetailPage() {
   const { data: jobsData } = useJobs({ limit: 50 });
   const { data: estimatesData } = useEstimates({ customerId: id, limit: 50 });
   const { data: invoicesData } = useInvoices({ customerId: id, limit: 50 });
+  const { data: equipmentData } = useEquipmentList({ customerId: id, limit: 50 });
   const { getLabel: getCustomerTypeLabel, getColor: getCustomerTypeColor } =
     useLookup("customerType");
+  const { getLabel: getEquipmentTypeLabel } = useLookup("equipmentType");
+  const { getLabel: getConditionLabel, getColor: getConditionColor } =
+    useLookup("equipmentCondition");
 
   const customerJobs = (jobsData?.data ?? []).filter(
     (j) => j.customerId === id,
   );
   const estimates = estimatesData?.data ?? [];
   const invoices = invoicesData?.data ?? [];
+  const equipment = equipmentData?.data ?? [];
 
   if (isLoading) return <PageSpinner />;
   if (!customer)
@@ -541,6 +547,98 @@ export default function CustomerDetailPage() {
                         </td>
                         <td className="py-3 px-5 text-right font-medium text-red-600">
                           {formatCurrency(inv.balance)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Tab.Panel>
+
+          {/* Equipment */}
+          <Tab.Panel>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="flex items-center justify-end p-3 border-b border-gray-100">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<PlusIcon className="h-4 w-4" />}
+                  onClick={() => {
+                    navigate("/equipment", {
+                      state: { customerId: id, openNew: true },
+                    });
+                  }}
+                >
+                  Add Equipment
+                </Button>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs">
+                      EQUIPMENT
+                    </th>
+                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs">
+                      SERIAL #
+                    </th>
+                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs">
+                      INSTALLED
+                    </th>
+                    <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs">
+                      CONDITION
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {equipment.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="text-center py-8 text-gray-400"
+                      >
+                        No equipment on file
+                      </td>
+                    </tr>
+                  ) : (
+                    equipment.map((eq) => (
+                      <tr
+                        key={eq.id}
+                        className="hover:bg-gray-50 cursor-pointer"
+                        onClick={() => {
+                          navigate("/equipment", {
+                            state: { customerId: id, equipmentId: eq.id },
+                          });
+                        }}
+                      >
+                        <td className="py-3 px-5">
+                          <p className="font-medium text-gray-900">
+                            {eq.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {[
+                              eq.type ? getEquipmentTypeLabel(eq.type) : null,
+                              eq.manufacturer,
+                              eq.model,
+                            ]
+                              .filter(Boolean)
+                              .join(" \u00b7 ")}
+                          </p>
+                        </td>
+                        <td className="py-3 px-3 font-mono text-xs text-gray-600">
+                          {eq.serialNumber ?? "—"}
+                        </td>
+                        <td className="py-3 px-3 text-gray-500 text-xs">
+                          {formatDate(eq.installDate)}
+                        </td>
+                        <td className="py-3 px-5">
+                          {eq.condition ? (
+                            <Badge className={getConditionColor(eq.condition)}>
+                              {getConditionLabel(eq.condition)}
+                            </Badge>
+                          ) : (
+                            <span className="text-gray-400 text-xs">—</span>
+                          )}
                         </td>
                       </tr>
                     ))
