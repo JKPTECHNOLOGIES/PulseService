@@ -8,6 +8,7 @@ const { parseItemsCsv } = require("./seed-data/parseItemsCsv");
 const { parseCustomersCsv, normalizeCustomerName } = require("./seed-data/parseCustomersCsv");
 const { parseQuotesCsv } = require("./seed-data/parseQuotesCsv");
 const { parseJobsCsv } = require("./seed-data/parseJobsCsv");
+const { parseInvoicesCsv } = require("./seed-data/parseInvoicesCsv");
 const CUSTOMER_NAME_ALIASES = require("./seed-data/customerNameAliases");
 
 const prisma = new PrismaClient();
@@ -1456,7 +1457,71 @@ async function main() {
     }),
   ]);
 
-  // ── Payments ──────────────────────────────────────────────────────────────────
+  // ── Real invoices (from QuickBooks export) ─────────────────────────────
+  // Sourced from prisma/seed-data/invoices.csv. Each row references its
+  // customer by the ORIGINAL (pre-dedup) per-property name, resolved via
+  // resolveCustomerByRawName(). There's no reliable way to link the "WO #"
+  // column back to our 15 imported jobs (that export didn't preserve the
+  // original work-order IDs), so jobId is left unset; the original WO # and
+  // description are preserved in notes instead. invoiceNumber preserves the
+  // original identifier (e.g. i1290 -> I1290), matching how quotes kept
+  // their original Q-numbers.
+  console.log("  Importing invoices from CSV...");
+  const importedInvoices = parseInvoicesCsv(
+    path.join(__dirname, "seed-data", "invoices.csv"),
+  );
+  const usedInvoiceNumbers = new Set();
+  let invoicesImported = 0;
+  let invoicesSkipped = 0;
+  for (const inv of importedInvoices) {
+    const customer = resolveCustomerByRawName(inv.customerRawName);
+    if (!customer) {
+      invoicesSkipped++;
+      console.warn(
+        `    No customer match for invoice ${inv.invoiceNumber} ("${inv.customerRawName}") - skipped.`,
+      );
+      continue;
+    }
+
+    let invoiceNumber = inv.invoiceNumber.toUpperCase();
+    if (usedInvoiceNumbers.has(invoiceNumber)) {
+      let suffix = 2;
+      while (usedInvoiceNumbers.has(`${invoiceNumber}-${suffix}`)) suffix++;
+      invoiceNumber = `${invoiceNumber}-${suffix}`;
+    }
+    usedInvoiceNumbers.add(invoiceNumber);
+
+    const notesParts = [`WO #${inv.wo}`];
+    if (inv.woDescription) notesParts.push(`Description: ${inv.woDescription}`);
+    if (inv.summary) notesParts.push(`Summary: ${inv.summary}`);
+    notesParts.push(`Imported from QuickBooks export. Original status: ${inv.originalStatus}.`);
+
+    await prisma.invoice.create({
+      data: {
+        invoiceNumber,
+        customerId: customer.id,
+        status: inv.status,
+        dueDate: inv.dueDate,
+        subtotal: inv.total,
+        taxRate: 0,
+        taxAmount: 0,
+        total: inv.total,
+        amountPaid: inv.amountPaid,
+        balance: inv.balance,
+        notes: notesParts.join("\n\n"),
+        createdById: manager.id,
+        createdAt: inv.date,
+        sentAt: inv.date,
+        paidAt: inv.status === "paid" ? inv.date : null,
+      },
+    });
+    invoicesImported++;
+  }
+  console.log(
+    `  Imported ${invoicesImported} invoices (${invoicesSkipped} skipped).`,
+  );
+
+  // ── Payments ─────────────────────────────────────────────────────────────────────
   console.log("  Creating payments...");
   await Promise.all([
     prisma.payment.create({
