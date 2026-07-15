@@ -90,7 +90,7 @@ export default function JobsPage() {
   const columns: Column<Job>[] = [
     {
       key: "job",
-      header: "Job",
+      header: "Work Order",
       sortValue: (j) => j.jobNumber,
       exportValue: (j) => j.jobNumber,
       render: (j) => (
@@ -195,7 +195,7 @@ export default function JobsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">
-          {pagination ? `${String(pagination.total)} jobs` : ""}
+          {pagination ? `${String(pagination.total)} work orders` : ""}
         </p>
         <Button
           icon={<PlusIcon className="h-4 w-4" />}
@@ -203,7 +203,7 @@ export default function JobsPage() {
             navigate("/jobs/new");
           }}
         >
-          New Job
+          New Work Order
         </Button>
       </div>
 
@@ -238,7 +238,7 @@ export default function JobsPage() {
             setSearch(v);
             resetPage();
           }}
-          placeholder="Search jobs..."
+          placeholder="Search work orders..."
           className="w-full sm:w-72"
         />
         <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
@@ -268,10 +268,10 @@ export default function JobsPage() {
           <TableSkeleton rows={8} />
         ) : jobs.length === 0 ? (
           <EmptyState
-            title="No jobs found"
-            description="Create your first job to get started"
+            title="No work orders found"
+            description="Create your first work order to get started"
             action={{
-              label: "New Job",
+              label: "New Work Order",
               onClick: () => {
                 navigate("/jobs/new");
               },

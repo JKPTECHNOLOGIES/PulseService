@@ -436,20 +436,82 @@ function UndatedPanel({ jobs, onJobClick }: UndatedPanelProps) {
   );
 }
 
+interface ScheduleBlockInput {
+  /** Local-only key for React lists. */
+  key: string;
+  start: string;
+  end: string;
+}
+
 interface ScheduleEditorProps {
   job: Job;
   saving: boolean;
-  onSave: (vars: { scheduledStart: string; scheduledEnd: string }) => void;
+  onSave: (vars: {
+    scheduledStart: string;
+    scheduledEnd: string;
+    scheduleBlocks: { start: string; end: string }[];
+  }) => void;
+}
+
+// Monotonic key source for freshly-added (unsaved) blocks.
+let scheduleBlockKeySeq = 0;
+
+const INPUT_CLASS =
+  "px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500";
+
+function minutesBetween(startLocal: string, endLocal: string): number {
+  if (!startLocal || !endLocal) return 0;
+  const ms = new Date(endLocal).getTime() - new Date(startLocal).getTime();
+  return ms > 0 ? Math.round(ms / 60000) : 0;
+}
+
+function formatHours(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h > 0) return m > 0 ? `${String(h)}h ${String(m)}m` : `${String(h)}h`;
+  return `${String(m)}m`;
 }
 
 function ScheduleEditor({ job, saving, onSave }: ScheduleEditorProps) {
   const [start, setStart] = useState(isoToLocalInput(job.scheduledStart));
   const [end, setEnd] = useState(isoToLocalInput(job.scheduledEnd));
+  // Additional time windows beyond the primary start/end above.
+  const [blocks, setBlocks] = useState<ScheduleBlockInput[]>([]);
 
   useEffect(() => {
     setStart(isoToLocalInput(job.scheduledStart));
     setEnd(isoToLocalInput(job.scheduledEnd));
-  }, [job.id, job.scheduledStart, job.scheduledEnd]);
+    setBlocks(
+      (job.scheduleBlocks ?? []).map((b) => ({
+        key: `saved-${b.id}`,
+        start: isoToLocalInput(b.start),
+        end: isoToLocalInput(b.end),
+      })),
+    );
+  }, [job.id, job.scheduledStart, job.scheduledEnd, job.scheduleBlocks]);
+
+  const addBlock = () => {
+    setBlocks((bs) => [
+      ...bs,
+      { key: `new-${String(++scheduleBlockKeySeq)}`, start: "", end: "" },
+    ]);
+  };
+  const updateBlock = (key: string, field: "start" | "end", value: string) => {
+    setBlocks((bs) =>
+      bs.map((b) => (b.key === key ? { ...b, [field]: value } : b)),
+    );
+  };
+  const removeBlock = (key: string) => {
+    setBlocks((bs) => bs.filter((b) => b.key !== key));
+  };
+
+  // A half-filled additional block would be dropped silently on save, so block
+  // the save until every added row has both a start and an end.
+  const hasIncompleteBlock = blocks.some((b) => !b.start || !b.end);
+  const totalMins =
+    minutesBetween(start, end) +
+    blocks.reduce((sum, b) => sum + minutesBetween(b.start, b.end), 0);
+  const filledBlockCount = blocks.filter((b) => b.start && b.end).length;
 
   const save = () => {
     if (!start) return;
@@ -460,6 +522,12 @@ function ScheduleEditor({ job, saving, onSave }: ScheduleEditorProps) {
     onSave({
       scheduledStart: startDate.toISOString(),
       scheduledEnd: endDate.toISOString(),
+      scheduleBlocks: blocks
+        .filter((b) => b.start && b.end)
+        .map((b) => ({
+          start: new Date(b.start).toISOString(),
+          end: new Date(b.end).toISOString(),
+        })),
     });
   };
 
@@ -474,7 +542,7 @@ function ScheduleEditor({ job, saving, onSave }: ScheduleEditorProps) {
             onChange={(e) => {
               setStart(e.target.value);
             }}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className={INPUT_CLASS}
           />
           <input
             type="datetime-local"
@@ -482,10 +550,69 @@ function ScheduleEditor({ job, saving, onSave }: ScheduleEditorProps) {
             onChange={(e) => {
               setEnd(e.target.value);
             }}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className={INPUT_CLASS}
           />
         </div>
-        <Button size="sm" disabled={!start || saving} onClick={save}>
+
+        {/* Additional time blocks (e.g. the job ran long or needed a return
+            visit). Each is its own start/end pair. */}
+        {blocks.map((b) => (
+          <div key={b.key} className="flex items-center gap-2">
+            <input
+              type="datetime-local"
+              value={b.start}
+              onChange={(e) => {
+                updateBlock(b.key, "start", e.target.value);
+              }}
+              className={`${INPUT_CLASS} flex-1 min-w-0`}
+            />
+            <input
+              type="datetime-local"
+              value={b.end}
+              onChange={(e) => {
+                updateBlock(b.key, "end", e.target.value);
+              }}
+              className={`${INPUT_CLASS} flex-1 min-w-0`}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                removeBlock(b.key);
+              }}
+              title="Remove time block"
+              className="p-1 shrink-0 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+            >
+              <XMarkIcon className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={addBlock}
+          className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700"
+        >
+          <PlusIcon className="h-4 w-4" />
+          Add time block
+        </button>
+
+        {totalMins > 0 && (
+          <p className="text-xs text-gray-500">
+            Total scheduled time:{" "}
+            <span className="font-medium text-gray-700">
+              {formatHours(totalMins)}
+            </span>
+            {filledBlockCount > 0
+              ? ` across ${String(filledBlockCount + 1)} blocks`
+              : ""}
+          </p>
+        )}
+
+        <Button
+          size="sm"
+          disabled={!start || saving || hasIncompleteBlock}
+          onClick={save}
+        >
           {job.scheduledStart ? "Update schedule" : "Schedule job"}
         </Button>
       </dd>
@@ -1379,7 +1506,7 @@ export default function DispatchPage() {
               setSelectedJobId(null);
               setAssignTechId("");
             }}
-            title={`Job #${selectedJob.jobNumber}`}
+            title={`Work Order #${selectedJob.jobNumber}`}
             size="md"
           >
             <dl className="space-y-3">
@@ -1568,8 +1695,8 @@ export default function DispatchPage() {
                 },
               });
             }}
-            title="Archive job"
-            message={`Archive job #${selectedJob.jobNumber}? It's hidden from the schedule and active lists, but nothing is deleted -- you can restore it anytime from the Jobs list.`}
+            title="Archive work order"
+            message={`Archive work order #${selectedJob.jobNumber}? It's hidden from the schedule and active lists, but nothing is deleted -- you can restore it anytime from the Work Orders list.`}
             confirmLabel="Archive"
             loading={archiveJob.isPending}
           />
@@ -1602,8 +1729,8 @@ export default function DispatchPage() {
         }
         message={
           pendingClear?.type === "tech"
-            ? `Remove the technician from job #${pendingClear.jobNumber}? It will move to the Unassigned list; the date is kept.`
-            : `Clear the scheduled date for job #${pendingClear?.jobNumber ?? ""}? It will move to the Undated list; the technician is kept.`
+            ? `Remove the technician from work order #${pendingClear.jobNumber}? It will move to the Unassigned list; the date is kept.`
+            : `Clear the scheduled date for work order #${pendingClear?.jobNumber ?? ""}? It will move to the Undated list; the technician is kept.`
         }
         confirmLabel={
           pendingClear?.type === "tech" ? "Remove technician" : "Clear date"

@@ -56,7 +56,7 @@ const navItems = [
     to: "/dashboard",
     label: "Dashboard",
     icon: HomeIcon,
-    roles: ["admin", "manager", "dispatcher", "csr", "exec"],
+    roles: ["admin", "manager", "csr", "exec"],
   },
   {
     to: "/my-day",
@@ -70,7 +70,7 @@ const navItems = [
     icon: UsersIcon,
     perm: ["customers.create", "customers.edit", "customers.delete"],
   },
-  { to: "/jobs", label: "Jobs", icon: BriefcaseIcon, perm: FIELD_OPS },
+  { to: "/jobs", label: "Work Orders", icon: BriefcaseIcon, perm: FIELD_OPS },
   {
     to: "/recurring",
     label: "Recurring",
@@ -81,7 +81,7 @@ const navItems = [
   { to: "/map", label: "Map", icon: GlobeAltIcon, perm: FIELD_OPS },
   {
     to: "/estimates",
-    label: "Estimates",
+    label: "Quotes",
     icon: DocumentTextIcon,
     perm: ["estimates.manage"],
   },
@@ -113,7 +113,7 @@ const navItems = [
     to: "/pricebook/pricing-tiers",
     label: "Pricing Tiers",
     icon: TagIcon,
-    roles: ["admin", "manager", "dispatcher", "csr"],
+    roles: ["admin", "manager", "csr"],
   },
   {
     to: "/inventory",
@@ -128,10 +128,10 @@ const navItems = [
     perm: ["purchasing.manage", "purchasing.receive"],
   },
   {
-    to: "/suppliers",
-    label: "Suppliers",
+    to: "/vendors",
+    label: "Vendors",
     icon: TruckIcon,
-    perm: ["suppliers.manage"],
+    perm: ["vendors.manage"],
   },
   {
     to: "/serials",

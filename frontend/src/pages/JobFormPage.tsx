@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useJob, useCreateJob, useUpdateJob } from "../hooks/useJobs";
+import { useJob, useCreateJob, useUpdateJob, useJobTypes } from "../hooks/useJobs";
 import { useCustomers } from "../hooks/useCustomers";
 import { useTechnicians } from "../hooks/useTechnicians";
 import Button from "../components/ui/Button";
@@ -48,6 +48,7 @@ export default function JobFormPage() {
   const { data: job, isLoading: jobLoading } = useJob(id ?? "");
   const { data: customersData } = useCustomers({ limit: 200 });
   const { data: techsData } = useTechnicians();
+  const { data: jobTypeOptions } = useJobTypes();
   const createMutation = useCreateJob();
   const updateMutation = useUpdateJob();
 
@@ -170,7 +171,7 @@ export default function JobFormPage() {
         onSubmit={(e) => void handleSubmit(onSubmit)(e)}
         className="space-y-5"
       >
-        <Card title="Job Details">
+        <Card title="Work Order Details">
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -198,9 +199,23 @@ export default function JobFormPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Job Type
+                  Work Order Type
                 </label>
-                <LookupSelect category="jobType" {...register("type")} />
+                <input
+                  type="text"
+                  list="job-type-options"
+                  placeholder="e.g. Service, Installation, Warranty Callback…"
+                  {...register("type")}
+                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                />
+                {/* Free text — type a new service type and it's saved as-is.
+                    The datalist just offers existing ones (built-in +
+                    anything typed on other jobs) as quick picks. */}
+                <datalist id="job-type-options">
+                  {(jobTypeOptions ?? []).map((t) => (
+                    <option key={t} value={t} />
+                  ))}
+                </datalist>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -343,7 +358,7 @@ export default function JobFormPage() {
               updateMutation.isPending
             }
           >
-            {isEditing ? "Save Changes" : "Create Job"}
+            {isEditing ? "Save Changes" : "Create Work Order"}
           </Button>
         </div>
       </form>

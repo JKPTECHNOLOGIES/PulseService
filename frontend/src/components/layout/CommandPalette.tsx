@@ -121,7 +121,7 @@ export default function CommandPalette() {
               go(results[active]);
             }
           }}
-          placeholder="Search customers, jobs, invoices, estimates…"
+          placeholder="Search customers, work orders, invoices, quotes…"
           className="w-full px-4 py-3 text-sm border-b border-gray-100 focus:outline-none"
         />
         <div className="max-h-80 overflow-y-auto">

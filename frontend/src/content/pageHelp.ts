@@ -68,7 +68,7 @@ const dashboardHelp: PageHelpContent = {
     {
       heading: "Quick actions",
       items: [
-        "Use the buttons at the bottom to jump straight into creating a New Job, New Customer, New Estimate, or New Invoice.",
+        "Use the buttons at the bottom to jump straight into creating a New Job, New Customer, New Quote, or New Invoice.",
         "Click View All above either table to go to the full Jobs or Invoices list.",
       ],
     },
@@ -79,7 +79,7 @@ const customersHelp: PageHelpContent = {
   key: "customers",
   title: "Customers",
   summary:
-    "Manage your customer list and view everything about a single customer, including their jobs, estimates, and invoices.",
+    "Manage your customer list and view everything about a single customer, including their jobs, quotes, and invoices.",
   sections: [
     {
       heading: "The customer list",
@@ -97,8 +97,8 @@ const customersHelp: PageHelpContent = {
       items: [
         "The header shows contact info, customer type, current balance, and pricing tier, plus buttons to start a New Job, Edit, or Delete this customer.",
         "The Overview tab shows contact details, notes, saved locations/addresses, and any uploaded photos or files.",
-        "The Jobs, Estimates, and Invoices tabs list everything tied to this customer, click any row to open it.",
-        "Deleting a customer permanently removes them along with all their jobs, estimates, invoices, and payments, so use it carefully.",
+        "The Jobs, Quotes, and Invoices tabs list everything tied to this customer, click any row to open it.",
+        "Deleting a customer permanently removes them along with all their jobs, quotes, invoices, and payments, so use it carefully.",
       ],
     },
     {
@@ -128,7 +128,7 @@ const jobsHelp: PageHelpContent = {
       heading: "The jobs list",
       items: [
         "Click New Job to create a job, choose the customer, schedule, and technicians on the form that follows.",
-        "Use the status tabs (New, Scheduled, Dispatched, etc.) to filter jobs by where they are in the workflow.",
+        "Use the status tabs (New, Scheduled, Parts On Hold, etc.) to filter jobs by where they are in the workflow.",
         "Search by job number, customer name, or summary using the search box.",
         "Check Show archived to include jobs that have been archived, archived jobs are hidden from active lists but not deleted.",
         "Click a column header to sort, and use the column menu to export the visible jobs to CSV.",
@@ -169,7 +169,7 @@ const jobDetailHelp: PageHelpContent = {
     {
       heading: "Working the job",
       items: [
-        "The status timeline across the top shows progress from New through Scheduled, Dispatched, In Progress, to Completed.",
+        "The status timeline across the top shows progress from New through Scheduled, Parts On Hold, In Progress, to Completed.",
         "Click Update Status to move the job to its next stage (or back if needed).",
         "Click Assign under Technicians to add another technician to the job.",
         "Click Edit to change the job's summary, schedule, type, priority, or notes.",
@@ -308,73 +308,73 @@ const mapHelp: PageHelpContent = {
 
 const estimatesHelp: PageHelpContent = {
   key: "estimates",
-  title: "Estimates",
+  title: "Quotes",
   summary:
-    "Browse all estimates, and create or edit an estimate's details, line items, and pricing before sending it to a customer.",
+    "Browse all quotes, and create or edit a quote's details, line items, and pricing before sending it to a customer.",
   sections: [
     {
-      heading: "Finding estimates",
+      heading: "Finding quotes",
       items: [
-        "Search by estimate number, customer, or title using the search box.",
+        "Search by quote number, customer, or title using the search box.",
         "Filter the list by status, such as Draft, Sent, Approved, or Rejected.",
-        "Click any row to open that estimate's full details.",
+        "Click any row to open that quote's full details.",
         "Save your current search and filters as a view using the Saved Views menu, so you can reuse it later.",
       ],
     },
     {
       heading: "Quick actions from the list",
       items: [
-        "Draft estimates show a send icon so you can email them to the customer without opening the estimate.",
-        "Approved estimates show a convert icon to turn them into an invoice directly from the list.",
-        "Click New Estimate to start a brand-new one.",
+        "Draft quotes show a send icon so you can email them to the customer without opening the quote.",
+        "Approved quotes show a convert icon to turn them into an invoice directly from the list.",
+        "Click New Quote to start a brand-new one.",
       ],
     },
     {
-      heading: "Filling out the estimate form",
+      heading: "Filling out the quote form",
       items: [
-        "Choose the customer first — this unlocks the option to link the estimate to one of their existing jobs.",
-        "Give the estimate a title and, optionally, a summary and a valid-until date.",
+        "Choose the customer first — this unlocks the option to link the quote to one of their existing jobs.",
+        "Give the quote a title and, optionally, a summary and a valid-until date.",
         "Add line items (labor, materials, or other charges) in the Line Items section; totals update automatically.",
-        "Set a discount (fixed amount or percentage) and a tax rate; the Pricing box recalculates the total live.",
+        "Set a discount (fixed amount or percentage); the Pricing box recalculates the total live.",
         "Add customer-facing notes and payment terms if needed.",
       ],
     },
   ],
   tips: [
-    "To create an estimate for existing work, pick the customer, then select the related job before filling in line items.",
-    "Save Changes on an edited estimate takes you back to its detail page so you can review it before sending.",
+    "To create a quote for existing work, pick the customer, then select the related job before filling in line items.",
+    "Save Changes on an edited quote takes you back to its detail page so you can review it before sending.",
   ],
 };
 
 const estimateDetailHelp: PageHelpContent = {
   key: "estimate-detail",
-  title: "Estimate Detail",
+  title: "Quote Detail",
   summary:
-    "Review a single estimate, send it to the customer, get it approved, and turn it into a job or invoice.",
+    "Review a single quote, send it to the customer, get it approved, and turn it into a job or invoice.",
   sections: [
     {
       heading: "What you'll see",
       items: [
-        "The header shows the estimate number, status, customer, and key dates like created and valid-until.",
+        "The header shows the quote number, status, customer, and key dates like created and valid-until.",
         "The Line Items table lists every charge with quantity, unit price, and line total.",
-        "The Totals section breaks down subtotal, any discount, tax, and the final total.",
+        "The Totals section breaks down subtotal, any discount, and the final total.",
         "Notes and Terms & Conditions (if filled in) appear below the totals for the customer to read.",
-        "Photos, signatures, and attachments related to the estimate appear near the bottom of the page.",
+        "Photos, signatures, and attachments related to the quote appear near the bottom of the page.",
       ],
     },
     {
-      heading: "Moving the estimate forward",
+      heading: "Moving the quote forward",
       items: [
-        "Click Send while the estimate is a Draft to email it to the customer.",
+        "Click Send while the quote is a Draft to email it to the customer.",
         "Once it's Sent or Viewed, click Approve to mark it as accepted (use this if the customer approved by phone or in person).",
         "Once it's Approved, click Convert to Invoice to generate an invoice from it automatically.",
-        "Click PDF at any time to download a copy of the estimate to save or print.",
+        "Click PDF at any time to download a copy of the quote to save or print.",
         "Click Edit to change the customer, line items, pricing, or notes.",
       ],
     },
   ],
   tips: [
-    "To turn an approved estimate into a job or invoice, open it and click Convert to Invoice.",
+    "To turn an approved quote into a job or invoice, open it and click Convert to Invoice.",
     "If a customer needs changes, click Edit, update the line items or pricing, then save and re-send.",
   ],
 };
@@ -402,7 +402,7 @@ const invoicesHelp: PageHelpContent = {
         "Click New Invoice to start one, then choose the customer it belongs to.",
         "If the customer has a related job, you can link the invoice to it and pull in the parts used on that job automatically.",
         "Add line items for labor, parts, or other charges, and set quantities and prices for each.",
-        "Add a discount (flat amount or percentage) and set the tax rate; the subtotal, tax, and total update automatically.",
+        "Add a discount (flat amount or percentage); the subtotal and total update automatically.",
         "Add any notes or terms you want the customer to see on the invoice.",
         "Existing invoices can only be edited before any payment has been recorded against them.",
       ],
@@ -425,7 +425,7 @@ const invoiceDetailHelp: PageHelpContent = {
       items: [
         "The top of the page shows the customer, current status, issue date, due date, amount paid, and balance due.",
         "The line items section lists every charge that makes up the invoice.",
-        "The totals section breaks down the subtotal, any discount, tax, and the final balance still owed.",
+        "The totals section breaks down the subtotal, any discount, and the final balance still owed.",
         "The Payment History table lists every payment made against this invoice, including the method and reference number.",
         "Any photos or files attached to the invoice appear near the bottom of the page.",
       ],
@@ -546,7 +546,7 @@ const inventoryHelp: PageHelpContent = {
         'Use "Transfer" to move stock from one location (like the warehouse) to another (like a technician\'s truck).',
         "Click the clock icon to view the full history of additions, removals, transfers, and counts for an item.",
         "Click the camera icon to attach or view photos of an item.",
-        'Use "Supplier pricing" to see or add which suppliers sell an item and at what price, and mark one as primary.',
+        'Use "Vendor pricing" to see or add which vendors sell an item and at what price, and mark one as primary.',
         'Use "New Item" to add a new part or product, and "Edit" to update its SKU, name, unit, reorder point, and reorder quantity.',
       ],
     },
@@ -566,26 +566,26 @@ const inventoryHelp: PageHelpContent = {
   ],
 };
 
-const suppliersHelp: PageHelpContent = {
-  key: "suppliers",
-  title: "Suppliers",
+const vendorsHelp: PageHelpContent = {
+  key: "vendors",
+  title: "Vendors",
   summary:
     "Keep a list of the vendors you buy parts and equipment from, along with their contact details and payment terms.",
   sections: [
     {
       heading: "What's here",
       items: [
-        'Each supplier shows a supplier number, name, contact person, email/phone, and payment terms (like "Net 30").',
-        "The Items column shows how many inventory items are linked to that supplier, and POs shows how many purchase orders reference them.",
-        "Use the search box to quickly find a supplier by name.",
+        'Each vendor shows a vendor number, name, contact person, email/phone, and payment terms (like "Net 30").',
+        "The Items column shows how many inventory items are linked to that vendor, and POs shows how many purchase orders reference them.",
+        "Use the search box to quickly find a vendor by name.",
       ],
     },
     {
-      heading: "Managing suppliers",
+      heading: "Managing vendors",
       items: [
-        'Click "New Supplier" to add a vendor, including name, contact info, city/state, and payment terms.',
-        "Click the pencil icon to edit a supplier's details.",
-        "Click the trash icon to deactivate a supplier — this hides them from new purchase orders but keeps their history intact.",
+        'Click "New Vendor" to add a vendor, including name, contact info, city/state, and payment terms.',
+        "Click the pencil icon to edit a vendor's details.",
+        "Click the trash icon to deactivate a vendor — this hides them from new purchase orders but keeps their history intact.",
       ],
     },
   ],
@@ -595,21 +595,21 @@ const purchasingHelp: PageHelpContent = {
   key: "purchasing",
   title: "Purchase Orders",
   summary:
-    "Create purchase orders to buy parts from suppliers, track their status, and receive the items into stock when they arrive.",
+    "Create purchase orders to buy parts from vendors, track their status, and receive the items into stock when they arrive.",
   sections: [
     {
       heading: "The purchase order list",
       items: [
-        "Every PO shows its number, supplier, status, ship-to location, order date, and total cost.",
+        "Every PO shows its number, vendor, status, ship-to location, order date, and total cost.",
         "Filter the list by status (draft, ordered, partially received, received, closed, cancelled) using the dropdown.",
         "Click any row to open its details.",
-        '"Reorder Suggestions" shows every item at or below its reorder point, grouped by supplier, with a suggested quantity and estimated cost — click "Create draft PO" to turn a group into a new order instantly.',
+        '"Reorder Suggestions" shows every item at or below its reorder point, grouped by vendor, with a suggested quantity and estimated cost — click "Create draft PO" to turn a group into a new order instantly.',
       ],
     },
     {
       heading: "Creating a purchase order",
       items: [
-        '"New PO", choose a supplier, a ship-to location, and an optional expected delivery date.',
+        '"New PO", choose a vendor, a ship-to location, and an optional expected delivery date.',
         "Add line items by picking an existing inventory item (which fills in the name and price automatically) or typing a custom description for a non-stock item.",
         "Set the quantity and unit price for each line; the total updates automatically.",
       ],
@@ -626,7 +626,7 @@ const purchasingHelp: PageHelpContent = {
     },
   ],
   tips: [
-    "Fast restocking: open Reorder Suggestions, review the suggested quantities per supplier, then Create draft PO to generate the order automatically.",
+    "Fast restocking: open Reorder Suggestions, review the suggested quantities per vendor, then Create draft PO to generate the order automatically.",
     "Receiving a delivery: open the PO, click Receive, fill in quantities (and serial numbers if prompted), then confirm — inventory updates immediately.",
   ],
 };
@@ -769,9 +769,9 @@ const reportsHelp: PageHelpContent = {
       ],
     },
     {
-      heading: "Estimates & Jobs",
+      heading: "Quotes & Jobs",
       items: [
-        "The Estimates tab breaks down estimates by status (e.g. sent, approved, declined).",
+        "The Quotes tab breaks down quotes by status (e.g. sent, approved, declined).",
         "The Jobs tab shows job counts by status and the overall completion rate.",
       ],
     },
@@ -817,7 +817,7 @@ const settingsHelp: PageHelpContent = {
     {
       heading: "Billing",
       items: [
-        "Configure billing and tax settings used when generating invoices and estimates.",
+        "Configure billing settings used when generating invoices and quotes.",
       ],
     },
     {
@@ -863,13 +863,13 @@ const notificationsHelp: PageHelpContent = {
   key: "notifications",
   title: "Notifications",
   summary:
-    "See in-app alerts about jobs, invoices, and estimates, and control whether you get push notifications on this device.",
+    "See in-app alerts about jobs, invoices, and quotes, and control whether you get push notifications on this device.",
   sections: [
     {
       heading: "Notifications List",
       items: [
         "Unread notifications are highlighted and marked with a colored dot.",
-        "Click a notification to open the related job, invoice, or estimate and mark it as read.",
+        "Click a notification to open the related job, invoice, or quote and mark it as read.",
         "Click 'Mark all read' to clear the unread count in one step.",
       ],
     },
@@ -947,7 +947,7 @@ const sectionRoutes: HelpRoute[] = [
   { test: (p) => p.startsWith("/technicians"), content: techniciansHelp },
   { test: (p) => p.startsWith("/pricebook"), content: pricebookHelp },
   { test: (p) => p.startsWith("/inventory"), content: inventoryHelp },
-  { test: (p) => p.startsWith("/suppliers"), content: suppliersHelp },
+  { test: (p) => p.startsWith("/vendors"), content: vendorsHelp },
   { test: (p) => p.startsWith("/purchasing"), content: purchasingHelp },
   { test: (p) => p.startsWith("/serials"), content: serialsHelp },
   { test: (p) => p.startsWith("/equipment"), content: equipmentHelp },
@@ -1034,7 +1034,7 @@ const META: Record<string, PageHelpMeta> = {
     route: "/inventory",
     group: "Catalog & Stock",
   },
-  suppliers: { icon: TruckIcon, route: "/suppliers", group: "Catalog & Stock" },
+  vendors: { icon: TruckIcon, route: "/vendors", group: "Catalog & Stock" },
   purchasing: {
     icon: ShoppingCartIcon,
     route: "/purchasing",
@@ -1088,7 +1088,7 @@ export const pageHelpList: PageHelpContent[] = [
   techniciansHelp,
   pricebookHelp,
   inventoryHelp,
-  suppliersHelp,
+  vendorsHelp,
   purchasingHelp,
   serialsHelp,
   equipmentHelp,

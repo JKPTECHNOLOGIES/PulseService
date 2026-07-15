@@ -12,6 +12,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
 } from "recharts";
 import {
@@ -32,6 +33,8 @@ import {
   useSalesBySourceReport,
   useEstimatePipelineReport,
   useInventoryReport,
+  type RevenuePeriod,
+  type RevenueSource,
 } from "../hooks/useReports";
 import StatCard from "../components/ui/StatCard";
 import Card from "../components/ui/Card";
@@ -51,59 +54,245 @@ const CHART_COLORS = [
   "#ec4899",
 ];
 
-function RevenueTab() {
-  const [months, setMonths] = useState(12);
-  const { data, isLoading } = useRevenueReport({ months });
+// Every revenue source the report can compute. Kept in one place so the
+// source picker, stat cards, chart series, and CSV export all stay in sync.
+const REVENUE_SOURCE_OPTIONS: {
+  key: RevenueSource;
+  label: string;
+  color: string;
+  statColor: "blue" | "green" | "purple";
+}[] = [
+  { key: "invoiced", label: "Invoiced", color: "#3b82f6", statColor: "blue" },
+  { key: "collected", label: "Collected", color: "#10b981", statColor: "green" },
+  {
+    key: "agreements",
+    label: "Contracts",
+    color: "#8b5cf6",
+    statColor: "purple",
+  },
+];
 
-  const chartData = data ?? [];
-  const totalRevenue = chartData.reduce((sum, d) => sum + d.revenue, 0);
+const RANGE_PRESETS = [
+  { label: "7D", days: 7 },
+  { label: "30D", days: 30 },
+  { label: "90D", days: 90 },
+  { label: "12M", days: 365 },
+];
+
+function isoDaysAgo(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - (days - 1));
+  return d.toISOString().slice(0, 10);
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function RevenueTab() {
+  const [from, setFrom] = useState(() => isoDaysAgo(30));
+  const [to, setTo] = useState(() => todayIso());
+  const [granularity, setGranularity] = useState<"day" | "week" | "month">(
+    "day",
+  );
+  const [sources, setSources] = useState<RevenueSource[]>([
+    "invoiced",
+    "collected",
+    "agreements",
+  ]);
+
+  const { data, isLoading } = useRevenueReport({
+    from,
+    to,
+    granularity,
+    sources: sources.join(","),
+  });
+
+  const chartData = data?.data ?? [];
+  const activeSources = REVENUE_SOURCE_OPTIONS.filter((s) =>
+    sources.includes(s.key),
+  );
+  const totals = REVENUE_SOURCE_OPTIONS.reduce<Record<string, number>>(
+    (acc, s) => {
+      acc[s.key] = chartData.reduce((sum, d) => sum + (d[s.key] ?? 0), 0);
+      return acc;
+    },
+    {},
+  );
+  const grandTotal = chartData.reduce((sum, d) => sum + d.total, 0);
+
+  const toggleSource = (key: RevenueSource) => {
+    setSources((prev) => {
+      if (prev.includes(key)) {
+        // Always keep at least one source selected so the chart/table never
+        // go fully empty.
+        return prev.length > 1 ? prev.filter((k) => k !== key) : prev;
+      }
+      return [...prev, key];
+    });
+  };
+
+  const applyPreset = (days: number) => {
+    setTo(todayIso());
+    setFrom(isoDaysAgo(days));
+  };
+
+  const isPresetActive = (days: number) => from === isoDaysAgo(days) && to === todayIso();
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
-        {[
-          { label: "This Month", value: 1 },
-          { label: "Last 3 Months", value: 3 },
-          { label: "Last 12 Months", value: 12 },
-        ].map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => {
-              setMonths(opt.value);
-            }}
-            className={clsx(
-              "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-              months === opt.value
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700",
-            )}
-          >
-            {opt.label}
-          </button>
-        ))}
+      {/* Time range + granularity */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">From</label>
+            <input
+              type="date"
+              value={from}
+              max={to}
+              onChange={(e) => {
+                setFrom(e.target.value);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">To</label>
+            <input
+              type="date"
+              value={to}
+              min={from}
+              max={todayIso()}
+              onChange={(e) => {
+                setTo(e.target.value);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+            {RANGE_PRESETS.map((p) => (
+              <button
+                key={p.label}
+                onClick={() => {
+                  applyPreset(p.days);
+                }}
+                className={clsx(
+                  "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                  isPresetActive(p.days)
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700",
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">
+              Group by
+            </label>
+            <select
+              value={granularity}
+              onChange={(e) => {
+                setGranularity(e.target.value as "day" | "week" | "month");
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+            >
+              <option value="day">Daily</option>
+              <option value="week">Weekly</option>
+              <option value="month">Monthly</option>
+            </select>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={chartData.length === 0}
+          onClick={() => {
+            downloadCsv(
+              "revenue",
+              chartData,
+              [
+                { header: "Period", value: (r) => r.label },
+                ...activeSources.map((s) => ({
+                  header: s.label,
+                  value: (r: RevenuePeriod) => r[s.key] ?? 0,
+                })),
+                { header: "Total", value: (r) => r.total },
+              ],
+            );
+          }}
+        >
+          Export CSV
+        </Button>
       </div>
 
-      <Card title={`Revenue Overview (${formatCurrency(totalRevenue)} total)`}>
+      {/* Source picker -- pick and choose what to include */}
+      <div className="flex flex-wrap gap-2">
+        {REVENUE_SOURCE_OPTIONS.map((s) => {
+          const active = sources.includes(s.key);
+          return (
+            <button
+              key={s.key}
+              onClick={() => {
+                toggleSource(s.key);
+              }}
+              className={clsx(
+                "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                active
+                  ? "border-gray-300 bg-white text-gray-900 shadow-sm"
+                  : "border-gray-200 bg-gray-50 text-gray-400",
+              )}
+            >
+              <span
+                className="h-2.5 w-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: active ? s.color : "#d1d5db" }}
+              />
+              {s.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Totals for the selected sources */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {activeSources.map((s) => (
+          <StatCard
+            key={s.key}
+            title={s.label}
+            value={formatCurrency(totals[s.key] ?? 0)}
+            icon={<CurrencyDollarIcon />}
+            color={s.statColor}
+          />
+        ))}
+        <StatCard
+          title="Combined Total"
+          value={formatCurrency(grandTotal)}
+          icon={<CurrencyDollarIcon />}
+          color="yellow"
+        />
+      </div>
+
+      <Card title="Revenue Over Time">
         {isLoading ? (
           <PageSpinner />
+        ) : chartData.length === 0 ? (
+          <p className="text-sm text-gray-400 py-12 text-center">
+            No revenue data for this range.
+          </p>
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={320}>
             <AreaChart
               data={chartData}
               margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
             >
-              <defs>
-                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis
-                dataKey="month"
+                dataKey="label"
                 tick={{ fontSize: 11, fill: "#6b7280" }}
                 tickLine={false}
                 axisLine={false}
+                minTickGap={20}
               />
               <YAxis
                 tick={{ fontSize: 11, fill: "#6b7280" }}
@@ -112,47 +301,76 @@ function RevenueTab() {
                 tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
               />
               <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                fill="url(#revGrad)"
-              />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              {activeSources.map((s) => (
+                <Area
+                  key={s.key}
+                  type="monotone"
+                  dataKey={s.key}
+                  name={s.label}
+                  stroke={s.color}
+                  fill={s.color}
+                  fillOpacity={0.12}
+                  strokeWidth={2}
+                />
+              ))}
             </AreaChart>
           </ResponsiveContainer>
         )}
       </Card>
 
-      <Card title="Monthly Breakdown">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100">
-              <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
-                Month
-              </th>
-              <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
-                Invoices
-              </th>
-              <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
-                Revenue
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {chartData.map((d, i) => (
-              <tr key={i} className="hover:bg-gray-50">
-                <td className="py-2.5 text-gray-900">{d.month}</td>
-                <td className="py-2.5 text-right text-gray-600">
-                  {d.invoiceCount}
-                </td>
-                <td className="py-2.5 text-right font-medium text-gray-900">
-                  {formatCurrency(d.revenue)}
-                </td>
+      <Card title="Breakdown">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left py-2 font-medium text-gray-500 text-xs uppercase">
+                  Period
+                </th>
+                {activeSources.map((s) => (
+                  <th
+                    key={s.key}
+                    className="text-right py-2 font-medium text-gray-500 text-xs uppercase"
+                  >
+                    {s.label}
+                  </th>
+                ))}
+                <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
+                  Total
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {chartData.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={activeSources.length + 2}
+                    className="py-8 text-center text-gray-400"
+                  >
+                    No revenue data for this range.
+                  </td>
+                </tr>
+              ) : (
+                chartData.map((d) => (
+                  <tr key={d.period} className="hover:bg-gray-50">
+                    <td className="py-2.5 text-gray-900">{d.label}</td>
+                    {activeSources.map((s) => (
+                      <td
+                        key={s.key}
+                        className="py-2.5 text-right text-gray-600"
+                      >
+                        {formatCurrency(d[s.key] ?? 0)}
+                      </td>
+                    ))}
+                    <td className="py-2.5 text-right font-medium text-gray-900">
+                      {formatCurrency(d.total)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </div>
   );
@@ -173,7 +391,7 @@ function JobsTab() {
     <div className="space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
         <StatCard
-          title="Total Jobs"
+          title="Total Work Orders"
           value={report?.total ?? 0}
           icon={<BriefcaseIcon />}
           color="blue"
@@ -199,7 +417,7 @@ function JobsTab() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Card title="Jobs by Status">
+        <Card title="Work Orders by Status">
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
@@ -222,7 +440,7 @@ function JobsTab() {
           </ResponsiveContainer>
         </Card>
 
-        <Card title="Jobs by Type">
+        <Card title="Work Orders by Type">
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={report?.byType ?? []}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -262,7 +480,7 @@ function TechniciansTab() {
               Technician
             </th>
             <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
-              Jobs Completed
+              Work Orders Completed
             </th>
             <th className="text-right py-2 font-medium text-gray-500 text-xs uppercase">
               Revenue Generated
@@ -624,7 +842,7 @@ function EstimatesTab() {
         <StatCard
           title="Approved Value"
           value={formatCurrency(data?.approvedValue ?? 0)}
-          subtitle={`${String(data?.approvedCount ?? 0)} estimates`}
+          subtitle={`${String(data?.approvedCount ?? 0)} quotes`}
           icon={<CurrencyDollarIcon />}
           color="blue"
         />
@@ -637,7 +855,7 @@ function EstimatesTab() {
         />
       </div>
 
-      <Card title="Estimates by Status">
+      <Card title="Quotes by Status">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100">
@@ -656,7 +874,7 @@ function EstimatesTab() {
             {byStatus.length === 0 ? (
               <tr>
                 <td colSpan={3} className="py-8 text-center text-gray-400">
-                  No estimates yet.
+                  No quotes yet.
                 </td>
               </tr>
             ) : (
@@ -875,8 +1093,8 @@ export default function ReportsPage() {
   const tabs = [
     "Revenue",
     "Sales",
-    "Estimates",
-    "Jobs",
+    "Quotes",
+    "Work Orders",
     "Technicians",
     "Customers",
     "AR Aging",

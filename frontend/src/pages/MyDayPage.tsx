@@ -106,10 +106,10 @@ function ClockChip() {
             }}
             className="block max-w-full truncate text-left text-xs text-green-700 underline"
           >
-            Job #{job.jobNumber} — {job.summary}
+            Work Order #{job.jobNumber} — {job.summary}
           </button>
         ) : (
-          <p className="text-xs text-green-700">No job selected</p>
+          <p className="text-xs text-green-700">No work order selected</p>
         )}
       </div>
       <button
@@ -217,8 +217,8 @@ export default function MyDayPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <EmptyState
             icon={<ClockIcon />}
-            title={isToday ? "Nothing scheduled today" : "No jobs this day"}
-            description="Assigned jobs will appear here in the order they're scheduled."
+            title={isToday ? "Nothing scheduled today" : "No work orders this day"}
+            description="Assigned work orders will appear here in the order they're scheduled."
           />
         </div>
       ) : (

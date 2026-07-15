@@ -18,13 +18,13 @@ import { useAuthStore } from "../../store/authStore";
 // the full, permission-filtered drawer for everything else.
 const techTabs = [
   { to: "/my-day", label: "My Day", icon: CalendarDaysIcon },
-  { to: "/jobs", label: "Jobs", icon: BriefcaseIcon },
+  { to: "/jobs", label: "Work Orders", icon: BriefcaseIcon },
   { to: "/map", label: "Map", icon: MapIcon },
 ];
 
 const officeTabs = [
   { to: "/dashboard", label: "Home", icon: HomeIcon },
-  { to: "/jobs", label: "Jobs", icon: BriefcaseIcon },
+  { to: "/jobs", label: "Work Orders", icon: BriefcaseIcon },
   { to: "/invoices", label: "Invoices", icon: DocumentDuplicateIcon },
 ];
 

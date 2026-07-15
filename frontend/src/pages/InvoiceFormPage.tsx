@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,7 +9,7 @@ import {
   useUpdateInvoice,
 } from "../hooks/useInvoices";
 import { useCustomers } from "../hooks/useCustomers";
-import { useJobs } from "../hooks/useJobs";
+import { useJobs, useJob } from "../hooks/useJobs";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import LineItemsTable, { LineItem } from "../components/ui/LineItemsTable";
@@ -17,6 +17,8 @@ import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import { useJobParts } from "../hooks/useInventory";
+import { useSerializedUnits } from "../hooks/useSerials";
+import { useJobTimeEntries } from "../hooks/useTime";
 import { useFormDraft } from "../hooks/useFormDraft";
 
 // Enum values are validated server-side against the DB-driven lookups; the form
@@ -27,7 +29,6 @@ const schema = z.object({
   dueDate: z.string().optional(),
   discountType: z.string().optional(),
   discountValue: z.number().min(0).optional(),
-  taxRate: z.number().min(0).max(100),
   notes: z.string().optional(),
   terms: z.string().optional(),
 });
@@ -38,7 +39,6 @@ type FormData = z.infer<typeof schema>;
 // reload doesn't lose it. Cleared once the invoice is created.
 const DRAFT_KEY = "draft:invoice:new";
 const DEFAULT_VALUES: Partial<FormData> = {
-  taxRate: 8.25,
   discountType: "fixed",
   discountValue: 0,
 };
@@ -51,7 +51,13 @@ interface InvoiceDraft {
 export default function InvoiceFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const isEditing = !!id;
+  // Set when arriving via a job's "Create Invoice" button.
+  const prefill = location.state as {
+    jobId?: string;
+    customerId?: string;
+  } | null;
 
   const { data: invoice, isLoading } = useInvoice(id ?? "");
   const { data: customersData } = useCustomers({ limit: 200 });
@@ -67,6 +73,7 @@ export default function InvoiceFormPage() {
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -76,8 +83,6 @@ export default function InvoiceFormPage() {
   const customerId = watch("customerId");
   const discountType = watch("discountType");
   const discountValue = watch("discountValue") ?? 0;
-  const taxRateInput = watch("taxRate");
-  const taxRate = Number.isNaN(taxRateInput) ? 0 : taxRateInput;
 
   const { data: jobsData } = useJobs({ limit: 100 });
   const customerJobs = (jobsData?.data ?? []).filter(
@@ -88,6 +93,89 @@ export default function InvoiceFormPage() {
   // pulled onto the invoice as line items.
   const jobId = watch("jobId") ?? "";
   const { data: jobParts } = useJobParts(jobId);
+
+  // Job labor can be billed off two sources: the *scheduled* time (primary
+  // window + additional blocks set in dispatch) or the *actual* logged time
+  // (technician clock-in/out). Either can be dropped onto the invoice as a
+  // single Labor line; the office fills in the hourly rate.
+  const minutesBetween = (s: string, e: string) => {
+    const ms = new Date(e).getTime() - new Date(s).getTime();
+    return ms > 0 ? Math.round(ms / 60000) : 0;
+  };
+  const toHours = (mins: number) => Math.round((mins / 60) * 100) / 100;
+
+  const { data: jobDetail } = useJob(jobId);
+  const scheduledMinutes = (() => {
+    if (!jobDetail) return 0;
+    const primary =
+      jobDetail.scheduledStart && jobDetail.scheduledEnd
+        ? minutesBetween(jobDetail.scheduledStart, jobDetail.scheduledEnd)
+        : 0;
+    const blocks = (jobDetail.scheduleBlocks ?? []).reduce(
+      (sum, b) => sum + minutesBetween(b.start, b.end),
+      0,
+    );
+    return primary + blocks;
+  })();
+  const scheduledHours = toHours(scheduledMinutes);
+
+  const { data: jobTimeEntries } = useJobTimeEntries(jobId);
+  const loggedMinutes = (jobTimeEntries ?? []).reduce(
+    (sum, e) => sum + (e.duration ?? 0),
+    0,
+  );
+  const loggedHours = toHours(loggedMinutes);
+
+  // Serialized units installed on the job = billable equipment. Priced at the
+  // catalog sale price when the unit's item is mapped to the pricebook.
+  const { data: jobUnits } = useSerializedUnits({ jobId, limit: 100 });
+  const installedUnits = jobId ? (jobUnits?.data ?? []) : [];
+  const addEquipmentLines = () => {
+    if (installedUnits.length === 0) return;
+    setLineItems((items) => [
+      ...items,
+      ...installedUnits
+        .map((u) => {
+          const price = u.inventoryItem?.pricebookItem?.unitPrice ?? 0;
+          const desc = u.serialNumber ? `S/N ${u.serialNumber}` : undefined;
+          return {
+            type: "equipment",
+            name: u.inventoryItem?.name ?? "Equipment",
+            description: desc,
+            quantity: 1,
+            unitPrice: price,
+            total: price,
+          };
+        })
+        // Skip units already added (matched by their serial-number description).
+        .filter(
+          (line) =>
+            !items.some(
+              (li) => li.type === "equipment" && li.description === line.description,
+            ),
+        ),
+    ]);
+  };
+
+  const addLaborLine = (kind: "scheduled" | "logged") => {
+    const hours = kind === "scheduled" ? scheduledHours : loggedHours;
+    if (hours <= 0) return;
+    const jobRef = jobDetail ? ` on job #${jobDetail.jobNumber}` : " on job";
+    setLineItems((items) => [
+      ...items,
+      {
+        type: "labor",
+        name: "Labor",
+        description:
+          kind === "scheduled"
+            ? `Scheduled time${jobRef}`
+            : `Logged time${jobRef}`,
+        quantity: hours,
+        unitPrice: 0,
+        total: 0,
+      },
+    ]);
+  };
   const importJobParts = () => {
     const parts = jobParts ?? [];
     if (parts.length === 0) return;
@@ -120,7 +208,6 @@ export default function InvoiceFormPage() {
         dueDate: invoice.dueDate ? invoice.dueDate.slice(0, 10) : "",
         discountType: invoice.discountType ?? "fixed",
         discountValue: invoice.discountValue ?? 0,
-        taxRate: invoice.taxRate,
         notes: invoice.notes ?? "",
         terms: invoice.terms ?? "",
       });
@@ -133,6 +220,7 @@ export default function InvoiceFormPage() {
           quantity: li.quantity,
           unitPrice: li.unitPrice,
           total: li.total,
+          includeOnDocument: li.includeOnDocument,
         })),
       );
     }
@@ -150,27 +238,41 @@ export default function InvoiceFormPage() {
     },
   });
 
+  // When opened from a job's "Create Invoice" action, preselect that customer +
+  // job so the material/equipment/labor import banners appear immediately. Runs
+  // once on mount (after any draft restore) since the state is a one-shot
+  // navigation payload.
+  useEffect(() => {
+    if (!isEditing && prefill?.customerId) {
+      setValue("customerId", prefill.customerId);
+      if (prefill.jobId) setValue("jobId", prefill.jobId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const discardDraft = () => {
     reset(DEFAULT_VALUES);
     setLineItems([]);
     clearDraft();
   };
 
-  const subtotal = lineItems.reduce((sum, li) => sum + li.total, 0);
+  // Mirrors the backend's calculateTotals rule: lines unchecked via
+  // "include on invoice" stay on the invoice for record but don't bill.
+  const subtotal = lineItems.reduce(
+    (sum, li) => sum + (li.includeOnDocument === false ? 0 : li.total),
+    0,
+  );
   const discountAmt =
     discountType === "percentage"
       ? subtotal * (discountValue / 100)
       : discountValue;
-  const taxable = subtotal - discountAmt;
-  const taxAmt = taxable * (taxRate / 100);
-  const total = taxable + taxAmt;
+  const total = subtotal - discountAmt;
 
   const onSubmit = async (data: FormData) => {
     const payload = {
       ...data,
       lineItems: lineItems.map((li, idx) => ({ ...li, sortOrder: idx })),
       subtotal,
-      taxAmount: taxAmt,
       total,
     };
 
@@ -236,7 +338,7 @@ export default function InvoiceFormPage() {
               {customerId && customerJobs.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Related Job
+                    Related Work Order
                   </label>
                   <select
                     {...register("jobId")}
@@ -281,10 +383,60 @@ export default function InvoiceFormPage() {
               </Button>
             </div>
           )}
+          {jobId && scheduledMinutes > 0 && (
+            <div className="mb-3 flex items-center justify-between bg-primary-50 border border-primary-100 rounded-lg px-3.5 py-2.5">
+              <p className="text-sm text-primary-800">
+                {scheduledHours} hr(s) of scheduled time on this job.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  addLaborLine("scheduled");
+                }}
+              >
+                Add scheduled labor
+              </Button>
+            </div>
+          )}
+          {jobId && installedUnits.length > 0 && (
+            <div className="mb-3 flex items-center justify-between bg-primary-50 border border-primary-100 rounded-lg px-3.5 py-2.5">
+              <p className="text-sm text-primary-800">
+                {installedUnits.length} unit(s) installed on this job.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={addEquipmentLines}
+              >
+                Add equipment
+              </Button>
+            </div>
+          )}
+          {jobId && loggedMinutes > 0 && (
+            <div className="mb-3 flex items-center justify-between bg-primary-50 border border-primary-100 rounded-lg px-3.5 py-2.5">
+              <p className="text-sm text-primary-800">
+                {loggedHours} hr(s) of logged (clocked) time on this job.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  addLaborLine("logged");
+                }}
+              >
+                Add logged labor
+              </Button>
+            </div>
+          )}
           <LineItemsTable
             items={lineItems}
             onChange={setLineItems}
             customerId={customerId}
+            showIncludeToggle
           />
         </Card>
 
@@ -315,19 +467,6 @@ export default function InvoiceFormPage() {
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Tax Rate (%)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  {...register("taxRate", { valueAsNumber: true })}
-                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
             </div>
             <div className="bg-gray-50 rounded-lg p-4 space-y-2">
               <div className="flex justify-between text-sm">
@@ -342,10 +481,6 @@ export default function InvoiceFormPage() {
                   </span>
                 </div>
               )}
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Tax ({taxRate}%)</span>
-                <span className="font-medium">{formatCurrency(taxAmt)}</span>
-              </div>
               <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2">
                 <span>Total</span>
                 <span className="text-primary-600">

@@ -62,31 +62,36 @@ export default function DashboardPage() {
   const { data: recentInvoicesData, isLoading: invoicesLoading } = useInvoices({
     limit: 5,
   });
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
+  twelveMonthsAgo.setDate(1);
   const { data: revenueData, isLoading: revenueLoading } = useRevenueReport({
-    months: 12,
+    from: twelveMonthsAgo.toISOString().slice(0, 10),
+    to: todayStr,
+    granularity: "month",
   });
 
   const recentJobs: Job[] = recentJobsData?.data ?? [];
   const recentInvoices: Invoice[] = recentInvoicesData?.data ?? [];
   const todayJobs = todayJobsData?.data ?? [];
   const openInvoices = openInvoicesData?.data ?? [];
-  const chartData = revenueData ?? [];
+  const chartData = revenueData?.data ?? [];
 
   const openInvoicesTotal = openInvoices.reduce(
     (sum, inv) => sum + inv.balance,
     0,
   );
   const monthlyRevenue =
-    chartData.length > 0 ? chartData[chartData.length - 1].revenue : 0;
+    chartData.length > 0 ? chartData[chartData.length - 1].total : 0;
 
   return (
     <div className="space-y-6">
       {/* Stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <StatCard
-          title="Today's Jobs"
+          title="Today's Work Orders"
           value={todayJobs.length}
-          subtitle="Jobs scheduled today"
+          subtitle="Work orders scheduled today"
           icon={<BriefcaseIcon />}
           color="blue"
         />
@@ -107,7 +112,7 @@ export default function DashboardPage() {
         <StatCard
           title="Open Customers"
           value={recentJobsData?.pagination.total ?? 0}
-          subtitle="Total active jobs"
+          subtitle="Total active work orders"
           icon={<UsersIcon />}
           color="purple"
         />
@@ -131,7 +136,7 @@ export default function DashboardPage() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis
-                dataKey="month"
+                dataKey="label"
                 tick={{ fontSize: 11, fill: "#6b7280" }}
                 tickLine={false}
                 axisLine={false}
@@ -145,7 +150,7 @@ export default function DashboardPage() {
               <Tooltip content={<CustomTooltip />} />
               <Area
                 type="monotone"
-                dataKey="revenue"
+                dataKey="total"
                 stroke="#3b82f6"
                 strokeWidth={2}
                 fill="url(#colorRevenue)"
@@ -161,7 +166,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
         {/* Recent Jobs */}
         <Card
-          title="Recent Jobs"
+          title="Recent Work Orders"
           actions={
             <Button
               variant="ghost"
@@ -182,7 +187,7 @@ export default function DashboardPage() {
                 <thead>
                   <tr className="border-b border-gray-100">
                     <th className="text-left py-2 px-6 font-medium text-gray-500 text-xs">
-                      JOB #
+                      WO #
                     </th>
                     <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">
                       CUSTOMER
@@ -205,7 +210,7 @@ export default function DashboardPage() {
                         colSpan={5}
                         className="text-center py-8 text-gray-400 text-sm px-6"
                       >
-                        No jobs yet
+                        No work orders yet
                       </td>
                     </tr>
                   ) : (
@@ -337,7 +342,7 @@ export default function DashboardPage() {
             navigate("/jobs/new");
           }}
         >
-          New Job
+          New Work Order
         </Button>
         <Button
           variant="outline"
@@ -355,7 +360,7 @@ export default function DashboardPage() {
             navigate("/estimates/new");
           }}
         >
-          New Estimate
+          New Quote
         </Button>
         <Button
           variant="outline"

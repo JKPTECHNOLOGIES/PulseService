@@ -140,17 +140,31 @@ export default function JobDetailPage() {
 
   if (isLoading) return <PageSpinner />;
   if (!job)
-    return <div className="text-center py-12 text-gray-500">Job not found</div>;
+    return <div className="text-center py-12 text-gray-500">Work order not found</div>;
 
   const techs = techsData?.data ?? [];
   const timelineSteps = [
     "new",
     "scheduled",
-    "dispatched",
+    "parts_on_hold",
     "in_progress",
     "completed",
   ];
   const currentIdx = timelineSteps.indexOf(job.status);
+
+  // Scheduled labor time = the primary window plus any additional time blocks.
+  const blockMinutes = (startIso: string, endIso: string) => {
+    const ms = new Date(endIso).getTime() - new Date(startIso).getTime();
+    return ms > 0 ? Math.round(ms / 60000) : 0;
+  };
+  const scheduleBlocks = job.scheduleBlocks ?? [];
+  const primaryScheduledMins =
+    job.scheduledStart && job.scheduledEnd
+      ? blockMinutes(job.scheduledStart, job.scheduledEnd)
+      : 0;
+  const totalScheduledMins =
+    primaryScheduledMins +
+    scheduleBlocks.reduce((s, b) => s + blockMinutes(b.start, b.end), 0);
 
   const handleStatusUpdate = async () => {
     if (newStatus) {
@@ -187,7 +201,7 @@ export default function JobDetailPage() {
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-xl font-bold text-gray-900">
-                Job #{job.jobNumber}
+                Work Order #{job.jobNumber}
               </h2>
               <StatusBadge status={job.status} type="job" />
               {job.isArchived && (
@@ -205,6 +219,19 @@ export default function JobDetailPage() {
             <p className="text-gray-600 mt-1">{job.summary}</p>
           </div>
           <div className="flex flex-col gap-2 shrink-0 sm:flex-row sm:flex-wrap">
+            <Can permission="invoices.manage">
+              <Button
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  navigate("/invoices/new", {
+                    state: { jobId: job.id, customerId: job.customerId },
+                  });
+                }}
+              >
+                Create Invoice
+              </Button>
+            </Can>
             <Can permission="jobs.status">
               <Button
                 variant="outline"
@@ -283,7 +310,7 @@ export default function JobDetailPage() {
         <div className="lg:col-span-2 space-y-5">
           {/* Job Details */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Job Details</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">Work Order Details</h3>
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <dt className="text-xs text-gray-500">Customer</dt>
@@ -334,7 +361,7 @@ export default function JobDetailPage() {
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-gray-500">Job Type</dt>
+                <dt className="text-xs text-gray-500">Work Order Type</dt>
                 <dd className="text-sm font-medium text-gray-900 capitalize mt-0.5">
                   {job.type}
                 </dd>
@@ -362,6 +389,53 @@ export default function JobDetailPage() {
                   {formatDateTime(job.scheduledEnd)}
                 </dd>
               </div>
+              {(scheduleBlocks.length > 0 || totalScheduledMins > 0) && (
+                <div className="sm:col-span-2">
+                  <dt className="text-xs text-gray-500">
+                    Scheduled time blocks
+                  </dt>
+                  <dd className="mt-1 space-y-1">
+                    {job.scheduledStart && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">
+                          {formatDateTime(job.scheduledStart)}
+                          {job.scheduledEnd
+                            ? ` \u2013 ${formatDateTime(job.scheduledEnd)}`
+                            : ""}
+                          <span className="ml-2 text-[10px] uppercase font-semibold text-gray-400">
+                            Primary
+                          </span>
+                        </span>
+                        <span className="text-xs text-gray-500 shrink-0">
+                          {formatDuration(primaryScheduledMins)}
+                        </span>
+                      </div>
+                    )}
+                    {scheduleBlocks.map((b) => (
+                      <div
+                        key={b.id}
+                        className="flex items-center justify-between text-sm"
+                      >
+                        <span className="text-gray-700">
+                          {formatDateTime(b.start)} {"\u2013"}{" "}
+                          {formatDateTime(b.end)}
+                        </span>
+                        <span className="text-xs text-gray-500 shrink-0">
+                          {formatDuration(blockMinutes(b.start, b.end))}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between border-t border-gray-100 pt-1 text-sm">
+                      <span className="text-gray-500">
+                        Total scheduled time
+                      </span>
+                      <span className="font-semibold text-gray-900">
+                        {formatDuration(totalScheduledMins)}
+                      </span>
+                    </div>
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt className="text-xs text-gray-500">Created</dt>
                 <dd className="text-sm font-medium text-gray-900 mt-0.5">
@@ -693,8 +767,8 @@ export default function JobDetailPage() {
             },
           });
         }}
-        title="Archive job"
-        message={`Archive job #${job.jobNumber}? It's hidden from active lists and the dispatch board, but nothing is deleted -- you can restore it anytime.`}
+        title="Archive work order"
+        message={`Archive work order #${job.jobNumber}? It's hidden from active lists and the dispatch board, but nothing is deleted -- you can restore it anytime.`}
         confirmLabel="Archive"
         loading={archiveJob.isPending}
       />
@@ -960,7 +1034,7 @@ function AddPartModal({
 
   // Scanned barcode -> find the part. A physical barcode is usually a vendor/
   // manufacturer code, not our internal SKU, so match progressively: internal
-  // SKU, then any supplier SKU, then a loose substring across SKU + name.
+  // SKU, then any vendor SKU, then a loose substring across SKU + name.
   const handleScan = (code: string) => {
     setScannerOpen(false);
     const scanned = code.trim().toLowerCase();
@@ -969,8 +1043,8 @@ function AddPartModal({
     const match =
       all.find((i) => i.sku.toLowerCase() === scanned) ??
       all.find((i) =>
-        (i.suppliers ?? []).some(
-          (s) => s.supplierSku?.toLowerCase() === scanned,
+        (i.vendors ?? []).some(
+          (v) => v.vendorSku?.toLowerCase() === scanned,
         ),
       ) ??
       all.find(

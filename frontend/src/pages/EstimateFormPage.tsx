@@ -26,7 +26,6 @@ const schema = z.object({
   validUntil: z.string().optional(),
   discountType: z.string().optional(),
   discountValue: z.number().min(0).optional(),
-  taxRate: z.number().min(0).max(100),
   notes: z.string().optional(),
   terms: z.string().optional(),
 });
@@ -37,7 +36,6 @@ type FormData = z.infer<typeof schema>;
 // reload) doesn't wipe in-progress work. Cleared once the estimate is created.
 const DRAFT_KEY = "draft:estimate:new";
 const DEFAULT_VALUES: Partial<FormData> = {
-  taxRate: 8.25,
   discountType: "fixed",
   discountValue: 0,
 };
@@ -75,7 +73,6 @@ export default function EstimateFormPage() {
   const customerId = watch("customerId");
   const discountType = watch("discountType");
   const discountValue = watch("discountValue") ?? 0;
-  const taxRate = watch("taxRate");
 
   const { data: jobsData } = useJobs({ limit: 100 });
   const customerJobs = (jobsData?.data ?? []).filter(
@@ -92,7 +89,6 @@ export default function EstimateFormPage() {
         validUntil: estimate.validUntil ? estimate.validUntil.slice(0, 10) : "",
         discountType: estimate.discountType ?? "fixed",
         discountValue: estimate.discountValue ?? 0,
-        taxRate: estimate.taxRate,
         notes: estimate.notes ?? "",
         terms: estimate.terms ?? "",
       });
@@ -135,16 +131,13 @@ export default function EstimateFormPage() {
     discountType === "percentage"
       ? subtotal * (discountValue / 100)
       : discountValue;
-  const taxable = subtotal - discountAmt;
-  const taxAmt = taxable * (taxRate / 100);
-  const total = taxable + taxAmt;
+  const total = subtotal - discountAmt;
 
   const onSubmit = async (data: FormData) => {
     const payload = {
       ...data,
       lineItems: lineItems.map((li, idx) => ({ ...li, sortOrder: idx })),
       subtotal,
-      taxAmount: taxAmt,
       total,
     };
 
@@ -179,7 +172,7 @@ export default function EstimateFormPage() {
         onSubmit={(e) => void handleSubmit(onSubmit)(e)}
         className="space-y-5"
       >
-        <Card title="Estimate Details">
+        <Card title="Quote Details">
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -206,7 +199,7 @@ export default function EstimateFormPage() {
             {customerId && customerJobs.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Related Job
+                  Related Work Order
                 </label>
                 <select
                   {...register("jobId")}
@@ -301,19 +294,6 @@ export default function EstimateFormPage() {
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Tax Rate (%)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  {...register("taxRate", { valueAsNumber: true })}
-                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
             </div>
             <div className="bg-gray-50 rounded-lg p-4 space-y-2">
               <div className="flex justify-between text-sm">
@@ -328,10 +308,6 @@ export default function EstimateFormPage() {
                   </span>
                 </div>
               )}
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Tax ({taxRate}%)</span>
-                <span className="font-medium">{formatCurrency(taxAmt)}</span>
-              </div>
               <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2">
                 <span>Total</span>
                 <span className="text-primary-600">
@@ -388,7 +364,7 @@ export default function EstimateFormPage() {
               updateMutation.isPending
             }
           >
-            {isEditing ? "Save Changes" : "Create Estimate"}
+            {isEditing ? "Save Changes" : "Create Quote"}
           </Button>
         </div>
       </form>

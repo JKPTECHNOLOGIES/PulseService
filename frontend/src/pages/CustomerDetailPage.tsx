@@ -29,7 +29,7 @@ import {
   formatPhone,
 } from "../utils/formatters";
 
-const TABS = ["Overview", "Jobs", "Estimates", "Invoices"];
+const TABS = ["Overview", "Work Orders", "Quotes", "Invoices"];
 
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -116,7 +116,7 @@ export default function CustomerDetailPage() {
                 navigate("/jobs/new", { state: { customerId: id } });
               }}
             >
-              New Job
+              New Work Order
             </Button>
             <Button
               variant="secondary"
@@ -306,7 +306,7 @@ export default function CustomerDetailPage() {
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50">
                     <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs">
-                      JOB #
+                      WO #
                     </th>
                     <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs">
                       SUMMARY
@@ -329,7 +329,7 @@ export default function CustomerDetailPage() {
                         colSpan={5}
                         className="text-center py-8 text-gray-400"
                       >
-                        No jobs found
+                        No work orders found
                       </td>
                     </tr>
                   ) : (
@@ -364,14 +364,14 @@ export default function CustomerDetailPage() {
             </div>
           </Tab.Panel>
 
-          {/* Estimates */}
+          {/* Quotes */}
           <Tab.Panel>
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50">
                     <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs">
-                      ESTIMATE #
+                      QUOTE #
                     </th>
                     <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs">
                       TITLE
@@ -394,7 +394,7 @@ export default function CustomerDetailPage() {
                         colSpan={5}
                         className="text-center py-8 text-gray-400"
                       >
-                        No estimates
+                        No quotes
                       </td>
                     </tr>
                   ) : (
@@ -501,7 +501,7 @@ export default function CustomerDetailPage() {
         }}
         onConfirm={() => void handleDelete()}
         title="Delete customer"
-        message={`Permanently delete ${customer.firstName} ${customer.lastName} and all associated jobs, estimates, invoices, payments, agreements, equipment and contacts? This cannot be undone.`}
+        message={`Permanently delete ${customer.firstName} ${customer.lastName} and all associated work orders, quotes, invoices, payments, agreements, equipment and contacts? This cannot be undone.`}
         confirmLabel="Delete customer"
         loading={deleteCustomer.isPending}
       />
