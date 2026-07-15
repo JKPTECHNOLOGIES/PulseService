@@ -70,7 +70,7 @@ export default function EstimatesPage() {
   const columns: Column<Estimate>[] = [
     {
       key: "estimate",
-      header: "Estimate",
+      header: "Quote",
       sortValue: (est) => est.estimateNumber,
       exportValue: (est) => est.estimateNumber,
       render: (est) => (
@@ -135,7 +135,7 @@ export default function EstimatesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">
-          {pagination ? `${String(pagination.total)} estimates` : ""}
+          {pagination ? `${String(pagination.total)} quotes` : ""}
         </p>
         <Button
           icon={<PlusIcon className="h-4 w-4" />}
@@ -143,7 +143,7 @@ export default function EstimatesPage() {
             navigate("/estimates/new");
           }}
         >
-          New Estimate
+          New Quote
         </Button>
       </div>
 
@@ -154,7 +154,7 @@ export default function EstimatesPage() {
             setSearch(v);
             setPage(1);
           }}
-          placeholder="Search estimates..."
+          placeholder="Search quotes..."
           className="sm:w-72"
         />
         <div className="flex flex-wrap gap-1 bg-gray-100 rounded-xl p-1">
@@ -190,9 +190,9 @@ export default function EstimatesPage() {
           <TableSkeleton rows={8} />
         ) : estimates.length === 0 ? (
           <EmptyState
-            title="No estimates found"
+            title="No quotes found"
             action={{
-              label: "New Estimate",
+              label: "New Quote",
               onClick: () => {
                 navigate("/estimates/new");
               },
@@ -209,7 +209,7 @@ export default function EstimatesPage() {
               }}
               sort={sort}
               onSortChange={setSort}
-              csvFilename="estimates"
+              csvFilename="quotes"
               renderMobileCard={(est) => (
                 <div>
                   <div className="flex items-center justify-between gap-2">
@@ -238,7 +238,7 @@ export default function EstimatesPage() {
                 <>
                   {est.status === "draft" && (
                     <IconButton
-                      label="Send estimate"
+                      label="Send quote"
                       onClick={() => {
                         sendEstimate.mutate(est.id);
                       }}

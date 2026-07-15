@@ -38,10 +38,10 @@ export function useCreateEstimate() {
       api.post<ApiResponse<Estimate>>("/estimates", payload),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["estimates"] });
-      toast.success("Estimate created successfully");
+      toast.success("Quote created successfully");
     },
     onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to create estimate"));
+      toast.error(getErrorMessage(err, "Failed to create quote"));
     },
   });
 }
@@ -57,10 +57,10 @@ export function useUpdateEstimate() {
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["estimates"] });
       void qc.invalidateQueries({ queryKey: ["estimate", vars.id] });
-      toast.success("Estimate updated successfully");
+      toast.success("Quote updated successfully");
     },
     onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to update estimate"));
+      toast.error(getErrorMessage(err, "Failed to update quote"));
     },
   });
 }
@@ -82,7 +82,7 @@ export function useSendEstimate() {
       if (res.emailWarning) {
         toast(res.emailWarning, { icon: "\u26A0\uFE0F", duration: 6000 });
       } else {
-        toast.success("Estimate emailed to customer");
+        toast.success("Quote emailed to customer");
       }
       // Demo mode (no real SMTP): open the Ethereal preview of the sent email.
       if (res.emailPreviewUrl) {
@@ -90,7 +90,7 @@ export function useSendEstimate() {
       }
     },
     onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to send estimate"));
+      toast.error(getErrorMessage(err, "Failed to send quote"));
     },
   });
 }
@@ -103,10 +103,10 @@ export function useApproveEstimate() {
     onSuccess: (_data, id) => {
       void qc.invalidateQueries({ queryKey: ["estimate", id] });
       void qc.invalidateQueries({ queryKey: ["estimates"] });
-      toast.success("Estimate approved");
+      toast.success("Quote approved");
     },
     onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to approve estimate"));
+      toast.error(getErrorMessage(err, "Failed to approve quote"));
     },
   });
 }
@@ -119,10 +119,10 @@ export function useConvertToInvoice() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["estimates"] });
       void qc.invalidateQueries({ queryKey: ["invoices"] });
-      toast.success("Estimate converted to invoice");
+      toast.success("Quote converted to invoice");
     },
     onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to convert estimate"));
+      toast.error(getErrorMessage(err, "Failed to convert quote"));
     },
   });
 }
