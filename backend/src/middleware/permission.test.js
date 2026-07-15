@@ -59,7 +59,7 @@ describe("requirePermission", () => {
     stubPermissions(["reports.operational"]);
     const { nextCalled } = await invoke(
       requirePermission("reports.financial", "reports.operational"),
-      { user: { role: "dispatcher" } },
+      { user: { role: "manager" } },
     );
     expect(nextCalled).toBe(true);
   });

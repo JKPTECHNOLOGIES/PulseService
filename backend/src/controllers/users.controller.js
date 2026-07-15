@@ -159,11 +159,31 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, phone, role, isActive } = req.body;
+    const { firstName, lastName, email, phone, role, isActive } = req.body;
 
     const target = await prisma.user.findUnique({ where: { id } });
     if (!target)
       return res.status(404).json({ success: false, error: "User not found" });
+
+    // Email is editable, but must stay non-empty and unique across users.
+    let normalizedEmail;
+    if (email !== undefined) {
+      normalizedEmail = email.toLowerCase().trim();
+      if (!normalizedEmail) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Email cannot be empty" });
+      }
+      const clash = await prisma.user.findFirst({
+        where: { email: normalizedEmail, id: { not: id } },
+      });
+      if (clash) {
+        return res.status(409).json({
+          success: false,
+          error: "A user with that email already exists",
+        });
+      }
+    }
 
     const isSelf = id === req.user.id;
     const losingAdmin =
@@ -198,6 +218,7 @@ const update = async (req, res) => {
         data: {
           ...(firstName !== undefined && { firstName }),
           ...(lastName !== undefined && { lastName }),
+          ...(normalizedEmail !== undefined && { email: normalizedEmail }),
           ...(phone !== undefined && { phone }),
           ...(role !== undefined && { role }),
           ...(isActive !== undefined && { isActive }),
