@@ -13,20 +13,43 @@ export function useInventoryReport() {
   });
 }
 
-export function useRevenueReport(params: { months?: number } = {}) {
+export type RevenueSource = "invoiced" | "collected" | "agreements";
+
+export interface RevenuePeriod {
+  period: string;
+  label: string;
+  invoiced?: number;
+  collected?: number;
+  agreements?: number;
+  total: number;
+}
+
+export interface RevenueReport {
+  data: RevenuePeriod[];
+  meta: {
+    from: string;
+    to: string;
+    granularity: "day" | "week" | "month";
+    sources: RevenueSource[];
+  };
+}
+
+export function useRevenueReport(
+  params: {
+    from?: string;
+    to?: string;
+    granularity?: "day" | "week" | "month";
+    sources?: string;
+  } = {},
+) {
   return useQuery({
     queryKey: ["reports", "revenue", params],
     queryFn: async () => {
-      const res = await api.get<
-        ApiResponse<
-          {
-            month: string;
-            revenue: number;
-            invoiceCount: number;
-          }[]
-        >
-      >("/reports/revenue", { params });
-      return res.data;
+      const res = await api.get<ApiResponse<RevenuePeriod[]> & RevenueReport>(
+        "/reports/revenue",
+        { params },
+      );
+      return { data: res.data, meta: res.meta };
     },
   });
 }

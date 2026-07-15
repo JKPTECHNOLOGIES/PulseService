@@ -15,46 +15,152 @@ const MONTH_LABELS = [
   "Dec",
 ];
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const BILLING_CYCLE_DAYS = {
+  monthly: 365.25 / 12,
+  quarterly: 365.25 / 4,
+  semi_annual: 365.25 / 2,
+  annual: 365.25,
+};
+
+const REVENUE_SOURCES = ["invoiced", "collected", "agreements"];
+
+function startOfDay(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function addDays(d, n) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+function buildRevenueBuckets(rangeStart, rangeEnd, granularity) {
+  const buckets = [];
+  if (granularity === "month") {
+    let cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+    while (cursor < rangeEnd) {
+      const bStart = cursor;
+      const bEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+      buckets.push({
+        period: `${bStart.getFullYear()}-${String(bStart.getMonth() + 1).padStart(2, "0")}`,
+        label: `${MONTH_LABELS[bStart.getMonth()]} ${bStart.getFullYear()}`,
+        start: bStart,
+        end: bEnd,
+      });
+      cursor = bEnd;
+    }
+  } else {
+    const step = granularity === "week" ? 7 : 1;
+    let cursor = rangeStart;
+    while (cursor < rangeEnd) {
+      const bStart = cursor;
+      const bEnd = addDays(cursor, step);
+      buckets.push({
+        period: bStart.toISOString().slice(0, 10),
+        label: `${bStart.getMonth() + 1}/${bStart.getDate()}`,
+        start: bStart,
+        end: bEnd,
+      });
+      cursor = bEnd;
+    }
+  }
+  return buckets;
+}
+
+// Sums `rows` (each with a date field and an amount field) into whichever
+// bucket its date falls in, writing the result onto `result[i][key]`.
+function sumIntoBuckets(result, buckets, rows, dateField, amountField, key) {
+  buckets.forEach((_, i) => {
+    result[i][key] = 0;
+  });
+  for (const row of rows) {
+    const d = new Date(row[dateField]);
+    const idx = buckets.findIndex((b) => d >= b.start && d < b.end);
+    if (idx >= 0) {
+      result[idx][key] = Math.round((result[idx][key] + Number(row[amountField])) * 100) / 100;
+    }
+  }
+}
+
+// Revenue over a chosen date range (default: last 30 days), broken down by
+// day/week/month, with each revenue source computed and returned separately
+// so the office can pick and choose which ones to chart:
+//  - invoiced:   sum of invoice totals by the invoice's created date (accrual;
+//                what was billed, regardless of whether it's been paid yet).
+//  - collected:  sum of completed payments by payment date (cash actually in
+//                the bank).
+//  - agreements: prorated recurring value of active service agreements/
+//                contracts for each period in range (contracts don't
+//                generate their own invoices in this app, so this is
+//                imputed from the agreement's amount + billing frequency).
 const revenue = async (req, res) => {
   try {
     const now = new Date();
-    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    const to = req.query.to && !isNaN(new Date(req.query.to)) ? new Date(req.query.to) : now;
+    const from = req.query.from && !isNaN(new Date(req.query.from)) ? new Date(req.query.from) : addDays(to, -29);
+    const granularity = ["day", "week", "month"].includes(req.query.granularity) ? req.query.granularity : "day";
+    const requested = req.query.sources ? String(req.query.sources).split(",").filter((s) => REVENUE_SOURCES.includes(s)) : REVENUE_SOURCES;
+    const sources = requested.length > 0 ? requested : REVENUE_SOURCES;
 
-    const payments = await prisma.payment.findMany({
-      where: {
-        createdAt: { gte: twelveMonthsAgo },
-        status: "completed",
+    const rangeStart = startOfDay(from < to ? from : to);
+    const rangeEnd = addDays(startOfDay(from < to ? to : from), 1);
+
+    const buckets = buildRevenueBuckets(rangeStart, rangeEnd, granularity);
+    const result = buckets.map((b) => ({ period: b.period, label: b.label }));
+
+    if (sources.includes("invoiced")) {
+      const invoices = await prisma.invoice.findMany({
+        where: { createdAt: { gte: rangeStart, lt: rangeEnd }, status: { not: "void" } },
+        select: { total: true, createdAt: true },
+      });
+      sumIntoBuckets(result, buckets, invoices, "createdAt", "total", "invoiced");
+    }
+
+    if (sources.includes("collected")) {
+      const payments = await prisma.payment.findMany({
+        where: { createdAt: { gte: rangeStart, lt: rangeEnd }, status: "completed" },
+        select: { amount: true, createdAt: true },
+      });
+      sumIntoBuckets(result, buckets, payments, "createdAt", "amount", "collected");
+    }
+
+    if (sources.includes("agreements")) {
+      const agreements = await prisma.serviceAgreement.findMany({
+        where: { status: "active", startDate: { lt: rangeEnd }, endDate: { gte: rangeStart } },
+        select: { amount: true, billingFrequency: true, startDate: true, endDate: true },
+      });
+      buckets.forEach((b, i) => {
+        let total = 0;
+        for (const a of agreements) {
+          const cycleDays = BILLING_CYCLE_DAYS[a.billingFrequency] || BILLING_CYCLE_DAYS.monthly;
+          const dailyRate = a.amount / cycleDays;
+          const overlapStart = Math.max(b.start.getTime(), new Date(a.startDate).getTime());
+          const overlapEnd = Math.min(b.end.getTime(), new Date(a.endDate).getTime() + DAY_MS);
+          const overlapDays = Math.max(0, (overlapEnd - overlapStart) / DAY_MS);
+          total += dailyRate * overlapDays;
+        }
+        result[i].agreements = Math.round(total * 100) / 100;
+      });
+    }
+
+    result.forEach((r) => {
+      r.total = Math.round(sources.reduce((sum, s) => sum + (r[s] || 0), 0) * 100) / 100;
+    });
+
+    return res.json({
+      success: true,
+      data: result,
+      meta: {
+        from: rangeStart.toISOString(),
+        to: addDays(rangeEnd, -1).toISOString(),
+        granularity,
+        sources,
       },
-      select: { amount: true, createdAt: true, invoiceId: true },
     });
-
-    // Group by year-month in JavaScript (SQLite doesn't support date_trunc)
-    const grouped = {};
-    payments.forEach((p) => {
-      const d = new Date(p.createdAt);
-      const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
-      if (!grouped[key]) {
-        grouped[key] = {
-          year: d.getFullYear(),
-          month: d.getMonth() + 1,
-          revenue: 0,
-          invoices: new Set(),
-        };
-      }
-      grouped[key].revenue += p.amount;
-      grouped[key].invoices.add(p.invoiceId);
-    });
-
-    const result = Object.values(grouped)
-      .sort((a, b) => a.year - b.year || a.month - b.month)
-      .map((g) => ({
-        year: g.year,
-        month: MONTH_LABELS[g.month - 1],
-        revenue: Math.round(g.revenue * 100) / 100,
-        invoiceCount: g.invoices.size,
-      }));
-
-    return res.json({ success: true, data: result });
   } catch (err) {
     console.error("reports.revenue error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
