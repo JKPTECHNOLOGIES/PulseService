@@ -237,19 +237,30 @@ interface RescheduleVars {
   jobId: string;
   scheduledStart: string;
   scheduledEnd: string;
+  /** Optional additional time windows to replace on the job. When omitted the
+   * existing blocks are left untouched (e.g. a drag only moves the primary
+   * window). */
+  scheduleBlocks?: { start: string; end: string }[];
   /** Board date, used only for cache invalidation. */
   date: string;
 }
 
 /** Updates a job's scheduled start/end (used when dragging a job along the
- * dispatch timeline to a new time). */
+ * dispatch timeline to a new time), plus any additional scheduled time blocks
+ * edited in the dispatch modal. */
 export function useRescheduleJob() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ jobId, scheduledStart, scheduledEnd }: RescheduleVars) =>
+    mutationFn: ({
+      jobId,
+      scheduledStart,
+      scheduledEnd,
+      scheduleBlocks,
+    }: RescheduleVars) =>
       api.put<ApiResponse<Job>>(`/jobs/${jobId}`, {
         scheduledStart,
         scheduledEnd,
+        ...(scheduleBlocks ? { scheduleBlocks } : {}),
       }),
     onMutate: async (vars: RescheduleVars) => {
       await qc.cancelQueries({ queryKey: ["dispatch"] });
