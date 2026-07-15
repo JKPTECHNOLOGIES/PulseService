@@ -7,13 +7,16 @@ const c = require("../controllers/jobs.controller");
 
 router.use(auth);
 
+// Job type is intentionally NOT validated against a fixed lookup -- the office
+// can type a new service type straight into the job form and it's saved as-is
+// (see c.types, which surfaces distinct values already in use as suggestions).
 const validateJob = validateLookups({
   status: "jobStatus",
-  type: "jobType",
   priority: "jobPriority",
 });
 
 router.get("/", c.list);
+router.get("/types", c.types);
 router.post(
   "/",
   requirePermission("jobs.create"),

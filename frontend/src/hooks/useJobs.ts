@@ -34,6 +34,21 @@ export function useJob(id: string) {
   });
 }
 
+// Job type is free text (not a fixed lookup) so the office can type a new
+// service type straight into the form. This returns the built-in suggestions
+// plus every distinct type already used, so a custom type typed once shows up
+// as a pick for every job after that.
+export function useJobTypes() {
+  return useQuery({
+    queryKey: ["jobs", "types"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<string[]>>("/jobs/types");
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
 export function useCreateJob() {
   const qc = useQueryClient();
   return useMutation({
