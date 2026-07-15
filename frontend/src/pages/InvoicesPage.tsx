@@ -2,7 +2,11 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PlusIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
-import { useInvoices, useSendInvoice } from "../hooks/useInvoices";
+import {
+  useInvoices,
+  useInvoiceStats,
+  useSendInvoice,
+} from "../hooks/useInvoices";
 import Button from "../components/ui/Button";
 import IconButton from "../components/ui/IconButton";
 import SearchInput from "../components/ui/SearchInput";
@@ -23,9 +27,10 @@ interface InvoicesView {
 }
 
 function customerName(inv: Invoice): string {
-  return inv.customer
-    ? `${inv.customer.firstName} ${inv.customer.lastName}`
-    : "";
+  if (!inv.customer) return "";
+  const { firstName, lastName, companyName } = inv.customer;
+  if (companyName?.trim()) return companyName;
+  return `${firstName} ${lastName}`.trim();
 }
 
 export default function InvoicesPage() {
@@ -35,7 +40,6 @@ export default function InvoicesPage() {
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState<SortState | null>(null);
   const { options: statusOptions } = useLookup("invoiceStatus");
-  const statusFilters = [{ value: "all", label: "All" }, ...statusOptions];
 
   const { data, isLoading } = useInvoices({
     page,
@@ -43,10 +47,23 @@ export default function InvoicesPage() {
     search: search || undefined,
     status: status !== "all" ? status : undefined,
   });
+  const { data: stats } = useInvoiceStats();
   const sendInvoice = useSendInvoice();
 
   const invoices = data?.data ?? [];
   const pagination = data?.pagination;
+  const summary = data?.summary;
+
+  // Category tabs mirror the office's mental model: All + one per status, with
+  // live counts. "overdue" is shown as "Past Due" to match familiar wording.
+  const tabs = [
+    { value: "all", label: "All", count: stats?.total },
+    ...statusOptions.map((o) => ({
+      value: o.value,
+      label: o.value === "overdue" ? "Past Due" : o.label,
+      count: stats ? (stats.byStatus[o.value] ?? 0) : undefined,
+    })),
+  ];
 
   const applyView = (view: InvoicesView) => {
     setSearch(view.search);
@@ -58,7 +75,7 @@ export default function InvoicesPage() {
   const columns: Column<Invoice>[] = [
     {
       key: "invoice",
-      header: "Invoice",
+      header: "Invoice #",
       sortValue: (inv) => inv.invoiceNumber,
       exportValue: (inv) => inv.invoiceNumber,
       render: (inv) => (
@@ -74,6 +91,39 @@ export default function InvoicesPage() {
       exportValue: (inv) => customerName(inv),
       render: (inv) => (
         <span className="text-gray-900">{customerName(inv) || "-"}</span>
+      ),
+    },
+    {
+      key: "workOrder",
+      header: "Work Order",
+      sortValue: (inv) => inv.job?.jobNumber ?? "",
+      exportValue: (inv) =>
+        inv.job ? `#${inv.job.jobNumber} ${inv.job.summary ?? ""}`.trim() : "",
+      render: (inv) =>
+        inv.job ? (
+          <div className="min-w-0 max-w-[16rem]">
+            <span className="font-medium text-gray-700">
+              #{inv.job.jobNumber}
+            </span>
+            {inv.job.summary && (
+              <p className="text-xs text-gray-400 truncate">
+                {inv.job.summary}
+              </p>
+            )}
+          </div>
+        ) : (
+          <span className="text-gray-300">-</span>
+        ),
+    },
+    {
+      key: "date",
+      header: "Date",
+      sortValue: (inv) => new Date(inv.createdAt).getTime(),
+      exportValue: (inv) => formatDate(inv.createdAt),
+      render: (inv) => (
+        <span className="text-gray-500 text-xs">
+          {formatDate(inv.createdAt)}
+        </span>
       ),
     },
     {
@@ -116,7 +166,7 @@ export default function InvoicesPage() {
     },
     {
       key: "status",
-      header: "Status",
+      header: "Pay Status",
       sortValue: (inv) => inv.status,
       exportValue: (inv) => inv.status,
       render: (inv) => <StatusBadge status={inv.status} type="invoice" />,
@@ -127,7 +177,7 @@ export default function InvoicesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">
-          {pagination ? `${String(pagination.total)} invoices` : ""}
+          {stats ? `${String(stats.total)} invoices` : ""}
         </p>
         <Button
           icon={<PlusIcon className="h-4 w-4" />}
@@ -139,6 +189,7 @@ export default function InvoicesPage() {
         </Button>
       </div>
 
+      {/* Search + saved views */}
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchInput
           value={search}
@@ -146,34 +197,50 @@ export default function InvoicesPage() {
             setSearch(v);
             setPage(1);
           }}
-          placeholder="Search invoices..."
-          className="sm:w-72"
+          placeholder="Search by customer, invoice #, or work order…"
+          className="sm:w-96"
         />
-        <div className="flex flex-wrap gap-1 bg-gray-100 rounded-xl p-1">
-          {statusFilters.map((s) => (
-            <button
-              key={s.value}
-              onClick={() => {
-                setStatus(s.value);
-                setPage(1);
-              }}
-              className={clsx(
-                "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                status === s.value
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700",
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
         <div className="sm:ml-auto">
           <SavedViewsMenu<InvoicesView>
             tableId="invoices"
             currentState={{ search, status, sort }}
             onApply={applyView}
           />
+        </div>
+      </div>
+
+      {/* Category tabs */}
+      <div className="border-b border-gray-200 overflow-x-auto">
+        <div className="flex min-w-max">
+          {tabs.map((t) => (
+            <button
+              key={t.value}
+              onClick={() => {
+                setStatus(t.value);
+                setPage(1);
+              }}
+              className={clsx(
+                "relative px-3.5 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors",
+                status === t.value
+                  ? "border-primary-600 text-primary-700"
+                  : "border-transparent text-gray-500 hover:text-gray-700",
+              )}
+            >
+              {t.label}
+              {typeof t.count === "number" && (
+                <span
+                  className={clsx(
+                    "ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-semibold",
+                    status === t.value
+                      ? "bg-primary-100 text-primary-700"
+                      : "bg-gray-100 text-gray-500",
+                  )}
+                >
+                  {t.count}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -215,6 +282,11 @@ export default function InvoicesPage() {
                       {customerName(inv)}
                     </p>
                   )}
+                  {inv.job && (
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      WO #{inv.job.jobNumber}
+                    </p>
+                  )}
                   <p className="text-xs text-gray-500 mt-0.5">
                     Due {formatDate(inv.dueDate)}
                   </p>
@@ -246,6 +318,30 @@ export default function InvoicesPage() {
                 ) : null
               }
             />
+
+            {/* Grand totals for the whole filtered set (all pages) */}
+            {summary && (
+              <div className="flex items-center justify-between gap-4 px-5 py-3 border-t border-gray-200 bg-gray-50 text-sm">
+                <span className="font-semibold text-gray-700">
+                  Grand Totals
+                </span>
+                <div className="flex gap-8">
+                  <span className="text-gray-500">
+                    Total{" "}
+                    <span className="font-semibold text-gray-900">
+                      {formatCurrency(summary.total)}
+                    </span>
+                  </span>
+                  <span className="text-gray-500">
+                    Balance{" "}
+                    <span className="font-semibold text-gray-900">
+                      {formatCurrency(summary.balance)}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            )}
+
             {pagination && (
               <div className="px-5 py-4 border-t border-gray-100">
                 <Pagination

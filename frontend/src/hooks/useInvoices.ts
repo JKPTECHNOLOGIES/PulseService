@@ -12,10 +12,31 @@ interface InvoicesParams {
   customerId?: string;
 }
 
+// The list response also carries grand totals for the whole filtered set (all
+// pages), used for the totals row under the table.
+type InvoicesResponse = PaginatedResponse<Invoice> & {
+  summary?: { total: number; balance: number };
+};
+
 export function useInvoices(params: InvoicesParams = {}) {
   return useQuery({
     queryKey: ["invoices", params],
-    queryFn: () => api.get<PaginatedResponse<Invoice>>("/invoices", { params }),
+    queryFn: () => api.get<InvoicesResponse>("/invoices", { params }),
+  });
+}
+
+export interface InvoiceStats {
+  total: number;
+  byStatus: Record<string, number>;
+}
+
+export function useInvoiceStats() {
+  return useQuery({
+    queryKey: ["invoices", "stats"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<InvoiceStats>>("/invoices/stats");
+      return res.data;
+    },
   });
 }
 

@@ -12,6 +12,7 @@ const validateInvoice = validateLookups({
 });
 
 router.get("/", c.list);
+router.get("/stats", c.stats);
 router.post(
   "/",
   requirePermission("invoices.manage"),
