@@ -23,7 +23,7 @@
  * When clearing, dependent rows that would otherwise block the delete are
  * removed/detached first: InventoryTransaction, InventoryItemCostHistory,
  * SerializedUnit are deleted; POLine.inventoryItemId is nulled. InventoryStock
- * and InventoryItemSupplier cascade automatically.
+ * and InventoryItemVendor cascade automatically.
  */
 const fs = require("fs");
 
@@ -177,7 +177,7 @@ async function main() {
           where: { inventoryItemId: { not: null } },
           data: { inventoryItemId: null },
         }),
-        // InventoryStock + InventoryItemSupplier cascade on item delete.
+        // InventoryStock + InventoryItemVendor cascade on item delete.
         prisma.inventoryItem.deleteMany({}),
       ]);
       console.log("Existing inventory cleared.");

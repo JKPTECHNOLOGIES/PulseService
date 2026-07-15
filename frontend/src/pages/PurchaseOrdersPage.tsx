@@ -24,7 +24,7 @@ import {
   useReorderSuggestions,
   type POLineInput,
 } from "../hooks/usePurchasing";
-import { useSuppliers } from "../hooks/useSuppliers";
+import { useVendors } from "../hooks/useVendors";
 import { useStockLocations, useInventoryItems } from "../hooks/useInventory";
 import type { PurchaseOrder } from "../types";
 
@@ -36,7 +36,7 @@ const num = (v: unknown) => Number(v ?? 0);
 
 const csvColumns = [
   { header: "PO #", value: (po: PurchaseOrder) => po.poNumber },
-  { header: "Supplier", value: (po: PurchaseOrder) => po.supplier?.name ?? "" },
+  { header: "Vendor", value: (po: PurchaseOrder) => po.vendor?.name ?? "" },
   { header: "Status", value: (po: PurchaseOrder) => po.status },
   {
     header: "Ship To",
@@ -70,13 +70,13 @@ export default function PurchaseOrdersPage() {
       ),
     },
     {
-      key: "supplier",
-      header: "Supplier",
-      sortValue: (po) => po.supplier?.name.toLowerCase() ?? "",
-      exportValue: (po) => po.supplier?.name ?? "",
+      key: "vendor",
+      header: "Vendor",
+      sortValue: (po) => po.vendor?.name.toLowerCase() ?? "",
+      exportValue: (po) => po.vendor?.name ?? "",
       render: (po) => (
         <span className="font-medium text-gray-900">
-          {po.supplier?.name ?? "-"}
+          {po.vendor?.name ?? "-"}
         </span>
       ),
     },
@@ -171,7 +171,7 @@ export default function PurchaseOrdersPage() {
         {orders.length === 0 ? (
           <EmptyState
             title="No purchase orders"
-            description="Create a PO to order parts and equipment from a supplier."
+            description="Create a PO to order parts and equipment from a vendor."
           />
         ) : (
           <DataTable<PurchaseOrder>
@@ -196,7 +196,7 @@ export default function PurchaseOrdersPage() {
                   <StatusBadge status={po.status} category="poStatus" />
                 </div>
                 <p className="font-medium text-gray-900 mt-0.5">
-                  {po.supplier?.name ?? "-"}
+                  {po.vendor?.name ?? "-"}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {po.shipToLocation?.code ?? "-"} · {formatDate(po.orderDate)}
@@ -255,11 +255,11 @@ function ReorderSuggestionsModal({
   const defaultWarehouse = (locations ?? []).find((l) => l.isDefault);
 
   const createDraft = (group: NonNullable<typeof groups>[number]) => {
-    if (!group.supplier.id) return;
-    setCreatingFor(group.supplier.id);
+    if (!group.vendor.id) return;
+    setCreatingFor(group.vendor.id);
     void create
       .mutateAsync({
-        supplierId: group.supplier.id,
+        vendorId: group.vendor.id,
         shipToLocationId: defaultWarehouse?.id,
         lines: group.lines.map((l) => ({
           inventoryItemId: l.inventoryItemId,
@@ -292,17 +292,17 @@ function ReorderSuggestionsModal({
         <div className="space-y-4">
           {groups.map((group) => (
             <div
-              key={group.supplier.id ?? "unassigned"}
+              key={group.vendor.id ?? "unassigned"}
               className="border border-gray-100 rounded-lg overflow-hidden"
             >
               <div className="bg-gray-50 px-4 py-2.5 flex items-center justify-between">
                 <span className="text-sm font-semibold text-gray-800">
-                  {group.supplier.name}
+                  {group.vendor.name}
                 </span>
-                {group.supplier.id ? (
+                {group.vendor.id ? (
                   <Button
                     size="sm"
-                    loading={creatingFor === group.supplier.id}
+                    loading={creatingFor === group.vendor.id}
                     onClick={() => {
                       createDraft(group);
                     }}
@@ -311,7 +311,7 @@ function ReorderSuggestionsModal({
                   </Button>
                 ) : (
                   <span className="text-xs text-gray-400">
-                    Assign a supplier to these items to order
+                    Assign a vendor to these items to order
                   </span>
                 )}
               </div>
@@ -423,17 +423,17 @@ function CreatePOModal({
 }) {
   const navigate = useNavigate();
   const create = useCreatePurchaseOrder();
-  const { data: suppliers } = useSuppliers({ active: "true" });
+  const { data: vendors } = useVendors({ active: "true" });
   const { data: locations } = useStockLocations({ active: "true" });
   const { data: items } = useInventoryItems();
 
-  const [supplierId, setSupplierId] = useState("");
+  const [vendorId, setVendorId] = useState("");
   const [shipToLocationId, setShipTo] = useState("");
   const [expectedDate, setExpectedDate] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([]);
 
   const reset = () => {
-    setSupplierId("");
+    setVendorId("");
     setShipTo("");
     setExpectedDate("");
     setLines([]);
@@ -483,18 +483,18 @@ function CreatePOModal({
     >
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Field label="Supplier">
+          <Field label="Vendor">
             <select
-              value={supplierId}
+              value={vendorId}
               onChange={(e) => {
-                setSupplierId(e.target.value);
+                setVendorId(e.target.value);
               }}
               className={INPUT}
             >
-              <option value="">Select supplier...</option>
-              {(suppliers ?? []).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
+              <option value="">Select vendor...</option>
+              {(vendors ?? []).map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
                 </option>
               ))}
             </select>
@@ -648,11 +648,11 @@ function CreatePOModal({
             </Button>
             <Button
               loading={create.isPending}
-              disabled={!supplierId || lines.length === 0}
+              disabled={!vendorId || lines.length === 0}
               onClick={() => {
                 void (async () => {
                   const res = await create.mutateAsync({
-                    supplierId,
+                    vendorId,
                     shipToLocationId: shipToLocationId || undefined,
                     expectedDate: expectedDate || undefined,
                     lines: lines.map((l) => ({

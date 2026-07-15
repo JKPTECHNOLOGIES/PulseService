@@ -34,7 +34,7 @@ export function usePurchaseOrders(
     page?: number;
     limit?: number;
     status?: string;
-    supplierId?: string;
+    vendorId?: string;
     jobId?: string;
     search?: string;
   } = {},
@@ -83,7 +83,7 @@ export function useCreatePurchaseOrder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: {
-      supplierId: string;
+      vendorId: string;
       shipToLocationId?: string;
       jobId?: string;
       customerId?: string;

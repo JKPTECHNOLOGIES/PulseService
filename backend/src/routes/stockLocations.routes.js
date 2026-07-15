@@ -7,7 +7,7 @@ const c = require("../controllers/stockLocations.controller");
 router.use(auth);
 
 // No cost data lives on a stock location itself, so this is a lighter gate
-// than purchasing/suppliers -- just excludes roles with zero inventory-
+// than purchasing/vendors -- just excludes roles with zero inventory-
 // adjacent reason to see truck/warehouse locations (csr, exec), while still
 // covering technicians (they need this to pick their truck in AddPartModal).
 const canViewLocations = requirePermission(
@@ -15,7 +15,7 @@ const canViewLocations = requirePermission(
   "inventory.issueToJob",
   "purchasing.manage",
   "purchasing.receive",
-  "suppliers.manage",
+  "vendors.manage",
 );
 router.get("/", canViewLocations, c.list);
 router.get("/vehicles", canViewLocations, c.vehicles);

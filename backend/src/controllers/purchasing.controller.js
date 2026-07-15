@@ -38,11 +38,11 @@ const list = async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const { skip, take } = paginate(page, limit);
-    const { status, supplierId, jobId, search } = req.query;
+    const { status, vendorId, jobId, search } = req.query;
 
     const where = {};
     if (status) where.status = status;
-    if (supplierId) where.supplierId = supplierId;
+    if (vendorId) where.vendorId = vendorId;
     if (jobId) where.jobId = jobId;
     if (search) where.poNumber = { contains: search, mode: "insensitive" };
 
@@ -53,7 +53,7 @@ const list = async (req, res) => {
         take,
         orderBy: { orderDate: "desc" },
         include: {
-          supplier: { select: { id: true, name: true } },
+          vendor: { select: { id: true, name: true } },
           shipToLocation: { select: { id: true, name: true, code: true } },
           _count: { select: { lines: true } },
         },
@@ -76,7 +76,7 @@ const get = async (req, res) => {
     const order = await prisma.purchaseOrder.findUnique({
       where: { id: req.params.id },
       include: {
-        supplier: true,
+        vendor: true,
         shipToLocation: { select: { id: true, name: true, code: true } },
         job: { select: { id: true, jobNumber: true, summary: true } },
         customer: {
@@ -117,7 +117,7 @@ const get = async (req, res) => {
 const create = async (req, res) => {
   try {
     const {
-      supplierId,
+      vendorId,
       shipToLocationId,
       jobId,
       customerId,
@@ -129,10 +129,10 @@ const create = async (req, res) => {
       lines = [],
     } = req.body;
 
-    if (!supplierId)
+    if (!vendorId)
       return res
         .status(400)
-        .json({ success: false, error: "supplierId is required" });
+        .json({ success: false, error: "vendorId is required" });
     if (!Array.isArray(lines) || lines.length === 0)
       return res
         .status(400)
@@ -155,7 +155,7 @@ const create = async (req, res) => {
       const created = await tx.purchaseOrder.create({
         data: {
           poNumber,
-          supplierId,
+          vendorId,
           shipToLocationId: shipToLocationId || null,
           jobId: jobId || null,
           customerId: customerId || null,
@@ -182,7 +182,7 @@ const create = async (req, res) => {
         },
         include: {
           lines: true,
-          supplier: { select: { id: true, name: true } },
+          vendor: { select: { id: true, name: true } },
         },
       });
       await tx.companySettings.update({
@@ -281,7 +281,7 @@ const update = async (req, res) => {
         data: { ...data, subtotal, totalAmount },
         include: {
           lines: { orderBy: { lineNumber: "asc" } },
-          supplier: { select: { id: true, name: true } },
+          vendor: { select: { id: true, name: true } },
         },
       });
     });
@@ -408,7 +408,7 @@ const receiveItems = async (req, res) => {
             itemId: line.inventoryItemId,
             receiptQty: q,
             receiptUnitCost: unitCost,
-            supplierId: po.supplierId,
+            vendorId: po.vendorId,
             referenceType: "purchase_order",
             referenceId: po.id,
             performedBy: req.user?.id,
@@ -503,7 +503,7 @@ const receiveItems = async (req, res) => {
       return tx.purchaseOrder.findUnique({
         where: { id: po.id },
         include: {
-          supplier: { select: { id: true, name: true } },
+          vendor: { select: { id: true, name: true } },
           lines: {
             orderBy: { lineNumber: "asc" },
             include: { receipts: true },
@@ -624,8 +624,8 @@ const reverseReceipt = async (req, res) => {
 };
 
 /**
- * Items at/below their reorder point, grouped by default supplier, with a
- * suggested order quantity and the best-known cost (primary supplier catalog
+ * Items at/below their reorder point, grouped by default vendor, with a
+ * suggested order quantity and the best-known cost (primary vendor catalog
  * price, falling back to the item's average cost).
  */
 const reorderSuggestions = async (req, res) => {
@@ -634,12 +634,12 @@ const reorderSuggestions = async (req, res) => {
       where: { isArchived: false, isActive: true, isStockItem: true },
       include: {
         stock: true,
-        defaultSupplier: { select: { id: true, name: true } },
-        suppliers: {
+        defaultVendor: { select: { id: true, name: true } },
+        vendors: {
           where: { isActive: true },
           orderBy: { isPrimary: "desc" },
           take: 1,
-          include: { supplier: { select: { id: true, name: true } } },
+          include: { vendor: { select: { id: true, name: true } } },
         },
       },
     });
@@ -658,12 +658,12 @@ const reorderSuggestions = async (req, res) => {
 
     const groups = new Map();
     for (const { item, onHand } of low) {
-      const catalog = item.suppliers[0] ?? null;
-      const supplier = catalog?.supplier ?? item.defaultSupplier ?? null;
-      const key = supplier?.id ?? "unassigned";
+      const catalog = item.vendors[0] ?? null;
+      const vendor = catalog?.vendor ?? item.defaultVendor ?? null;
+      const key = vendor?.id ?? "unassigned";
       if (!groups.has(key)) {
         groups.set(key, {
-          supplier: supplier ?? { id: null, name: "No supplier assigned" },
+          vendor: vendor ?? { id: null, name: "No vendor assigned" },
           lines: [],
         });
       }

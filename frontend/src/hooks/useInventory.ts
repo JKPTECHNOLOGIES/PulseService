@@ -83,7 +83,7 @@ export function useInventoryItems(
   params: {
     search?: string;
     categoryId?: string;
-    supplierId?: string;
+    vendorId?: string;
     locationId?: string;
     lowStock?: string;
   } = {},
@@ -320,9 +320,9 @@ export function useCycleCount() {
   });
 }
 
-// ─── Per-supplier catalog pricing ───────────────────────────────────────────────
+// ─── Per-vendor catalog pricing ───────────────────────────────────────────────
 
-export function useAddItemSupplier() {
+export function useAddItemVendor() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -330,33 +330,33 @@ export function useAddItemSupplier() {
       ...payload
     }: {
       itemId: string;
-      supplierId: string;
+      vendorId: string;
       unitCost: number;
-      supplierSku?: string;
+      vendorSku?: string;
       leadTimeDays?: number;
       isPrimary?: boolean;
-    }) => api.post(`/inventory/items/${itemId}/suppliers`, payload),
+    }) => api.post(`/inventory/items/${itemId}/vendors`, payload),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["inventory"] });
-      toast.success("Supplier price added");
+      toast.success("Vendor price added");
     },
     onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to add supplier price"));
+      toast.error(getErrorMessage(err, "Failed to add vendor price"));
     },
   });
 }
 
-export function useRemoveItemSupplier() {
+export function useRemoveItemVendor() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ itemId, linkId }: { itemId: string; linkId: string }) =>
-      api.delete(`/inventory/items/${itemId}/suppliers/${linkId}`),
+      api.delete(`/inventory/items/${itemId}/vendors/${linkId}`),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["inventory"] });
-      toast.success("Supplier price removed");
+      toast.success("Vendor price removed");
     },
     onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to remove supplier price"));
+      toast.error(getErrorMessage(err, "Failed to remove vendor price"));
     },
   });
 }

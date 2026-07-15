@@ -6,7 +6,7 @@ const c = require("../controllers/purchasing.controller");
 
 router.use(auth);
 
-// Purchasing data (costs, supplier pricing, receiving history) has no
+// Purchasing data (costs, vendor pricing, receiving history) has no
 // legitimate technician use case, unlike inventory items/serials/stock
 // locations -- gate every read the same as the writes.
 const canViewPurchasing = requirePermission(

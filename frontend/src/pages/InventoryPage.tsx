@@ -26,10 +26,10 @@ import {
   useTransferInventory,
   useInventoryTransactions,
   useSaveInventoryItem,
-  useAddItemSupplier,
-  useRemoveItemSupplier,
+  useAddItemVendor,
+  useRemoveItemVendor,
 } from "../hooks/useInventory";
-import { useSuppliers } from "../hooks/useSuppliers";
+import { useVendors } from "../hooks/useVendors";
 import ImportModal from "../components/ui/ImportModal";
 import Button from "../components/ui/Button";
 import IconButton from "../components/ui/IconButton";
@@ -95,7 +95,7 @@ export default function InventoryPage() {
   const [txItem, setTxItem] = useState<InventoryItem | null>(null);
   const [photoItem, setPhotoItem] = useState<InventoryItem | null>(null);
   const [formItem, setFormItem] = useState<Partial<InventoryItem> | null>(null);
-  const [supplierItem, setSupplierItem] = useState<InventoryItem | null>(null);
+  const [vendorItem, setVendorItem] = useState<InventoryItem | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [sort, setSort] = useState<SortState | null>(null);
@@ -224,9 +224,9 @@ export default function InventoryPage() {
           <PencilSquareIcon className="h-4 w-4" />
         </IconButton>
         <IconButton
-          label="Supplier pricing"
+          label="Vendor pricing"
           onClick={() => {
-            setSupplierItem(item);
+            setVendorItem(item);
           }}
         >
           <BuildingStorefrontIcon className="h-4 w-4" />
@@ -286,9 +286,9 @@ export default function InventoryPage() {
               }}
             />
             <MenuAction
-              label="Supplier pricing"
+              label="Vendor pricing"
               onSelect={() => {
-                setSupplierItem(item);
+                setVendorItem(item);
               }}
             />
           </>
@@ -580,11 +580,11 @@ export default function InventoryPage() {
         )}
       </Modal>
 
-      {/* Supplier pricing modal */}
-      <SupplierPricingModal
-        item={supplierItem}
+      {/* Vendor pricing modal */}
+      <VendorPricingModal
+        item={vendorItem}
         onClose={() => {
-          setSupplierItem(null);
+          setVendorItem(null);
         }}
       />
 
@@ -605,7 +605,7 @@ export default function InventoryPage() {
           "unitCost",
           "reorderPoint",
           "reorderQuantity",
-          "supplierName",
+          "vendorName",
           "locationCode",
           "serialized",
         ]}
@@ -626,9 +626,9 @@ export default function InventoryPage() {
   );
 }
 
-// ─── Supplier pricing modal ──────────────────────────────────────────────────────
+// ─── Vendor pricing modal ──────────────────────────────────────────────
 
-function SupplierPricingModal({
+function VendorPricingModal({
   item,
   onClose,
 }: {
@@ -636,25 +636,25 @@ function SupplierPricingModal({
   onClose: () => void;
 }) {
   const { data: detail } = useInventoryItem(item?.id ?? "");
-  const { data: suppliers } = useSuppliers({ active: "true" });
-  const addLink = useAddItemSupplier();
-  const removeLink = useRemoveItemSupplier();
+  const { data: vendors } = useVendors({ active: "true" });
+  const addLink = useAddItemVendor();
+  const removeLink = useRemoveItemVendor();
 
-  const [supplierId, setSupplierId] = useState("");
+  const [vendorId, setVendorId] = useState("");
   const [unitCost, setUnitCost] = useState("");
-  const [supplierSku, setSupplierSku] = useState("");
+  const [vendorSku, setVendorSku] = useState("");
 
   if (!item) return null;
 
-  const links = detail?.suppliers ?? [];
-  const linkedIds = new Set(links.map((l) => l.supplierId));
-  const addable = (suppliers ?? []).filter((s) => !linkedIds.has(s.id));
+  const links = detail?.vendors ?? [];
+  const linkedIds = new Set(links.map((l) => l.vendorId));
+  const addable = (vendors ?? []).filter((v) => !linkedIds.has(v.id));
 
   return (
     <Modal
       isOpen
       onClose={onClose}
-      title={`Supplier pricing: ${item.name}`}
+      title={`Vendor pricing: ${item.name}`}
       size="lg"
     >
       <div className="space-y-4">
@@ -669,8 +669,8 @@ function SupplierPricingModal({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
-                <th className="py-2 font-medium">Supplier</th>
-                <th className="py-2 font-medium">Supplier SKU</th>
+                <th className="py-2 font-medium">Vendor</th>
+                <th className="py-2 font-medium">Vendor SKU</th>
                 <th className="py-2 font-medium text-right">Price</th>
                 <th className="py-2 font-medium">Primary</th>
                 <th className="py-2" />
@@ -680,10 +680,10 @@ function SupplierPricingModal({
               {links.map((l) => (
                 <tr key={l.id}>
                   <td className="py-2.5 text-gray-900 font-medium">
-                    {l.supplier?.name ?? "-"}
+                    {l.vendor?.name ?? "-"}
                   </td>
                   <td className="py-2.5 font-mono text-xs text-gray-500">
-                    {l.supplierSku ?? "-"}
+                    {l.vendorSku ?? "-"}
                   </td>
                   <td className="py-2.5 text-right text-gray-700">
                     {formatCurrency(num(l.unitCost))}
@@ -703,7 +703,7 @@ function SupplierPricingModal({
                         removeLink.mutate({ itemId: item.id, linkId: l.id });
                       }}
                       className="p-1.5 text-gray-400 hover:text-red-500"
-                      aria-label="Remove supplier price"
+                      aria-label="Remove vendor price"
                     >
                       <TrashIcon className="h-4 w-4" />
                     </button>
@@ -713,36 +713,36 @@ function SupplierPricingModal({
             </tbody>
           </table>
         ) : (
-          <p className="text-sm text-gray-400">No supplier prices yet.</p>
+          <p className="text-sm text-gray-400">No vendor prices yet.</p>
         )}
 
-        {/* Add a supplier price */}
+        {/* Add a vendor price */}
         <div className="border-t border-gray-100 pt-4 grid grid-cols-12 gap-2 items-end">
           <div className="col-span-5">
-            <label className="block text-xs text-gray-500 mb-1">Supplier</label>
+            <label className="block text-xs text-gray-500 mb-1">Vendor</label>
             <select
-              value={supplierId}
+              value={vendorId}
               onChange={(e) => {
-                setSupplierId(e.target.value);
+                setVendorId(e.target.value);
               }}
               className={INPUT}
             >
-              <option value="">Select supplier...</option>
-              {addable.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
+              <option value="">Select vendor...</option>
+              {addable.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
                 </option>
               ))}
             </select>
           </div>
           <div className="col-span-3">
             <label className="block text-xs text-gray-500 mb-1">
-              Supplier SKU
+              Vendor SKU
             </label>
             <input
-              value={supplierSku}
+              value={vendorSku}
               onChange={(e) => {
-                setSupplierSku(e.target.value);
+                setVendorSku(e.target.value);
               }}
               className={INPUT}
             />
@@ -765,20 +765,20 @@ function SupplierPricingModal({
               size="sm"
               className="w-full"
               loading={addLink.isPending}
-              disabled={!supplierId || unitCost === ""}
+              disabled={!vendorId || unitCost === ""}
               onClick={() => {
                 void addLink
                   .mutateAsync({
                     itemId: item.id,
-                    supplierId,
+                    vendorId,
                     unitCost: Number(unitCost),
-                    supplierSku: supplierSku || undefined,
+                    vendorSku: vendorSku || undefined,
                     isPrimary: links.length === 0,
                   })
                   .then(() => {
-                    setSupplierId("");
+                    setVendorId("");
                     setUnitCost("");
-                    setSupplierSku("");
+                    setVendorSku("");
                   });
               }}
             >

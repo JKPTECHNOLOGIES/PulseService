@@ -9,27 +9,27 @@ const list = async (req, res) => {
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
-        { supplierNumber: { contains: search, mode: "insensitive" } },
+        { vendorNumber: { contains: search, mode: "insensitive" } },
         { contactName: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
       ];
     }
 
-    const suppliers = await prisma.supplier.findMany({
+    const vendors = await prisma.vendor.findMany({
       where,
       include: { _count: { select: { items: true, purchaseOrders: true } } },
       orderBy: { name: "asc" },
     });
-    return res.json({ success: true, data: suppliers });
+    return res.json({ success: true, data: vendors });
   } catch (err) {
-    console.error("suppliers.list error:", err);
+    console.error("vendors.list error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
 const get = async (req, res) => {
   try {
-    const supplier = await prisma.supplier.findUnique({
+    const vendor = await prisma.vendor.findUnique({
       where: { id: req.params.id },
       include: {
         items: {
@@ -50,13 +50,13 @@ const get = async (req, res) => {
         },
       },
     });
-    if (!supplier)
+    if (!vendor)
       return res
         .status(404)
-        .json({ success: false, error: "Supplier not found" });
-    return res.json({ success: true, data: supplier });
+        .json({ success: false, error: "Vendor not found" });
+    return res.json({ success: true, data: vendor });
   } catch (err) {
-    console.error("suppliers.get error:", err);
+    console.error("vendors.get error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
   }
 };
@@ -69,26 +69,26 @@ const create = async (req, res) => {
         .status(500)
         .json({ success: false, error: "Company settings not found" });
 
-    const supplierNumber = generateNumber(
-      settings.supplierPrefix,
-      settings.nextSupplierNumber,
+    const vendorNumber = generateNumber(
+      settings.vendorPrefix,
+      settings.nextVendorNumber,
     );
     const { id: _id, ...data } = req.body;
 
-    const supplier = await prisma.$transaction(async (tx) => {
-      const created = await tx.supplier.create({
-        data: { ...data, supplierNumber },
+    const vendor = await prisma.$transaction(async (tx) => {
+      const created = await tx.vendor.create({
+        data: { ...data, vendorNumber },
       });
       await tx.companySettings.update({
         where: { id: settings.id },
-        data: { nextSupplierNumber: { increment: 1 } },
+        data: { nextVendorNumber: { increment: 1 } },
       });
       return created;
     });
 
-    return res.status(201).json({ success: true, data: supplier });
+    return res.status(201).json({ success: true, data: vendor });
   } catch (err) {
-    console.error("suppliers.create error:", err);
+    console.error("vendors.create error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
   }
 };
@@ -97,39 +97,39 @@ const update = async (req, res) => {
   try {
     const {
       id: _id,
-      supplierNumber: _sn,
+      vendorNumber: _vn,
       createdAt: _ca,
       updatedAt: _ua,
       ...data
     } = req.body;
-    const supplier = await prisma.supplier.update({
+    const vendor = await prisma.vendor.update({
       where: { id: req.params.id },
       data,
     });
-    return res.json({ success: true, data: supplier });
+    return res.json({ success: true, data: vendor });
   } catch (err) {
     if (err.code === "P2025")
       return res
         .status(404)
-        .json({ success: false, error: "Supplier not found" });
-    console.error("suppliers.update error:", err);
+        .json({ success: false, error: "Vendor not found" });
+    console.error("vendors.update error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
 const remove = async (req, res) => {
   try {
-    await prisma.supplier.update({
+    await prisma.vendor.update({
       where: { id: req.params.id },
       data: { isActive: false },
     });
-    return res.json({ success: true, message: "Supplier deactivated" });
+    return res.json({ success: true, message: "Vendor deactivated" });
   } catch (err) {
     if (err.code === "P2025")
       return res
         .status(404)
-        .json({ success: false, error: "Supplier not found" });
-    console.error("suppliers.remove error:", err);
+        .json({ success: false, error: "Vendor not found" });
+    console.error("vendors.remove error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
   }
 };

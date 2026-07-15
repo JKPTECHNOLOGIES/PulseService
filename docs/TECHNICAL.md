@@ -138,13 +138,13 @@ case‑sensitive by default — this was fixed during the SQLite→Postgres migr
 | Field ops | Technician, Vehicle, Zone |
 | Sales | Estimate, EstimateLineItem, Invoice, InvoiceLineItem, Payment |
 | Pricing | PricebookCategory, PricebookItem, PricingTier, PricingTierOverride |
-| Inventory | Supplier, StockLocation, InventoryItem, InventoryStock, InventoryItemSupplier, InventoryItemCostHistory, InventoryTransaction, SerializedUnit |
+| Inventory | Vendor, StockLocation, InventoryItem, InventoryStock, InventoryItemVendor, InventoryItemCostHistory, InventoryTransaction, SerializedUnit |
 | Purchasing | PurchaseOrder, POLine, POLineReceipt |
 | Agreements | ServiceAgreement, AgreementVisit |
 | Accounting sync | QuickBooksSettings, QuickBooksMapping, QuickBooksItemMapping, QuickBooksSyncQueue |
 | Platform | CompanySettings, BusinessUnit, Notification, Attachment, PushSubscription, RolePermission, AuditLog, **Lookup** |
 
-- Document numbers (jobs, invoices, estimates, customers, suppliers, POs)
+- Document numbers (jobs, invoices, estimates, customers, vendors, POs)
   auto‑increment from counters in `CompanySettings`.
 
 ---
@@ -191,7 +191,7 @@ All under `/api/v1`. 35 groups:
 
 `auth`, `users`, `roles`, `audit`, `metadata`, `customers`, `jobs`, `dispatch`,
 `estimates`, `invoices`, `technicians`, `pricebook`, `inventory`,
-`stock-locations`, `suppliers`, `purchasing`, `serials`, `equipment`,
+`stock-locations`, `vendors`, `purchasing`, `serials`, `equipment`,
 `agreements`, `reports`, `settings`, `notifications`, `calls`, `campaigns`,
 `payments`, `search`, `attachments`, `public`, `time`, `push`, `recurring`,
 `geocode`, `quickbooks`, `pricing-tiers`, `messages`.
@@ -266,7 +266,7 @@ tech + drag to reschedule time, single‑tech assignment, status‑colored cards
 create/delete) · Estimates & Invoices (line items, discounts, tax, send/approve,
 payments, public estimate page) · Pricebook + Pricing tiers/overrides ·
 Inventory (multi‑location stock, cycle count, transactions, CSV import, barcode
-scan) · Suppliers & Purchasing (POs, receipts) · Serialized units (install/
+scan) · Vendors & Purchasing (POs, receipts) · Serialized units (install/
 uninstall, per‑unit history) · Equipment/asset tracking (serial, warranty,
 service history) · Service agreements & recurring jobs · Marketing (campaigns +
 call logging) · Reports · Notifications (bell → dedicated page) · Settings

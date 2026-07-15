@@ -46,7 +46,7 @@ Permission enforcement (should SUCCEED ✅ / be BLOCKED ⛔ with a 403 toast):
 - [ ] non-admin cannot reach Users/Roles (tabs hidden; direct API call 403)
 - [ ] **technician can issue a part / install a serialized unit** on one of their own jobs (Job Detail → Materials & Equipment) → ✅ (new `inventory.issueToJob` permission)
 - [ ] technician still **cannot** create/edit inventory items, adjust stock, or transfer stock between locations → ⛔ (that stays `inventory.manage`-only)
-- [ ] technician cannot reach Suppliers, Purchase Orders, Stock Locations (admin), Pricing Tiers, or QuickBooks Settings
+- [ ] technician cannot reach Vendors, Purchase Orders, Stock Locations (admin), Pricing Tiers, or QuickBooks Settings
 
 ## 3. Feature walkthrough (as admin or manager, unless noted)
 
@@ -94,10 +94,10 @@ Permission enforcement (should SUCCEED ✅ / be BLOCKED ⛔ with a 403 toast):
 - [ ] **Reorder suggestions**: drop an item's on-hand below its reorder point → item appears in the reorder-suggestions view
 - [ ] Low-stock rows are visually flagged in the list
 
-### Suppliers & Purchase Orders
-- [ ] Suppliers: create a supplier record; add supplier-specific pricing for an inventory item
-- [ ] Confirm the **average-cost-across-suppliers** behavior the client asked for (price averaging) shows sensibly when an item has multiple supplier price records
-- [ ] Purchase Orders: create a PO against a supplier with line items, linked to a job (POs should be linkable to jobs)
+### Vendors & Purchase Orders
+- [ ] Vendors: create a vendor record; add vendor-specific pricing for an inventory item
+- [ ] Confirm the **average-cost-across-vendors** behavior the client asked for (price averaging) shows sensibly when an item has multiple vendor price records
+- [ ] Purchase Orders: create a PO against a vendor with line items, linked to a job (POs should be linkable to jobs)
 - [ ] Send/approve the PO (status transitions correctly)
 - [ ] **Receive** the PO (full and partial receipt) → confirm received quantities post into the correct stock location and the item's WAC updates
 - [ ] Close/complete the PO
@@ -159,7 +159,7 @@ Permission enforcement (should SUCCEED ✅ / be BLOCKED ⛔ with a 403 toast):
 - [ ] Confirm you **cannot** delete/reverse a part you added (trash icon should be hidden — that stays office-only) — call this out if it's confusing UX and should instead show a disabled/explained state
 - [ ] **Install unit**: install a serialized unit from the job, confirm it appears under "Installed serialized units"
 - [ ] Update job status from the job detail screen
-- [ ] Confirm you can still **not** reach Suppliers, Purchase Orders, Stock Locations admin, Pricing Tiers, or Marketing/Messages from the "More" drawer
+- [ ] Confirm you can still **not** reach Vendors, Purchase Orders, Stock Locations admin, Pricing Tiers, or Marketing/Messages from the "More" drawer
 
 ## 5. Mobile / PWA (DevTools device toolbar or a real phone)
 
@@ -183,7 +183,7 @@ Permission enforcement (should SUCCEED ✅ / be BLOCKED ⛔ with a 403 toast):
 
 These were flagged in `DESKTOP-REVIEW-2.md` and `MOBILE-REVIEW-3.md` — confirm they're still present (or newly fixed) rather than assuming either way:
 
-- [ ] **Desktop — top finding**: as a **technician**, hit the inventory/purchasing GET endpoints directly (e.g. supplier list, PO detail, an item's cost history, `/inventory/jobs/:jobId/parts`) — confirm whether wholesale costs/margins are visible to a role that shouldn't see them. If still open, this needs a read-side permission (or a lighter "inventory.view" tier) before go-live.
+- [ ] **Desktop — top finding**: as a **technician**, hit the inventory/purchasing GET endpoints directly (e.g. vendor list, PO detail, an item's cost history, `/inventory/jobs/:jobId/parts`) — confirm whether wholesale costs/margins are visible to a role that shouldn't see them. If still open, this needs a read-side permission (or a lighter "inventory.view" tier) before go-live.
 - [ ] **Mobile — top finding**: on an iPhone (or iOS simulator), tap into several form inputs across the app (not just one) — confirm whether the page zooms on focus. If still reproducible, the fix is in the shared `Input`/`Select` components' `text-sm` class, not the media query itself.
 - [ ] Desktop: confirm which of the six new inventory/purchasing pages use the shared sortable/CSV `DataTable` vs. a bespoke list, and whether that inconsistency is acceptable for launch.
 - [ ] Mobile: confirm `JobMaterialsCard`/`AddPartModal`/`InstallSerialModal`/`CycleCountPage` genuinely work end-to-end on a real phone-sized screen, not just "the permission now allows it."

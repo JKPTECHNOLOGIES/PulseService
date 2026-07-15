@@ -122,7 +122,7 @@ The app groups its features like this: **Overview · Customers & Jobs · Schedul
 **Skip entirely:** Reports, settings, purchasing — they won't see most of it anyway.
 
 ### Inventory / Purchasing (keeps trucks stocked)
-**Core:** Inventory, Stock Locations, Cycle Count, Suppliers, Purchase Orders, Serialized Units.
+**Core:** Inventory, Stock Locations, Cycle Count, Vendors, Purchase Orders, Serialized Units.
 **Why:** They own the parts pipeline from ordering to receiving to using.
 
 ### Manager / Ops (runs the day)
@@ -217,9 +217,9 @@ The app groups its features like this: **Overview · Customers & Jobs · Schedul
 - **Demo:** Show low-stock highlighting and the banner → **Adjust** (add/remove/set) → **Transfer** (warehouse → truck) → the **history** clock icon → **Scan** a barcode → **Cycle Count** for a guided physical count.
 - **They trip on:** "Serial" items are tracked individually (see Serialized Units). And cycle count posts the *variance* automatically — they enter what they physically counted, the system does the math.
 
-### Suppliers & Purchase Orders
+### Vendors & Purchase Orders
 - **What it is:** Your vendors and the orders you place with them.
-- **Demo:** Show suppliers list → create a PO (supplier, ship-to, line items) → mark **Ordered** → **Receive** items (quantity, location, serial numbers if prompted) and watch inventory update. Show **Reorder Suggestions** → "Create draft PO."
+- **Demo:** Show vendors list → create a PO (vendor, ship-to, line items) → mark **Ordered** → **Receive** items (quantity, location, serial numbers if prompted) and watch inventory update. Show **Reorder Suggestions** → "Create draft PO."
 - **They trip on:** Receiving is what actually adds stock to inventory — a PO sitting in "Ordered" hasn't stocked anything yet.
 
 ### Serialized Units & Equipment

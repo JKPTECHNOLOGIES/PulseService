@@ -1,3 +1,3 @@
-PO #,Supplier,Status,Ship To,Ordered,Total
+PO #,Vendor,Status,Ship To,Ordered,Total
 PO-1001,Ferguson HVAC Supply,received,WH,"Jul 1, 2026",1240
 PO-1002,Carrier Enterprise,draft,TRUCK-1,"Jul 5, 2026",860.75

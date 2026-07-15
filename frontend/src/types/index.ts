@@ -100,6 +100,15 @@ export interface JobTechnician {
   technician?: Technician;
 }
 
+export interface JobScheduleBlock {
+  id: string;
+  jobId: string;
+  start: string;
+  end: string;
+  note?: string | null;
+  createdAt?: string;
+}
+
 export interface Job {
   id: string;
   jobNumber: string;
@@ -124,6 +133,7 @@ export interface Job {
   customer?: Customer;
   location?: Location;
   technicians?: JobTechnician[];
+  scheduleBlocks?: JobScheduleBlock[];
 }
 
 export interface EstimateLineItem {
@@ -172,6 +182,9 @@ export interface InvoiceLineItem {
   unitPrice: number;
   total: number;
   sortOrder: number;
+  /** Whether this line counts toward the total and appears on the customer
+   * PDF/email. Defaults to true when omitted. */
+  includeOnDocument?: boolean;
 }
 
 export interface Payment {
@@ -209,6 +222,7 @@ export interface Invoice {
   paidAt?: string;
   createdAt: string;
   customer?: Customer;
+  job?: { id: string; jobNumber: string; summary?: string };
   lineItems?: InvoiceLineItem[];
   payments?: Payment[];
 }
@@ -266,9 +280,9 @@ export interface InventoryStock {
   inventoryItem?: { id: string; sku: string; name: string; unit: string };
 }
 
-export interface Supplier {
+export interface Vendor {
   id: string;
-  supplierNumber: string;
+  vendorNumber: string;
   name: string;
   contactName?: string;
   email?: string;
@@ -284,21 +298,21 @@ export interface Supplier {
   taxId?: string;
   notes?: string;
   isActive: boolean;
-  items?: InventoryItemSupplier[];
+  items?: InventoryItemVendor[];
   _count?: { items: number; purchaseOrders: number };
 }
 
-export interface InventoryItemSupplier {
+export interface InventoryItemVendor {
   id: string;
   inventoryItemId: string;
-  supplierId: string;
-  supplierSku?: string;
+  vendorId: string;
+  vendorSku?: string;
   unitCost: number;
   leadTimeDays?: number;
   minimumOrderQty?: number;
   isPrimary: boolean;
   isActive: boolean;
-  supplier?: { id: string; name: string };
+  vendor?: { id: string; name: string };
 }
 
 export interface InventoryItemCostHistory {
@@ -322,7 +336,7 @@ export interface InventoryItem {
   categoryId?: string;
   unit: string;
   unitCost: number; // perpetual weighted-average cost
-  defaultSupplierId?: string;
+  defaultVendorId?: string;
   minQuantity: number;
   maxQuantity: number;
   reorderPoint: number;
@@ -337,8 +351,8 @@ export interface InventoryItem {
   totalOnHand?: number;
   isLowStock?: boolean;
   stock?: InventoryStock[];
-  defaultSupplier?: { id: string; name: string };
-  suppliers?: InventoryItemSupplier[];
+  defaultVendor?: { id: string; name: string };
+  vendors?: InventoryItemVendor[];
   transactions?: InventoryTransaction[];
   costHistory?: InventoryItemCostHistory[];
 }
@@ -400,7 +414,7 @@ export interface POLine {
 export interface PurchaseOrder {
   id: string;
   poNumber: string;
-  supplierId: string;
+  vendorId: string;
   status: string;
   shipToLocationId?: string;
   jobId?: string;
@@ -414,7 +428,7 @@ export interface PurchaseOrder {
   totalAmount: number;
   deliveryTerms?: string;
   notes?: string;
-  supplier?: { id: string; name: string };
+  vendor?: { id: string; name: string };
   shipToLocation?: { id: string; name: string; code: string };
   job?: { id: string; jobNumber: string; summary?: string };
   customer?: {
@@ -444,7 +458,7 @@ export interface JobPart {
 }
 
 export interface ReorderSuggestionGroup {
-  supplier: { id: string | null; name: string };
+  vendor: { id: string | null; name: string };
   lines: {
     inventoryItemId: string;
     sku: string;
@@ -563,7 +577,12 @@ export interface SerializedUnit {
   warrantyExpiresAt?: string;
   notes?: string;
   createdAt: string;
-  inventoryItem?: { id: string; sku: string; name: string };
+  inventoryItem?: {
+    id: string;
+    sku: string;
+    name: string;
+    pricebookItem?: { unitPrice: number; name: string } | null;
+  };
   stockLocation?: { id: string; name: string; code: string };
 }
 

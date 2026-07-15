@@ -116,7 +116,7 @@ first, all on `main` + `develop`):
   strict ESLint (both packages pass clean); case‑insensitive Postgres search;
   nginx `no‑cache` for `index.html`.
 - A partner has added large modules in parallel: **RBAC/permissions + audit**,
-  **suppliers/purchasing/POs**, **serialized units**, **stock locations + cycle
+  **vendors/purchasing/POs**, **serialized units**, **stock locations + cycle
   count**, **recurring jobs**, **attachments/signatures**, **time tracking**,
   **My Day**, **pricing tiers**, **customer messaging**, **QuickBooks sync
   (structured)**, **maps/geocode**, **dark mode**, **PWA/offline + push**,

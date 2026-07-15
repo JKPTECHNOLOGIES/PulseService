@@ -1,4 +1,4 @@
-sku,name,unit,quantity,unitCost,reorderPoint,reorderQuantity,supplierName,locationCode,serialized
+sku,name,unit,quantity,unitCost,reorderPoint,reorderQuantity,vendorName,locationCode,serialized
 TEST-CAP-35,Run Capacitor 35/5 MFD 440V,each,30,3.95,12,24,Acme HVAC Supply,WH,no
 TEST-CONT-30,Contactor 30A 2-Pole 24V,each,18,7.25,8,16,Acme HVAC Supply,WH,no
 TEST-FILT-1620,Air Filter MERV-13 16x20x1,each,75,2.80,24,48,Comfort Controls Inc,WH,no

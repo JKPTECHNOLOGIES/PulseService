@@ -13,96 +13,96 @@ import { TableSkeleton } from "../components/ui/Skeleton";
 import { Can } from "../components/ui/Can";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import {
-  useSuppliers,
-  useSaveSupplier,
-  useDeleteSupplier,
-} from "../hooks/useSuppliers";
-import type { Supplier } from "../types";
+  useVendors,
+  useSaveVendor,
+  useDeleteVendor,
+} from "../hooks/useVendors";
+import type { Vendor } from "../types";
 
 const INPUT =
   "w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white";
 
-export default function SuppliersPage() {
+export default function VendorsPage() {
   const [search, setSearch] = useState("");
-  const { data: suppliers, isLoading } = useSuppliers(search ? { search } : {});
-  const save = useSaveSupplier();
-  const del = useDeleteSupplier();
+  const { data: vendors, isLoading } = useVendors(search ? { search } : {});
+  const save = useSaveVendor();
+  const del = useDeleteVendor();
 
-  const [form, setForm] = useState<Partial<Supplier> | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<Supplier | null>(null);
+  const [form, setForm] = useState<Partial<Vendor> | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Vendor | null>(null);
   const [sort, setSort] = useState<SortState | null>(null);
 
-  const columns: Column<Supplier>[] = [
+  const columns: Column<Vendor>[] = [
     {
-      key: "supplierNumber",
+      key: "vendorNumber",
       header: "Number",
-      sortValue: (s) => s.supplierNumber,
-      exportValue: (s) => s.supplierNumber,
-      render: (s) => (
+      sortValue: (v) => v.vendorNumber,
+      exportValue: (v) => v.vendorNumber,
+      render: (v) => (
         <span className="font-mono text-xs text-gray-600">
-          {s.supplierNumber}
+          {v.vendorNumber}
         </span>
       ),
     },
     {
       key: "name",
       header: "Name",
-      sortValue: (s) => s.name.toLowerCase(),
-      exportValue: (s) => s.name,
-      render: (s) => (
-        <span className="font-medium text-gray-900">{s.name}</span>
+      sortValue: (v) => v.name.toLowerCase(),
+      exportValue: (v) => v.name,
+      render: (v) => (
+        <span className="font-medium text-gray-900">{v.name}</span>
       ),
     },
     {
       key: "contact",
       header: "Contact",
-      exportValue: (s) => s.contactName ?? "",
-      render: (s) => (
+      exportValue: (v) => v.contactName ?? "",
+      render: (v) => (
         <div className="text-xs text-gray-500">
-          {s.contactName && <div>{s.contactName}</div>}
-          {s.email && <div>{s.email}</div>}
-          {s.phone && <div>{s.phone}</div>}
+          {v.contactName && <div>{v.contactName}</div>}
+          {v.email && <div>{v.email}</div>}
+          {v.phone && <div>{v.phone}</div>}
         </div>
       ),
     },
     {
       key: "paymentTerms",
       header: "Terms",
-      exportValue: (s) => s.paymentTerms ?? "",
-      render: (s) => (
-        <span className="text-gray-500 text-xs">{s.paymentTerms ?? "-"}</span>
+      exportValue: (v) => v.paymentTerms ?? "",
+      render: (v) => (
+        <span className="text-gray-500 text-xs">{v.paymentTerms ?? "-"}</span>
       ),
     },
     {
       key: "items",
       header: "Items",
       align: "right",
-      sortValue: (s) => s._count?.items ?? 0,
-      exportValue: (s) => s._count?.items ?? 0,
-      render: (s) => (
-        <span className="text-gray-500 text-xs">{s._count?.items ?? 0}</span>
+      sortValue: (v) => v._count?.items ?? 0,
+      exportValue: (v) => v._count?.items ?? 0,
+      render: (v) => (
+        <span className="text-gray-500 text-xs">{v._count?.items ?? 0}</span>
       ),
     },
     {
       key: "pos",
       header: "POs",
       align: "right",
-      sortValue: (s) => s._count?.purchaseOrders ?? 0,
-      exportValue: (s) => s._count?.purchaseOrders ?? 0,
-      render: (s) => (
+      sortValue: (v) => v._count?.purchaseOrders ?? 0,
+      exportValue: (v) => v._count?.purchaseOrders ?? 0,
+      render: (v) => (
         <span className="text-gray-500 text-xs">
-          {s._count?.purchaseOrders ?? 0}
+          {v._count?.purchaseOrders ?? 0}
         </span>
       ),
     },
   ];
 
-  const rowActions = (s: Supplier) => (
-    <Can permission="suppliers.manage">
+  const rowActions = (v: Vendor) => (
+    <Can permission="vendors.manage">
       <IconButton
         label="Edit"
         onClick={() => {
-          setForm(s);
+          setForm(v);
         }}
       >
         <PencilSquareIcon className="h-4 w-4" />
@@ -110,7 +110,7 @@ export default function SuppliersPage() {
       <IconButton
         label="Deactivate"
         onClick={() => {
-          setConfirmDelete(s);
+          setConfirmDelete(v);
         }}
       >
         <TrashIcon className="h-4 w-4" />
@@ -129,14 +129,14 @@ export default function SuppliersPage() {
             onChange={(e) => {
               setSearch(e.target.value);
             }}
-            placeholder="Search suppliers..."
+            placeholder="Search vendors..."
             className="px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-64"
           />
           <p className="text-sm text-gray-500">
-            {suppliers?.length ?? 0} suppliers
+            {vendors?.length ?? 0} vendors
           </p>
         </div>
-        <Can permission="suppliers.manage">
+        <Can permission="vendors.manage">
           <Button
             size="sm"
             icon={<PlusIcon className="h-4 w-4" />}
@@ -144,32 +144,32 @@ export default function SuppliersPage() {
               setForm({});
             }}
           >
-            New Supplier
+            New Vendor
           </Button>
         </Can>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {!suppliers || suppliers.length === 0 ? (
+        {!vendors || vendors.length === 0 ? (
           <EmptyState
-            title="No suppliers"
+            title="No vendors"
             description="Add the vendors you buy parts and equipment from."
           />
         ) : (
-          <DataTable<Supplier>
+          <DataTable<Vendor>
             columns={columns}
-            rows={suppliers}
-            getRowId={(s) => s.id}
+            rows={vendors}
+            getRowId={(v) => v.id}
             sort={sort}
             onSortChange={setSort}
-            csvFilename="suppliers"
+            csvFilename="vendors"
             rowActions={rowActions}
           />
         )}
       </div>
 
-      <SupplierFormModal
-        supplier={form}
+      <VendorFormModal
+        vendor={form}
         pending={save.isPending}
         onClose={() => {
           setForm(null);
@@ -182,7 +182,7 @@ export default function SuppliersPage() {
 
       <ConfirmDialog
         isOpen={!!confirmDelete}
-        title="Deactivate supplier?"
+        title="Deactivate vendor?"
         message={`"${confirmDelete?.name ?? ""}" will be hidden from new purchase orders. Existing records are kept.`}
         confirmLabel="Deactivate"
         onClose={() => {
@@ -197,51 +197,51 @@ export default function SuppliersPage() {
   );
 }
 
-function SupplierFormModal({
-  supplier,
+function VendorFormModal({
+  vendor,
   pending,
   onClose,
   onSubmit,
 }: {
-  supplier: Partial<Supplier> | null;
+  vendor: Partial<Vendor> | null;
   pending: boolean;
   onClose: () => void;
-  onSubmit: (p: Partial<Supplier> & { id?: string }) => Promise<void>;
+  onSubmit: (p: Partial<Vendor> & { id?: string }) => Promise<void>;
 }) {
-  const editing = !!supplier?.id;
+  const editing = !!vendor?.id;
   const [loadedId, setLoadedId] = useState<string | undefined>(undefined);
-  const [fields, setFields] = useState<Partial<Supplier>>({});
+  const [fields, setFields] = useState<Partial<Vendor>>({});
 
-  if (supplier && loadedId !== (supplier.id ?? "new")) {
-    setLoadedId(supplier.id ?? "new");
+  if (vendor && loadedId !== (vendor.id ?? "new")) {
+    setLoadedId(vendor.id ?? "new");
     setFields({
-      name: supplier.name ?? "",
-      contactName: supplier.contactName ?? "",
-      email: supplier.email ?? "",
-      phone: supplier.phone ?? "",
-      paymentTerms: supplier.paymentTerms ?? "",
-      city: supplier.city ?? "",
-      state: supplier.state ?? "",
+      name: vendor.name ?? "",
+      contactName: vendor.contactName ?? "",
+      email: vendor.email ?? "",
+      phone: vendor.phone ?? "",
+      paymentTerms: vendor.paymentTerms ?? "",
+      city: vendor.city ?? "",
+      state: vendor.state ?? "",
     });
   }
 
-  const set = (k: keyof Supplier, v: string) => {
+  const set = (k: keyof Vendor, v: string) => {
     setFields((f) => ({ ...f, [k]: v }));
   };
 
-  if (!supplier) return null;
+  if (!vendor) return null;
 
   return (
     <Modal
       isOpen
       onClose={onClose}
-      title={editing ? `Edit: ${supplier.name ?? ""}` : "New supplier"}
+      title={editing ? `Edit: ${vendor.name ?? ""}` : "New vendor"}
     >
       <form
         onSubmit={(e) => {
           e.preventDefault();
           void onSubmit({
-            ...(editing ? { id: supplier.id } : {}),
+            ...(editing ? { id: vendor.id } : {}),
             ...fields,
           });
         }}

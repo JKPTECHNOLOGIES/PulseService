@@ -23,7 +23,7 @@ const update = async (req, res) => {
       nextInvoiceNumber: _nin,
       nextEstimateNumber: _nen,
       nextCustomerNumber: _ncn,
-      nextSupplierNumber: _nsn,
+      nextVendorNumber: _nvn,
       nextPoNumber: _npn,
       nextReceiptNumber: _nrn,
       ...data

@@ -29,7 +29,7 @@ const TechniciansPage = lazy(() => import("./pages/TechniciansPage"));
 const PricebookPage = lazy(() => import("./pages/PricebookPage"));
 const PricingTiersPage = lazy(() => import("./pages/PricingTiersPage"));
 const InventoryPage = lazy(() => import("./pages/InventoryPage"));
-const SuppliersPage = lazy(() => import("./pages/SuppliersPage"));
+const VendorsPage = lazy(() => import("./pages/VendorsPage"));
 const StockLocationsPage = lazy(() => import("./pages/StockLocationsPage"));
 const CycleCountPage = lazy(() => import("./pages/CycleCountPage"));
 const PurchaseOrdersPage = lazy(() => import("./pages/PurchaseOrdersPage"));
@@ -118,7 +118,7 @@ export default function App() {
                   "inventory.issueToJob",
                   "purchasing.manage",
                   "purchasing.receive",
-                  "suppliers.manage",
+                  "vendors.manage",
                 ]}
               >
                 <StockLocationsPage />
@@ -127,10 +127,10 @@ export default function App() {
           />
           <Route path="inventory/cycle-count" element={<CycleCountPage />} />
           <Route
-            path="suppliers"
+            path="vendors"
             element={
-              <RequirePermission perm={["suppliers.manage"]}>
-                <SuppliersPage />
+              <RequirePermission perm={["vendors.manage"]}>
+                <VendorsPage />
               </RequirePermission>
             }
           />

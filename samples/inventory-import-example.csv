@@ -1,4 +1,4 @@
-sku,name,unit,quantity,unitCost,reorderPoint,reorderQuantity,supplierName,locationCode,serialized
+sku,name,unit,quantity,unitCost,reorderPoint,reorderQuantity,vendorName,locationCode,serialized
 IMP-CAP-45,Dual Run Capacitor 45/5 MFD,each,25,4.75,10,20,Acme HVAC Supply,WH,no
 IMP-CONT-40,Contactor 40A 2-Pole,each,12,9.50,6,12,Acme HVAC Supply,WH,no
 IMP-FILT-2025,Air Filter MERV-13 20x25x1,each,60,3.10,24,48,Acme HVAC Supply,WH,no

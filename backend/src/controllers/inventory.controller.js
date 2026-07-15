@@ -34,11 +34,11 @@ function omitCost(item) {
 
 const list = async (req, res) => {
   try {
-    const { search, categoryId, supplierId, locationId, lowStock } = req.query;
+    const { search, categoryId, vendorId, locationId, lowStock } = req.query;
 
     const where = { isArchived: false };
     if (categoryId) where.categoryId = categoryId;
-    if (supplierId) where.defaultSupplierId = supplierId;
+    if (vendorId) where.defaultVendorId = vendorId;
     if (locationId) where.stock = { some: { stockLocationId: locationId } };
     if (search) {
       where.OR = [
@@ -58,7 +58,7 @@ const list = async (req, res) => {
             },
           },
         },
-        defaultSupplier: { select: { id: true, name: true } },
+        defaultVendor: { select: { id: true, name: true } },
         pricebookItem: { select: { id: true, name: true, unitPrice: true } },
       },
       orderBy: { name: "asc" },
@@ -97,10 +97,10 @@ const get = async (req, res) => {
             },
           },
         },
-        defaultSupplier: { select: { id: true, name: true } },
+        defaultVendor: { select: { id: true, name: true } },
         pricebookItem: true,
-        suppliers: {
-          include: { supplier: { select: { id: true, name: true } } },
+        vendors: {
+          include: { vendor: { select: { id: true, name: true } } },
         },
         transactions: {
           orderBy: { transactionDate: "desc" },
@@ -687,9 +687,9 @@ const cycleCount = async (req, res) => {
 /**
  * Bulk-create inventory items from parsed CSV rows. Columns:
  *   sku, name, unit, quantity, unitCost, reorderPoint, reorderQuantity,
- *   supplierName, locationCode, serialized
+ *   vendorName, locationCode, serialized
  * Opening stock goes to `locationCode` (or the default warehouse). Unknown
- * suppliers are created on the fly. Returns per-row results.
+ * vendors are created on the fly. Returns per-row results.
  */
 const importItems = async (req, res) => {
   try {
@@ -723,8 +723,8 @@ const importItems = async (req, res) => {
         l,
       ]),
     );
-    const suppliersByName = new Map(
-      (await prisma.supplier.findMany()).map((s) => [s.name.toLowerCase(), s]),
+    const vendorsByName = new Map(
+      (await prisma.vendor.findMany()).map((v) => [v.name.toLowerCase(), v]),
     );
 
     let created = 0;
@@ -740,27 +740,27 @@ const importItems = async (req, res) => {
       }
 
       try {
-        // Resolve / create the supplier outside the row transaction.
-        let supplier = null;
-        const supplierName = (r.supplierName || "").trim();
-        if (supplierName) {
-          supplier = suppliersByName.get(supplierName.toLowerCase()) ?? null;
-          if (!supplier) {
+        // Resolve / create the vendor outside the row transaction.
+        let vendor = null;
+        const vendorName = (r.vendorName || "").trim();
+        if (vendorName) {
+          vendor = vendorsByName.get(vendorName.toLowerCase()) ?? null;
+          if (!vendor) {
             const settings = await prisma.companySettings.findFirst();
-            supplier = await prisma.supplier.create({
+            vendor = await prisma.vendor.create({
               data: {
-                supplierNumber: generateNumber(
-                  settings.supplierPrefix,
-                  settings.nextSupplierNumber,
+                vendorNumber: generateNumber(
+                  settings.vendorPrefix,
+                  settings.nextVendorNumber,
                 ),
-                name: supplierName,
+                name: vendorName,
               },
             });
             await prisma.companySettings.update({
               where: { id: settings.id },
-              data: { nextSupplierNumber: { increment: 1 } },
+              data: { nextVendorNumber: { increment: 1 } },
             });
-            suppliersByName.set(supplierName.toLowerCase(), supplier);
+            vendorsByName.set(vendorName.toLowerCase(), vendor);
           }
         }
 
@@ -787,12 +787,12 @@ const importItems = async (req, res) => {
               reorderPoint: qty(toNum(r.reorderPoint)),
               reorderQuantity: qty(toNum(r.reorderQuantity)),
               isSerialized: truthy(r.serialized),
-              defaultSupplierId: supplier?.id ?? null,
-              ...(supplier
+              defaultVendorId: vendor?.id ?? null,
+              ...(vendor
                 ? {
-                    suppliers: {
+                    vendors: {
                       create: {
-                        supplierId: supplier.id,
+                        vendorId: vendor.id,
                         unitCost: money(toNum(r.unitCost)),
                         isPrimary: true,
                       },
@@ -833,60 +833,60 @@ const importItems = async (req, res) => {
   }
 };
 
-// ─── Per-supplier catalog pricing ────────────────────────────────────────
+// ─── Per-vendor catalog pricing ────────────────────────────────
 
-const addSupplier = async (req, res) => {
+const addVendor = async (req, res) => {
   try {
     const {
-      supplierId,
+      vendorId,
       unitCost,
-      supplierSku,
+      vendorSku,
       leadTimeDays,
       minimumOrderQty,
       isPrimary,
     } = req.body;
-    if (!supplierId || unitCost === undefined)
+    if (!vendorId || unitCost === undefined)
       return res.status(400).json({
         success: false,
-        error: "supplierId and unitCost are required",
+        error: "vendorId and unitCost are required",
       });
 
-    const link = await prisma.inventoryItemSupplier.create({
+    const link = await prisma.inventoryItemVendor.create({
       data: {
         inventoryItemId: req.params.id,
-        supplierId,
+        vendorId,
         unitCost: money(unitCost),
-        supplierSku: supplierSku || null,
+        vendorSku: vendorSku || null,
         leadTimeDays: leadTimeDays ?? null,
         minimumOrderQty: minimumOrderQty ?? null,
         isPrimary: !!isPrimary,
       },
-      include: { supplier: { select: { id: true, name: true } } },
+      include: { vendor: { select: { id: true, name: true } } },
     });
     return res.status(201).json({ success: true, data: link });
   } catch (err) {
     if (err.code === "P2002")
       return res.status(409).json({
         success: false,
-        error: "That supplier is already linked to this item",
+        error: "That vendor is already linked to this item",
       });
-    console.error("inventory.addSupplier error:", err);
+    console.error("inventory.addVendor error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
-const removeSupplier = async (req, res) => {
+const removeVendor = async (req, res) => {
   try {
-    await prisma.inventoryItemSupplier.delete({
+    await prisma.inventoryItemVendor.delete({
       where: { id: req.params.linkId },
     });
-    return res.json({ success: true, message: "Supplier link removed" });
+    return res.json({ success: true, message: "Vendor link removed" });
   } catch (err) {
     if (err.code === "P2025")
       return res
         .status(404)
-        .json({ success: false, error: "Supplier link not found" });
-    console.error("inventory.removeSupplier error:", err);
+        .json({ success: false, error: "Vendor link not found" });
+    console.error("inventory.removeVendor error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
   }
 };
@@ -900,8 +900,8 @@ module.exports = {
   adjust,
   transfer,
   getTransactions,
-  addSupplier,
-  removeSupplier,
+  addVendor,
+  removeVendor,
   issueToJob,
   getJobParts,
   reverseTransaction,

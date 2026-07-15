@@ -8,7 +8,7 @@ router.use(auth);
 // Items (catalog + aggregated stock). The list stays open to any
 // authenticated user (e.g. AddPartModal needs it for a technician to pick a
 // part) but strips wholesale cost for non-managers -- see canSeeCost in the
-// controller. Single-item detail (supplier cost links, cost history) and
+// controller. Single-item detail (vendor cost links, cost history) and
 // transaction history are admin-only views (only ever opened from
 // InventoryPage's own management modals), so those are fully gated.
 router.get("/items", c.list);
@@ -39,16 +39,16 @@ router.get(
   c.getTransactions,
 );
 
-// Per-supplier catalog pricing
+// Per-vendor catalog pricing
 router.post(
-  "/items/:id/suppliers",
+  "/items/:id/vendors",
   requirePermission("inventory.manage"),
-  c.addSupplier,
+  c.addVendor,
 );
 router.delete(
-  "/items/:id/suppliers/:linkId",
+  "/items/:id/vendors/:linkId",
   requirePermission("inventory.manage"),
-  c.removeSupplier,
+  c.removeVendor,
 );
 
 // Job parts consumption. Techs get a scoped permission for this one action

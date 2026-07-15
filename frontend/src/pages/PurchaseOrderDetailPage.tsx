@@ -63,7 +63,7 @@ export default function PurchaseOrderDetailPage() {
               <StatusBadge status={po.status} category="poStatus" />
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              {po.supplier?.name} · Ordered {formatDate(po.orderDate)}
+              {po.vendor?.name} · Ordered {formatDate(po.orderDate)}
               {po.expectedDate
                 ? ` · Expected ${formatDate(po.expectedDate)}`
                 : ""}
