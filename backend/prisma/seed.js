@@ -7,7 +7,8 @@ const { DEFAULT_ROLE_PERMISSIONS } = require("../src/constants/permissions");
 const { parseItemsCsv } = require("./seed-data/parseItemsCsv");
 const { parseCustomersCsv, normalizeCustomerName } = require("./seed-data/parseCustomersCsv");
 const { parseQuotesCsv } = require("./seed-data/parseQuotesCsv");
-const QUOTE_CUSTOMER_ALIASES = require("./seed-data/quoteCustomerAliases");
+const { parseJobsCsv } = require("./seed-data/parseJobsCsv");
+const CUSTOMER_NAME_ALIASES = require("./seed-data/customerNameAliases");
 
 const prisma = new PrismaClient();
 
@@ -627,6 +628,7 @@ async function main() {
           })),
         },
       },
+      include: { locations: true },
     });
     nextCustomerNumber += 1;
     for (const rawName of c.sourceNames) {
@@ -639,11 +641,22 @@ async function main() {
   });
   console.log(`  Imported ${importedCustomers.length} customers.`);
 
+  // Shared by every CSV importer below: resolves a customer by the raw,
+  // pre-dedup "Display Name" text used in the source exports, falling back
+  // to customerNameAliases.js for names that were merged/dropped entirely.
+  function resolveCustomerByRawName(rawName) {
+    const key = normalizeCustomerName(rawName);
+    const aliasedName = CUSTOMER_NAME_ALIASES[rawName];
+    return (
+      customerByRawName.get(key) ||
+      (aliasedName && customerByRawName.get(normalizeCustomerName(aliasedName)))
+    );
+  }
+
   // ── Real quotes (from QuickBooks export) ──────────────────────────────
   // Sourced from prisma/seed-data/quotes.csv. Each quote references its
   // customer by the ORIGINAL (pre-dedup) per-property name, so we resolve it
-  // via customerByRawName first, then quoteCustomerAliases.js for the 15
-  // names that were merged/dropped during customer dedup.
+  // via resolveCustomerByRawName() above.
   console.log("  Importing quotes (estimates) from CSV...");
   const importedQuotes = parseQuotesCsv(
     path.join(__dirname, "seed-data", "quotes.csv"),
@@ -652,11 +665,7 @@ async function main() {
   let quotesImported = 0;
   let quotesSkipped = 0;
   for (const q of importedQuotes) {
-    const key = normalizeCustomerName(q.customerRawName);
-    const aliasedName = QUOTE_CUSTOMER_ALIASES[q.customerRawName];
-    const customer =
-      customerByRawName.get(key) ||
-      (aliasedName && customerByRawName.get(normalizeCustomerName(aliasedName)));
+    const customer = resolveCustomerByRawName(q.customerRawName);
 
     if (!customer) {
       quotesSkipped++;
@@ -902,7 +911,76 @@ async function main() {
     },
   });
 
-  // ── Estimates ─────────────────────────────────────────────────────────────────
+  // ── Real jobs / work orders (from QuickBooks export) ──────────────────
+  // Sourced from prisma/seed-data/jobs.csv ("Jobs" in the old system = Work
+  // Orders here). Every row references its customer by the ORIGINAL
+  // (pre-dedup) per-property name, resolved via resolveCustomerByRawName()
+  // above. All 15 rows in this export list "Eric I." as project manager, who
+  // is a seeded admin (not a technician profile), so we credit him as
+  // createdById rather than assigning a JobTechnician.
+  console.log("  Importing jobs (work orders) from CSV...");
+  const ericPm = await prisma.user.findFirst({
+    where: { email: "eric@primecomfortac.com" },
+  });
+  const importedJobs = parseJobsCsv(
+    path.join(__dirname, "seed-data", "jobs.csv"),
+  );
+  const jobSettingsRow = await prisma.companySettings.findFirst();
+  let nextJobNumber = jobSettingsRow.nextJobNumber;
+  let jobsImported = 0;
+  let jobsSkipped = 0;
+
+  function findMatchingLocationId(customer, jobLocation) {
+    if (!customer.locations || customer.locations.length === 0) return null;
+    if (customer.locations.length === 1) return customer.locations[0].id;
+    if (!jobLocation) return customer.locations[0].id;
+    const norm = (s) => (s || "").trim().toLowerCase();
+    const match = customer.locations.find(
+      (l) => norm(l.address) === norm(jobLocation.address),
+    );
+    return (match || customer.locations[0]).id;
+  }
+
+  for (const j of importedJobs) {
+    const customer = resolveCustomerByRawName(j.customerRawName);
+    if (!customer) {
+      jobsSkipped++;
+      console.warn(
+        `    No customer match for job "${j.customerRawName}" - skipped.`,
+      );
+      continue;
+    }
+
+    const jobNumber = `${jobSettingsRow.jobPrefix}-${nextJobNumber}`;
+    nextJobNumber += 1;
+
+    await prisma.job.create({
+      data: {
+        jobNumber,
+        customerId: customer.id,
+        locationId: findMatchingLocationId(customer, j.location),
+        type: "service",
+        status: j.status,
+        priority: "normal",
+        summary: j.address || `Work order ${jobNumber}`,
+        notes: `Imported from QuickBooks export. Original status: ${j.originalStatus}. Project manager on file: ${j.projManager || "-"}.`,
+        scheduledStart: j.startDate,
+        scheduledEnd: j.endDate,
+        actualStart: j.startDate,
+        actualEnd: j.status === "completed" ? j.endDate : null,
+        completedAt: j.status === "completed" ? j.endDate : null,
+        createdById: ericPm ? ericPm.id : admin.id,
+      },
+    });
+    jobsImported++;
+  }
+  await prisma.companySettings.update({
+    where: { id: jobSettingsRow.id },
+    data: { nextJobNumber },
+  });
+  console.log(`  Imported ${jobsImported} jobs (${jobsSkipped} skipped).`);
+
+  // ── Estimates ──────────────────────────────────────────────────────
   console.log("  Creating estimates...");
 
   const [estimate1] = await Promise.all([

@@ -1,9 +1,9 @@
-// The quotes export (quotes.csv) references customers by the ORIGINAL
-// per-property name from the customers export, before dedup. These 15 names
-// were removed during customer dedup (same address, different/suffixed name
-// -> kept one base customer — see customerMerges.js / PR history for the
-// full reasoning), so quotes referencing them need to be re-pointed at
-// whichever customer we kept.
+// Other CSV exports (quotes.csv, jobs.csv, ...) reference customers by the
+// ORIGINAL per-property name from the customers export, before dedup. These
+// names were removed during customer dedup (same address, different/suffixed
+// name -> kept one base customer — see customerMerges.js / PR history for the
+// full reasoning), so rows referencing them need to be re-pointed at whichever
+// customer we kept. Shared by every importer in seed.js via customerByRawName.
 module.exports = {
   "6767 N Ocean Blvd. - 1010": "6767 N Ocean Blvd.",
   "Ballenisles CC-Cult, Mem Lge, Rac Cntr": "Ballenisles Country Club-Main",
