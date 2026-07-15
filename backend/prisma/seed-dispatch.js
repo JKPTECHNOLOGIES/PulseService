@@ -93,7 +93,7 @@ async function main() {
       const end = new Date(start.getTime() + (1 + Math.floor(Math.random() * 2)) * 3600000);
       const status =
         d === 0
-          ? pick(["scheduled", "dispatched", "in_progress", "scheduled"])
+          ? pick(["scheduled", "parts_on_hold", "in_progress", "scheduled"])
           : pick(["scheduled", "scheduled", "new"]);
       await prisma.job.create({
         data: {

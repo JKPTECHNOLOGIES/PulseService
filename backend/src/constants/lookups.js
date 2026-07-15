@@ -20,8 +20,8 @@ const LOOKUPS = {
       color: "bg-indigo-100 text-indigo-800",
     },
     {
-      value: "dispatched",
-      label: "Dispatched",
+      value: "parts_on_hold",
+      label: "Parts On Hold",
       color: "bg-purple-100 text-purple-800",
     },
     {
@@ -157,7 +157,6 @@ const LOOKUPS = {
     { value: "admin", label: "Administrator" },
     { value: "exec", label: "Executive" },
     { value: "manager", label: "Manager" },
-    { value: "dispatcher", label: "Dispatcher" },
     { value: "csr", label: "Customer Service Rep" },
     { value: "technician", label: "Technician" },
   ],

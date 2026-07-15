@@ -6,21 +6,22 @@ const {
   generateNumber,
 } = require("../utils/helpers");
 const notify = require("../services/notification.service");
+const { LOOKUPS } = require("../constants/lookups");
 
 // Status rules:
-//  - scheduled / dispatched / in_progress / on_hold interchange freely.
+//  - scheduled / parts_on_hold / in_progress / on_hold interchange freely.
 //  - No status can move back to "new" (it is only an initial state).
 //  - "completed" can only be reached from "in_progress".
 //  - "cancelled" can be entered from anywhere and reactivated to a working
 //    status.
 const STATUS_TRANSITIONS = {
-  new: ["scheduled", "dispatched", "in_progress", "on_hold", "cancelled"],
-  scheduled: ["dispatched", "in_progress", "on_hold", "cancelled"],
-  dispatched: ["scheduled", "in_progress", "on_hold", "cancelled"],
-  in_progress: ["scheduled", "dispatched", "on_hold", "completed", "cancelled"],
-  on_hold: ["scheduled", "dispatched", "in_progress", "cancelled"],
-  completed: ["scheduled", "dispatched", "in_progress", "on_hold", "cancelled"],
-  cancelled: ["scheduled", "dispatched", "in_progress", "on_hold"],
+  new: ["scheduled", "parts_on_hold", "in_progress", "on_hold", "cancelled"],
+  scheduled: ["parts_on_hold", "in_progress", "on_hold", "cancelled"],
+  parts_on_hold: ["scheduled", "in_progress", "on_hold", "cancelled"],
+  in_progress: ["scheduled", "parts_on_hold", "on_hold", "completed", "cancelled"],
+  on_hold: ["scheduled", "parts_on_hold", "in_progress", "cancelled"],
+  completed: ["scheduled", "parts_on_hold", "in_progress", "on_hold", "cancelled"],
+  cancelled: ["scheduled", "parts_on_hold", "in_progress", "on_hold"],
 };
 
 const list = async (req, res) => {
@@ -163,6 +164,7 @@ const get = async (req, res) => {
         },
         equipment: true,
         forms: true,
+        scheduleBlocks: { orderBy: { start: "asc" } },
         timeEntries: {
           include: {
             user: { select: { id: true, firstName: true, lastName: true } },
@@ -255,6 +257,7 @@ const update = async (req, res) => {
       updatedAt: _ua,
       technicians: _t,
       technicianIds,
+      scheduleBlocks,
       expectedUpdatedAt,
       ...data
     } = req.body;
@@ -311,11 +314,40 @@ const update = async (req, res) => {
       }
     }
 
+    // scheduleBlocks are additional scheduled windows stored in their own table
+    // (not Job columns). Like technicianIds, replace the whole set when the
+    // client sends an array, so the dispatch editor is the source of truth.
+    if (Array.isArray(scheduleBlocks)) {
+      const clean = scheduleBlocks
+        .map((b) => ({
+          start: b.start ? new Date(b.start) : null,
+          end: b.end ? new Date(b.end) : null,
+          note: b.note ?? null,
+        }))
+        .filter(
+          (b) =>
+            b.start &&
+            b.end &&
+            !Number.isNaN(b.start.getTime()) &&
+            !Number.isNaN(b.end.getTime()) &&
+            b.end > b.start,
+        );
+      await prisma.jobScheduleBlock.deleteMany({
+        where: { jobId: req.params.id },
+      });
+      if (clean.length > 0) {
+        await prisma.jobScheduleBlock.createMany({
+          data: clean.map((b) => ({ jobId: req.params.id, ...b })),
+        });
+      }
+    }
+
     const job = await prisma.job.update({
       where: { id: req.params.id },
       data,
       include: {
         customer: { select: { id: true, firstName: true, lastName: true } },
+        scheduleBlocks: { orderBy: { start: "asc" } },
         technicians: {
           include: {
             technician: {
@@ -567,8 +599,29 @@ const unarchiveJob = async (req, res) => {
   }
 };
 
+// Distinct job types in use, merged with the built-in suggestions -- powers
+// the type-ahead on the job form so a custom type typed once is offered as a
+// pick for every job after that (type is free text; see jobs.routes.js).
+const types = async (req, res) => {
+  try {
+    const used = await prisma.job.findMany({
+      distinct: ["type"],
+      select: { type: true },
+    });
+    const defaults = LOOKUPS.jobType.map((o) => o.label);
+    const merged = [...new Set([...defaults, ...used.map((j) => j.type)])]
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+    return res.json({ success: true, data: merged });
+  } catch (err) {
+    console.error("jobs.types error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
 module.exports = {
   list,
+  types,
   get,
   create,
   update,

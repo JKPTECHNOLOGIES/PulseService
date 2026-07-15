@@ -2,7 +2,7 @@
  * Demo dispatch-board seeder — creates 20 obviously-labeled TEST jobs that
  * exercise every feature the dispatch board can show:
  *   - assigned to techs (single + multi-tech), unassigned, and undated (backlog)
- *   - every status (new/scheduled/dispatched/in_progress/on_hold/completed)
+ *   - every status (new/scheduled/parts_on_hold/in_progress/on_hold/completed)
  *   - every priority (low/normal/high/urgent) and type (service/installation/
  *     maintenance/inspection/repair/emergency)
  *   - scheduled start/end (timeline blocks), tags, notes, tech notes,
@@ -36,12 +36,12 @@ const TEST_CUSTOMERS = [
 // day: July day (or null = undated backlog); start: UTC hour; dur: hours.
 const SPECS = [
   { n: "TEST-001", summary: "[TEST] AC not cooling — diagnostic", type: "service", priority: "urgent", status: "in_progress", day: 14, start: 13, dur: 2, techs: ["Mike"], tags: "test,emergency,no-cool", techNotes: "[TEST] Warm air at all vents; checking refrigerant charge.", notes: "[TEST] Gate code 4432.", amount: 285 },
-  { n: "TEST-002", summary: "[TEST] Emergency compressor failure", type: "emergency", priority: "urgent", status: "dispatched", day: 14, start: 15, dur: 3, techs: ["Carlos"], tags: "test,emergency", description: "[TEST] Rooftop unit down, tenant complaints.", amount: 1450 },
+  { n: "TEST-002", summary: "[TEST] Emergency compressor failure", type: "emergency", priority: "urgent", status: "parts_on_hold", day: 14, start: 15, dur: 3, techs: ["Carlos"], tags: "test,emergency", description: "[TEST] Rooftop unit down, tenant complaints.", amount: 1450 },
   { n: "TEST-003", summary: "[TEST] Quarterly maintenance visit", type: "maintenance", priority: "normal", status: "scheduled", day: 14, start: 14, min: 30, dur: 1.5, techs: ["Lisa"], tags: "test,maintenance-plan", notes: "[TEST] Covered under PSA agreement." },
   { n: "TEST-004", summary: "[TEST] New 4-ton system installation", type: "installation", priority: "high", status: "scheduled", day: 14, start: 16, dur: 4, techs: ["Mike", "Carlos"], tags: "test,install,2-tech", description: "[TEST] Full changeout — condenser + air handler.", amount: 8900 },
   { n: "TEST-005", summary: "[TEST] Thermostat replacement", type: "repair", priority: "low", status: "completed", day: 7, start: 13, dur: 1, techs: ["Lisa"], tags: "test", completionNotes: "[TEST] Installed smart thermostat, verified cooling cycle.", amount: 210 },
   { n: "TEST-006", summary: "[TEST] Duct inspection", type: "inspection", priority: "normal", status: "completed", day: 9, start: 15, dur: 2, techs: ["Mike"], tags: "test,inspection", completionNotes: "[TEST] Minor leak sealed at main trunk.", amount: 180 },
-  { n: "TEST-007", summary: "[TEST] Refrigerant leak repair", type: "repair", priority: "high", status: "dispatched", day: 16, start: 13, dur: 2, techs: ["Carlos"], tags: "test,callback", techNotes: "[TEST] Suspected evaporator coil leak." },
+  { n: "TEST-007", summary: "[TEST] Refrigerant leak repair", type: "repair", priority: "high", status: "parts_on_hold", day: 16, start: 13, dur: 2, techs: ["Carlos"], tags: "test,callback", techNotes: "[TEST] Suspected evaporator coil leak." },
   { n: "TEST-008", summary: "[TEST] Mini-split service", type: "service", priority: "normal", status: "scheduled", day: 17, start: 14, min: 30, dur: 1.5, techs: ["Lisa"], tags: "test" },
   { n: "TEST-009", summary: "[TEST] Cooling tower maintenance", type: "maintenance", priority: "normal", status: "on_hold", day: 18, start: 13, dur: 3, techs: ["Mike"], tags: "test,on-hold", notes: "[TEST] On hold — awaiting replacement fill media." },
   { n: "TEST-010", summary: "[TEST] Compressor swap (2 techs)", type: "installation", priority: "high", status: "scheduled", day: 22, start: 13, dur: 4, techs: ["Carlos", "Lisa"], tags: "test,2-tech", amount: 3200 },
