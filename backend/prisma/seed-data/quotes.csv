@@ -1,0 +1,167 @@
+Customer,Address,Quote #,Quote Date,Status,Expiration Date,Amount,Multi-Option,Printed,Emailed
+100 Emerald Beach Way,100 Emerald BeachWay Palm Beach FL 33480,q1041,2025-08-21 12:00 AM,Scheduled,2025-09-20 12:00 AM,3530.00,False,False,False
+100 Emerald Beach Way,100 Emerald BeachWay Palm Beach FL 33480,q1003,2025-07-07 12:00 AM,Scheduled,2025-08-06 12:00 AM,11957.00,False,False,False
+100 Emerald Beach Way,100 Emerald BeachWay Palm Beach FL 33480,q1010,2025-07-11 12:00 AM,Scheduled,2025-08-10 12:00 AM,11957.00,False,False,False
+1141,1141 S Ocean Blvd Delray Beach FL 33483,q1143,2026-04-16 12:00 AM,Scheduled,2026-05-16 12:00 AM,4148.00,False,False,True
+6767 N Ocean Blvd.,6767 N Ocean Blvd Ocean Ridge FL 33435,q1149,2026-04-27 12:00 AM,Scheduled,2026-05-27 12:00 AM,766.00,False,False,True
+6767 N Ocean Blvd.,6767 N Ocean Blvd Ocean Ridge FL 33435,q1078,2025-11-18 12:00 AM,Scheduled,2025-12-18 12:00 AM,3971.00,False,False,False
+6767 N Ocean Blvd.,6767 N Ocean Blvd Ocean Ridge FL 33435,q1066,2025-10-17 12:00 AM,Scheduled,2025-11-16 12:00 AM,792.00,False,False,True
+6767 N Ocean Blvd.,6767 N Ocean Blvd Ocean Ridge FL 33435,q1020,2025-07-30 12:00 AM,Scheduled,2025-08-29 12:00 AM,4096.00,False,True,False
+6767 N Ocean Blvd.,6767 N Ocean Blvd Ocean Ridge FL 33435,q1031,2025-08-11 12:00 AM,Scheduled,2025-09-10 12:00 AM,868.00,False,True,False
+6767 N Ocean Blvd.,6767 N Ocean Blvd Ocean Ridge FL 33435,q1150,2026-04-30 12:00 AM,Pending,2026-05-30 12:00 AM,0.00,False,False,False
+6767 N Ocean Blvd.,6767 N Ocean Blvd Ocean Ridge FL 33435,q1116,2026-02-25 12:00 AM,Scheduled,2026-03-27 12:00 AM,705.36,False,False,True
+6767 N Ocean Blvd. - 1010,6767 N Ocean Blve Ocean Ridge FL 33435,q1068,2025-10-21 12:00 AM,Scheduled,2025-11-20 12:00 AM,14025.00,False,False,False
+Ballenisles CC-Sports/Pool Bldg,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1160,2026-06-04 12:00 AM,Scheduled,2026-07-04 12:00 AM,650.00,False,False,True
+Ballenisles CC-Sports/Pool Bldg,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1184,2026-07-06 12:00 AM,Scheduled,2026-08-05 12:00 AM,255.12,False,True,True
+Ballenisles CC-Sports/Pool Bldg,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1174,2026-06-17 12:00 AM,Scheduled,2026-07-17 12:00 AM,1657.47,False,False,True
+Ballenisles CC-Sports/Pool Bldg,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1112,2026-02-05 12:00 AM,Scheduled,2026-03-07 12:00 AM,490.07,False,False,True
+Ballenisles CC-Sports/Pool Bldg,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1011,2025-07-14 12:00 AM,Scheduled,2025-08-13 12:00 AM,440.57,False,False,True
+Ballenisles CC-Sports/Pool Bldg,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1098,2026-01-07 12:00 AM,Scheduled,2026-02-06 12:00 AM,4201.85,False,False,True
+Ballenisles CC-Sports/Pool Bldg,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1107,2026-01-20 12:00 AM,Scheduled,2026-02-19 12:00 AM,2487.00,False,False,True
+Ballenisles CC-Sports/Pool Bldg,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1016,2025-07-23 12:00 AM,Scheduled,2025-08-22 12:00 AM,2686.00,False,True,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1119,2026-03-03 12:00 AM,Scheduled,2026-04-02 12:00 AM,2946.50,False,False,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1077,2025-11-10 12:00 AM,Scheduled,2025-12-10 12:00 AM,1680.00,False,False,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1113,2026-02-11 12:00 AM,Scheduled,2026-03-13 12:00 AM,2404.75,False,False,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1065,2025-10-17 12:00 AM,Scheduled,2025-11-16 12:00 AM,525.00,False,False,False
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1181,2026-06-29 12:00 AM,Scheduled,2026-07-29 12:00 AM,389.50,False,True,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1157,2026-05-29 12:00 AM,Scheduled,2026-06-28 12:00 AM,6446.34,False,False,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1087,2025-12-11 12:00 AM,Scheduled,2026-01-10 12:00 AM,6337.00,False,False,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1108,2026-01-23 12:00 AM,Rejected,2026-02-22 12:00 AM,1366.33,False,False,False
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1153,2026-05-19 12:00 AM,Scheduled,2026-06-18 12:00 AM,2330.00,False,False,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1180,2026-06-25 12:00 AM,Scheduled,2026-07-25 12:00 AM,150.00,False,False,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1185,2026-07-06 12:00 AM,Pending,2026-08-05 12:00 AM,857.60,False,True,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1159,2026-06-03 12:00 AM,Scheduled,2026-07-03 12:00 AM,381.20,False,False,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1056,2025-10-03 12:00 AM,Scheduled,2025-11-02 12:00 AM,525.50,False,False,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1131,2026-03-17 12:00 AM,Scheduled,2026-04-16 12:00 AM,1813.22,False,False,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1176,2026-06-23 12:00 AM,Scheduled,2026-07-23 12:00 AM,609.56,False,True,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1177,2026-06-23 12:00 AM,Scheduled,2026-07-23 12:00 AM,2049.25,False,True,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1034,2025-08-12 12:00 AM,Scheduled,2025-09-11 12:00 AM,5123.00,False,True,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1089,2025-12-12 12:00 AM,Scheduled,2026-01-11 12:00 AM,6100.00,False,False,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1030,2025-08-08 12:00 AM,Scheduled,2025-09-07 12:00 AM,2720.00,False,True,True
+Ballenisles Country Club-Main,100 Ballenisles Circle Palm Beach Gardens FL 33418,q1156,2026-05-29 12:00 AM,Scheduled,2026-06-28 12:00 AM,316.50,False,False,True
+Bear Lakes Country Club,1901 Village Blvd. West Palm Beach FL 33409,q1173,2026-06-17 12:00 AM,Pending,2026-07-17 12:00 AM,5871.30,False,False,True
+Blood Donald & Erin,316 N Ocean Breeze Street Lake Worth FL 33460,q1047,2025-09-03 12:00 AM,Accepted,2025-10-02 12:00 AM,775.00,False,False,False
+"""Castillo, Nabor Gerardo & Brittany""",1007 White Drive Delray Beach FL 33483,q1099,2026-01-12 12:00 AM,Scheduled,2026-02-11 12:00 AM,15523.00,False,False,False
+"""Czerw, Rob""",115 Elena Court Jupiter FL 33478,q1140,2026-04-14 12:00 AM,Scheduled,2026-05-14 12:00 AM,841.00,False,False,True
+"""Czerw, Rob""",115 Elena Court Jupiter FL 33478,q1139,2026-04-13 12:00 AM,Accepted,2026-05-13 12:00 AM,1041.00,False,False,False
+Delaire Country Club,4645 White Cedar Ln Delray Beach FL 33445,q1188,2026-07-13 12:00 AM,Scheduled,2026-08-12 12:00 AM,1356.75,False,True,True
+Delaire Country Club,4645 White Cedar Ln Delray Beach FL 33445,q1151,2026-05-01 12:00 AM,Scheduled,2026-05-31 12:00 AM,1295.00,False,False,True
+Delaire Country Club,4645 White Cedar Ln Delray Beach FL 33445,q1172,2026-06-16 12:00 AM,Scheduled,2026-07-16 12:00 AM,3410.00,False,False,True
+Delaire Country Club,4645 White Cedar Ln Delray Beach FL 33445,q1091,2025-12-16 12:00 AM,Pending,2026-01-15 12:00 AM,0.00,False,False,False
+Delaire Country Club,4645 White Cedar Ln Delray Beach FL 33445,q1182,2026-06-29 12:00 AM,Scheduled,2026-07-29 12:00 AM,1050.00,False,True,True
+Delaire Country Club,4645 White Cedar Ln Delray Beach FL 33445,q1042,2025-08-25 12:00 AM,Scheduled,2025-09-24 12:00 AM,14897.00,False,False,True
+Delaire Country Club,4645 White Cedar Ln Delray Beach FL 33445,q1057,2025-10-06 12:00 AM,Pending,2025-11-05 12:00 AM,3489.00,False,False,True
+"""Dumit, Alberto""",730 Biscayne Drive West Palm Beach FL 33401,q1132,2026-03-20 12:00 AM,Scheduled,2026-04-19 12:00 AM,865.92,False,False,False
+Dunfee David,13021 Marsh Landing Palm Beach Gardens FL 33418,q1095,2026-01-05 12:00 AM,Accepted,2026-02-04 12:00 AM,767.65,False,False,True
+Fox Timothy - 1004,8476 SE Mangrove Street Hobe Sound FL 33458,q1043,2025-08-26 12:00 AM,Scheduled,2025-09-25 12:00 AM,46174.00,False,False,False
+Frenchman's  Hole # 5- 1001,3370 Grande Corniche Palm Beach Gardens FL 33410,q1038,2025-08-13 12:00 AM,Scheduled,2025-09-12 12:00 AM,7981.00,False,False,False
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1014,2025-07-16 12:00 AM,Scheduled,2025-08-15 12:00 AM,555.00,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1058,2025-10-07 12:00 AM,Pending,2025-11-06 12:00 AM,495.00,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1104,2026-01-13 12:00 AM,Scheduled,2026-02-12 12:00 AM,2428.12,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1136,2026-04-07 12:00 AM,Scheduled,2026-05-07 12:00 AM,3960.00,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1161,2026-06-04 12:00 AM,Pending,2026-07-04 12:00 AM,680.00,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1145,2026-04-23 12:00 AM,Pending,2026-05-23 12:00 AM,3175.00,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1102,2026-01-12 12:00 AM,Rejected,2026-02-11 12:00 AM,9416.10,False,False,False
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1007,2025-07-25 12:00 AM,Scheduled,2025-08-07 12:00 AM,3000.00,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1101,2026-01-12 12:00 AM,Scheduled,2026-02-11 12:00 AM,1402.25,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1096,2026-01-06 12:00 AM,Scheduled,2026-02-05 12:00 AM,9919.14,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1115,2026-02-20 12:00 AM,Scheduled,2026-03-22 12:00 AM,5508.47,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1092,2025-12-19 12:00 AM,Pending,2026-01-18 12:00 AM,7055.71,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1002,2025-07-03 12:00 AM,Scheduled,2025-08-02 12:00 AM,3556.00,False,False,False
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1086,2025-12-10 12:00 AM,Scheduled,2026-01-09 12:00 AM,964.85,True,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1144,2026-04-07 12:00 AM,Pending,2026-05-07 12:00 AM,0.00,False,False,False
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1187,2026-07-13 12:00 AM,Scheduled,2026-08-12 12:00 AM,1925.00,False,False,False
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1081,2025-11-20 12:00 AM,Accepted,2025-12-20 12:00 AM,1485.00,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1051,2025-09-17 12:00 AM,Scheduled,2025-10-17 12:00 AM,2769.00,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1026,2025-07-30 12:00 AM,Pending,2025-08-29 12:00 AM,515.00,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1045,2025-08-26 12:00 AM,Pending,2025-09-25 12:00 AM,1203.36,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1105,2026-01-19 12:00 AM,Scheduled,2026-02-18 12:00 AM,1020.00,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1110,2026-01-30 12:00 AM,Pending,2026-03-01 12:00 AM,1926.78,False,False,True
+Frenchman's Reserve Country Club,3370 Grande Corniche Palm Beach Gardens FL 33410,q1154,2026-05-28 12:00 AM,Pending,2026-06-27 12:00 AM,3200.00,False,False,True
+Gegnas Robert,198 Locha Drive Jupiter FL 33458,q1123,2026-03-10 12:00 AM,Scheduled,2026-04-09 12:00 AM,1241.00,False,False,False
+"""Gonzalez, Nimia""",2075 Tigris Drive West Palm Beach FL 33411,q1186,2026-07-07 12:00 AM,Scheduled,2026-08-06 12:00 AM,589.00,False,False,True
+"""Green, Stephen & Nancy""",180/182 Bears Club Drive Jupiter FL 33477,q1052,2025-09-22 12:00 AM,Scheduled,2025-10-22 12:00 AM,938.00,False,False,True
+"""Green, Stephen & Nancy""",180/182 Bears Club Drive Jupiter FL 33477,q1126,2026-03-13 12:00 AM,Scheduled,2026-04-12 12:00 AM,875.00,False,False,True
+"""Green, Stephen & Nancy""",180/182 Bears Club Drive Jupiter FL 33477,q1125,2026-03-11 12:00 AM,Rejected,2026-04-10 12:00 AM,875.00,False,False,False
+Haney Residence - 1009,5904 Senegal Drive Jupiter FL 33458,q1061,2025-10-14 12:00 AM,Scheduled,2025-11-13 12:00 AM,32432.00,False,False,False
+"""Lamontagne, Richard""",10360 PRESTWICK RD BOYNTON BEACH FL 33436,q1021,2025-07-30 12:00 AM,Rejected,2025-08-29 12:00 AM,0.00,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1169,2026-06-05 12:00 AM,Pending,2026-07-05 12:00 AM,295.50,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1164,2026-06-04 12:00 AM,Pending,2026-07-04 12:00 AM,356.49,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1155,2026-05-29 12:00 AM,Scheduled,2026-06-28 12:00 AM,1393.34,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1142,2026-04-14 12:00 AM,Scheduled,2026-05-14 12:00 AM,897.08,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1124,2026-03-13 12:00 AM,Pending,2026-04-12 12:00 AM,15218.42,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1170,2026-06-05 12:00 AM,Scheduled,2026-07-05 12:00 AM,655.50,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1075,2025-11-07 12:00 AM,Scheduled,2025-12-07 12:00 AM,1873.88,False,False,False
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1120,2026-03-04 12:00 AM,Scheduled,2026-04-03 12:00 AM,2754.49,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1183,2026-07-01 12:00 AM,Pending,2026-07-31 12:00 AM,1062.14,False,True,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1067,2025-10-28 12:00 AM,Pending,2025-11-19 12:00 AM,989.44,False,False,False
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1006,2025-07-08 12:00 AM,Scheduled,2025-08-07 12:00 AM,1303.00,False,False,False
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1167,2026-06-04 12:00 AM,Pending,2026-07-04 12:00 AM,425.50,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1046,2025-08-26 12:00 AM,Scheduled,2025-09-25 12:00 AM,7324.69,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1175,2026-06-22 12:00 AM,Pending,2026-07-22 12:00 AM,3150.25,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1032,2025-08-11 12:00 AM,Scheduled,2025-09-10 12:00 AM,2121.00,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1166,2026-06-04 12:00 AM,Pending,2026-07-04 12:00 AM,495.50,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1168,2026-06-04 12:00 AM,Pending,2026-07-04 12:00 AM,565.50,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1141,2026-04-14 12:00 AM,Rejected,2026-05-14 12:00 AM,1647.00,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1109,2026-01-23 12:00 AM,Pending,2026-02-22 12:00 AM,350.00,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1163,2026-06-04 12:00 AM,Pending,2026-07-04 12:00 AM,349.95,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1064,2025-10-16 12:00 AM,Scheduled,2025-11-15 12:00 AM,96.00,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1165,2026-06-04 12:00 AM,Pending,2026-07-04 12:00 AM,398.50,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1162,2026-06-04 12:00 AM,Scheduled,2026-07-04 12:00 AM,985.50,False,False,True
+Loxahatchee Club The,1350 Echo Drive Jupiter FL 33458,q1114,2026-02-19 12:00 AM,Scheduled,2026-03-21 12:00 AM,850.00,False,False,True
+"""Malave, Jesus & Janine""",13223 Marsh Landing Palm Beach Gardens FL 33418,q1097,2026-01-05 12:00 AM,Scheduled,2026-02-04 12:00 AM,585.00,False,False,True
+"""Malave, Jesus & Janine - 1003""",13223 Marsh Landing Palm Beach Gardens FL 33418,q1027,2025-07-31 12:00 AM,Accepted,2025-08-30 12:00 AM,3876.12,False,False,False
+"""Mancosh, Douglas & Kathy""",13340 Marsh Landing Palm Beach Gardens FL 33418,q1088,2025-12-15 12:00 AM,Scheduled,2026-01-10 12:00 AM,950.09,False,False,True
+McArthur Golf Club,6550 S E Osprey Street Hobe Sound FL 33455,q1152,2026-05-12 12:00 AM,Scheduled,2026-06-11 12:00 AM,3825.00,False,False,True
+McArthur Golf Club,6550 S E Osprey Street Hobe Sound FL 33455,q1036,2025-08-12 12:00 AM,Scheduled,2025-09-11 12:00 AM,1493.00,False,False,True
+McArthur Golf Club,6550 S E Osprey Street Hobe Sound FL 33455,q1130,2026-03-17 12:00 AM,Scheduled,2026-04-16 12:00 AM,1127.00,False,False,True
+McArthur Golf Club,6550 S E Osprey Street Hobe Sound FL 33455,q1062,2025-10-15 12:00 AM,Scheduled,2025-11-14 12:00 AM,1309.00,False,False,True
+McArthur Golf Club,6550 S E Osprey Street Hobe Sound FL 33455,q1069,2025-10-21 12:00 AM,Scheduled,2025-11-20 12:00 AM,1250.00,False,False,True
+McArthur Golf Club,6550 S E Osprey Street Hobe Sound FL 33455,q1147,2026-04-24 12:00 AM,Pending,2026-05-24 12:00 AM,1825.00,False,False,True
+McArthur Golf Club,6550 S E Osprey Street Hobe Sound FL 33455,q1118,2026-02-26 12:00 AM,Scheduled,2026-03-28 12:00 AM,2588.00,False,False,False
+McArthur Golf Club,6550 S E Osprey Street Hobe Sound FL 33455,q1070,2025-11-04 12:00 AM,Pending,2025-11-22 12:00 AM,979.00,False,False,False
+McArthur Golf Club,6550 S E Osprey Street Hobe Sound FL 33455,q1012,2025-07-15 12:00 AM,Scheduled,2025-08-14 12:00 AM,361.96,False,False,True
+McArthur Golf Club,6550 S E Osprey Street Hobe Sound FL 33455,q1146,2026-04-23 12:00 AM,Pending,2026-05-23 12:00 AM,1525.00,False,False,True
+"""Mroz, Paul""",6210 Winding Lake Drive Jupiter FL 33458,q1063,2025-10-15 12:00 AM,Scheduled,2025-11-14 12:00 AM,4958.00,False,False,False
+Musselman Residence,1010 Harbor Drive Delray Beach FL 33483,q1143,2026-06-16 12:00 AM,Scheduled,2026-07-16 12:00 AM,1407.00,False,False,True
+"""Narr, George & Christine - 1008""",2131 N W Golden Oak Trail Jensen Beach FL 34957,q1060,2025-10-14 12:00 AM,Scheduled,2025-11-13 12:00 AM,8991.00,False,False,False
+Old Palm Golf Club,11889 Old Palm Dr Palm Beach Gardens FL 33418,q1121,2026-03-09 12:00 AM,Rejected,2026-04-08 12:00 AM,19500.00,False,False,True
+Old Palm Golf Club,11889 Old Palm Dr Palm Beach Gardens FL 33418,q1117,2026-02-26 12:00 AM,Scheduled,2026-03-28 12:00 AM,898.92,False,False,False
+Pinto Marc & Margot,137 Terrapin Trail Jupiter FL 33458,q1072,2025-10-30 12:00 AM,Rejected,2025-11-29 12:00 AM,0.00,False,False,False
+Pinto Marc & Margot,137 Terrapin Trail Jupiter FL 33458,q1171,2026-06-11 12:00 AM,Scheduled,2026-07-11 12:00 AM,378.00,False,False,True
+ROONEY 2-1 TON MINI SPLIT SYSTEMS- 1002,10360 PRESTWICK RD BOYNTON BEACH FL 33436,q1039,2025-08-13 12:00 AM,Scheduled,2025-09-12 12:00 AM,9896.00,False,False,False
+Sailfish Club of Florida (Storage),2727 Rosemary Ave Suite 14 & 15 West Palm Beach FL 33480,q1137,2026-04-07 12:00 AM,Pending,2026-05-07 12:00 AM,350.00,False,False,True
+Sailfish Club of Florida (Storage),2727 Rosemary Ave Suite 14 & 15 West Palm Beach FL 33480,q1019,2025-07-24 12:00 AM,Scheduled,2025-08-23 12:00 AM,3629.00,False,False,True
+Savoy Residence,8169 SE Double Tree Drive Hobe Sound FL 33455,q1025,2025-07-30 12:00 AM,Scheduled,2025-08-29 12:00 AM,33000.00,False,False,False
+Savoy Residence - 1000,8169 SE Double Tree Drive Hobe Sound FL 33455,q1035,2025-08-12 12:00 AM,Scheduled,2025-09-11 12:00 AM,33000.00,False,False,False
+Savoy Residence - 1000,8169 SE Double Tree Drive Hobe Sound FL 33455,q1037,2025-08-12 12:00 AM,Accepted,2025-09-11 12:00 AM,6700.00,False,False,False
+"""Slatter, Danielle - 1006""",13179 Camero Way East Pointe Palm Beach Gardens FL 33418,q1053,2025-09-26 12:00 AM,Accepted,2025-10-26 12:00 AM,9311.00,False,False,False
+"""Smith, Jimmy & Donna""",444 Via Del Orso Jupiter FL 33477,q1093,2025-12-22 12:00 AM,Scheduled,2026-01-21 12:00 AM,1180.00,False,False,True
+"""Smith, Joshua & Christina""",2 Whitney Way Ocean Ridge FL 33435,q1133,2026-03-24 12:00 AM,Scheduled,2026-04-23 12:00 AM,1275.00,False,False,True
+"""SS Palm Beach, LLC""",1415 S Ocean Blvd Palm Beach FL 33480,q1028,2025-07-31 12:00 AM,Scheduled,2025-08-30 12:00 AM,9609.00,False,False,False
+"""SS Palm Beach, LLC""",1415 S Ocean Blvd Palm Beach FL 33480,q1179,2026-06-23 12:00 AM,Pending,2026-07-23 12:00 AM,5766.00,False,True,False
+"""SS Palm Beach, LLC""",1415 S Ocean Blvd Palm Beach FL 33480,q1178,2026-06-23 12:00 AM,Scheduled,2026-07-23 12:00 AM,834.00,False,True,False
+"""SS Palm Beach, LLC""",1415 S Ocean Blvd Palm Beach FL 33480,q1029,2025-07-31 12:00 AM,Scheduled,2025-08-30 12:00 AM,9609.00,False,False,False
+"""SS Palm Beach, LLC - 1005""",1415 S Ocean Blvd Palm Beach FL 33480,q1050,2025-09-11 12:00 AM,Scheduled,2025-10-11 12:00 AM,29034.00,False,False,False
+"""SS Palm Beach, LLC - 1005""",1415 S Ocean Blvd Palm Beach FL 33480,q1049,2025-09-11 12:00 AM,Accepted,2025-10-11 12:00 AM,9609.00,False,False,False
+"""SS Palm Beach, LLC - 1007""",1415 S Ocean Blvd Palm Beach FL 33480,q1059,2025-10-09 12:00 AM,Scheduled,2025-11-08 12:00 AM,10768.00,False,False,False
+"""SS Palm Beach, LLC - 1013""",1415 S Ocean Blvd Palm Beach FL 33480,q1082,2025-11-26 12:00 AM,Accepted,2025-12-26 12:00 AM,17687.00,False,False,False
+"""Swaney, William""",1 Peacock Lane Boynton Beach Fl. 33436,q1122,2026-03-10 12:00 AM,Scheduled,2026-04-09 12:00 AM,832.00,False,False,False
+Swanson Judith,128 Sota Drive Loxahatchee Club Jupiter FL 33458,q1100,2026-01-08 12:00 AM,Scheduled,2026-02-07 12:00 AM,893.37,False,False,False
+The Sailfish Club of Florida,1338 N Lake Way Palm Beach FL 33480,q1080,2025-11-20 12:00 AM,Scheduled,2025-12-20 12:00 AM,2375.00,False,False,True
+The Sailfish Club of Florida,1338 N Lake Way Palm Beach FL 33480,q1054,2025-09-26 12:00 AM,Pending,2025-10-26 12:00 AM,8213.92,False,False,False
+The Sailfish Club of Florida,1338 N Lake Way Palm Beach FL 33480,q1074,2025-11-04 12:00 AM,Scheduled,2025-12-04 12:00 AM,1685.00,False,False,True
+The Sailfish Club of Florida,1338 N Lake Way Palm Beach FL 33480,q1013,2025-07-16 12:00 AM,Scheduled,2025-08-15 12:00 AM,1920.00,False,False,True
+The Sailfish Club of Florida,1338 N Lake Way Palm Beach FL 33480,q1079,2025-11-20 12:00 AM,Scheduled,2025-12-20 12:00 AM,890.00,False,False,True
+The Sailfish Club of Florida,1338 N Lake Way Palm Beach FL 33480,q1158,2026-06-01 12:00 AM,Scheduled,2026-07-01 12:00 AM,1133.64,False,False,True
+The Sailfish Club of Florida,1338 N Lake Way Palm Beach FL 33480,q1083,2025-12-02 12:00 AM,Scheduled,2026-01-01 12:00 AM,1895.00,False,False,True
+The Sailfish Club of Florida,1338 N Lake Way Palm Beach FL 33480,q1055,2025-09-30 12:00 AM,Scheduled,2025-10-30 12:00 AM,8213.92,False,False,True
+The Sailfish Club of Florida,1338 N Lake Way Palm Beach FL 33480,q1071,2025-10-29 12:00 AM,Scheduled,2025-11-28 12:00 AM,1823.00,False,False,True
+The Sailfish Club of Florida,1338 N Lake Way Palm Beach FL 33480,q1138,2026-04-13 12:00 AM,Rejected,2026-05-13 12:00 AM,2446.69,False,False,True
+The Sailfish Club of Florida,1338 N Lake Way Palm Beach FL 33480,q1040,2025-08-20 12:00 AM,Scheduled,2025-09-19 12:00 AM,3987.00,False,False,True
+The Sailfish Club of Florida - 1012,1338 N Lake Way West Palm Beach FL 33480,q1135,2026-03-26 12:00 AM,Scheduled,2026-04-25 12:00 AM,13419.00,False,False,False
+The Sailfish Club of Florida - 1012,1338 N Lake Way Palm Beach FL 33480,q1073,2025-11-03 12:00 AM,Scheduled,2025-12-03 12:00 AM,10881.00,False,False,True
+"""Thornton, John & Margaret-A/C""",1236 S Ocean Blvd Palm Beach fl 33480,q1129,2026-03-17 12:00 AM,Scheduled,2026-04-16 12:00 AM,2687.00,False,False,False
+Valenti Fortunato & Linda,150 Clarke Avenue Palm Beach FL 33480,q1148,2026-04-27 12:00 AM,Pending,2026-05-27 12:00 AM,804.52,False,False,True
+Valenti Fortunato & Linda,150 Clarke Avenue Palm Beach FL 33480,q1009,2025-07-14 12:00 AM,Scheduled,2025-08-13 12:00 AM,986.00,False,False,False
+"""Webster, Jeff & Marion - 1016""",5831 Warhol Terrace Palm Beach Gardens FL 33418,q1090,2025-12-16 12:00 AM,Scheduled,2026-01-15 12:00 AM,5943.00,False,False,False

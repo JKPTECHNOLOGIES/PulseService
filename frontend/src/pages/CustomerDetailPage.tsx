@@ -119,6 +119,16 @@ export default function CustomerDetailPage() {
               New Work Order
             </Button>
             <Button
+              variant="outline"
+              size="sm"
+              icon={<PlusIcon className="h-4 w-4" />}
+              onClick={() => {
+                navigate("/estimates/new", { state: { customerId: id } });
+              }}
+            >
+              New Quote
+            </Button>
+            <Button
               variant="secondary"
               size="sm"
               icon={<PencilIcon className="h-4 w-4" />}
@@ -291,6 +301,54 @@ export default function CustomerDetailPage() {
                   <p className="text-sm text-gray-400">No locations on file</p>
                 )}
               </div>
+            </div>
+
+            {/* Recent Quotes */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900">Quotes</h3>
+                {estimates.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTab(TABS.indexOf("Quotes"));
+                    }}
+                    className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                  >
+                    View all {estimates.length} &rarr;
+                  </button>
+                )}
+              </div>
+              {estimates.length === 0 ? (
+                <p className="text-sm text-gray-400">No quotes on file</p>
+              ) : (
+                <div className="space-y-1">
+                  {estimates.slice(0, 5).map((est) => (
+                    <div
+                      key={est.id}
+                      className="flex items-center justify-between gap-3 py-2 px-2 -mx-2 rounded-lg border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50"
+                      onClick={() => {
+                        navigate(`/estimates/${est.id}`);
+                      }}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-primary-600 truncate">
+                          #{est.estimateNumber}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {est.title}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <StatusBadge status={est.status} type="estimate" />
+                        <span className="text-sm font-medium text-gray-900">
+                          {formatCurrency(est.total)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Photos & Attachments */}

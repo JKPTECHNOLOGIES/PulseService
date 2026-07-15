@@ -4,7 +4,7 @@ import {
   PaperAirplaneIcon,
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import clsx from "clsx";
 import {
   useEstimates,
@@ -84,9 +84,20 @@ export default function EstimatesPage() {
       header: "Customer",
       sortValue: (est) => customerName(est).toLowerCase(),
       exportValue: (est) => customerName(est),
-      render: (est) => (
-        <span className="text-gray-900">{customerName(est) || "-"}</span>
-      ),
+      render: (est) =>
+        est.customer ? (
+          <Link
+            to={`/customers/${est.customerId}`}
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+            className="text-gray-900 hover:text-primary-600 hover:underline"
+          >
+            {customerName(est)}
+          </Link>
+        ) : (
+          <span className="text-gray-900">-</span>
+        ),
     },
     {
       key: "title",

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -47,6 +47,7 @@ interface EstimateDraft {
 
 export default function EstimateFormPage() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const isEditing = !!id;
 
@@ -59,6 +60,9 @@ export default function EstimateFormPage() {
   const customers = customersData?.data ?? [];
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
 
+  const prefillCustomerId =
+    (location.state as { customerId?: string } | null)?.customerId ?? "";
+
   const {
     register,
     handleSubmit,
@@ -67,7 +71,7 @@ export default function EstimateFormPage() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: DEFAULT_VALUES,
+    defaultValues: { ...DEFAULT_VALUES, customerId: prefillCustomerId },
   });
 
   const customerId = watch("customerId");

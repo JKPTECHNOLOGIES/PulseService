@@ -178,6 +178,7 @@ function parseCustomersCsv(filePath) {
 
     const location = parseFullAddress(fullAddress);
     const merge = addressToMerge.get(fullAddress);
+    const cleanRawName = rawName.replace(/^"+|"+$/g, "").trim();
 
     if (merge) {
       let spec = mergeGroupsUsed.get(merge.key);
@@ -191,11 +192,18 @@ function parseCustomersCsv(filePath) {
           email: merge.email,
           source: merge.source || null,
           locations: [],
+          // Every raw Display Name / Full Address that feeds into this
+          // customer, so other CSV imports (e.g. quotes) that reference the
+          // customer by its original per-row name can resolve it too.
+          sourceNames: [],
+          sourceAddresses: [],
         };
         mergeGroupsUsed.set(merge.key, spec);
         customers.push(spec);
       }
       if (location) spec.locations.push(location);
+      spec.sourceNames.push(cleanRawName);
+      if (fullAddress) spec.sourceAddresses.push(fullAddress);
       continue;
     }
 
@@ -211,10 +219,29 @@ function parseCustomersCsv(filePath) {
       email: email || null,
       source,
       locations: location ? [location] : [],
+      sourceNames: [cleanRawName],
+      sourceAddresses: fullAddress ? [fullAddress] : [],
     });
   }
 
   return customers;
 }
 
-module.exports = { parseCustomersCsv, parseFullAddress, splitName };
+// Shared normalization so other CSV imports (e.g. quotes) can resolve a
+// customer by the same raw "Display Name" text used in this file.
+function normalizeCustomerName(name) {
+  return (name || "")
+    .trim()
+    .replace(/^"+|"+$/g, "")
+    .toLowerCase()
+    .replace(/[.,]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+module.exports = {
+  parseCustomersCsv,
+  parseFullAddress,
+  splitName,
+  normalizeCustomerName,
+};

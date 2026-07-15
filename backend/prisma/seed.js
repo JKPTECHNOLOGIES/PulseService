@@ -5,7 +5,9 @@ const bcrypt = require("bcryptjs");
 const { LOOKUPS } = require("../src/constants/lookups");
 const { DEFAULT_ROLE_PERMISSIONS } = require("../src/constants/permissions");
 const { parseItemsCsv } = require("./seed-data/parseItemsCsv");
-const { parseCustomersCsv } = require("./seed-data/parseCustomersCsv");
+const { parseCustomersCsv, normalizeCustomerName } = require("./seed-data/parseCustomersCsv");
+const { parseQuotesCsv } = require("./seed-data/parseQuotesCsv");
+const QUOTE_CUSTOMER_ALIASES = require("./seed-data/quoteCustomerAliases");
 
 const prisma = new PrismaClient();
 
@@ -598,8 +600,13 @@ async function main() {
   );
   const companySettingsRow = await prisma.companySettings.findFirst();
   let nextCustomerNumber = companySettingsRow.nextCustomerNumber;
+  // normalized raw "Display Name" (from the original, pre-dedup customers
+  // export) -> created Customer record. Lets other CSV imports (quotes,
+  // invoices, ...) that reference the same customer by its original name
+  // resolve it, even for rows that got merged/deleted during dedup.
+  const customerByRawName = new Map();
   for (const c of importedCustomers) {
-    await prisma.customer.create({
+    const created = await prisma.customer.create({
       data: {
         customerNumber: `${companySettingsRow.customerPrefix}-${nextCustomerNumber}`,
         firstName: c.firstName,
@@ -622,12 +629,74 @@ async function main() {
       },
     });
     nextCustomerNumber += 1;
+    for (const rawName of c.sourceNames) {
+      customerByRawName.set(normalizeCustomerName(rawName), created);
+    }
   }
   await prisma.companySettings.update({
     where: { id: companySettingsRow.id },
     data: { nextCustomerNumber },
   });
   console.log(`  Imported ${importedCustomers.length} customers.`);
+
+  // ── Real quotes (from QuickBooks export) ──────────────────────────────
+  // Sourced from prisma/seed-data/quotes.csv. Each quote references its
+  // customer by the ORIGINAL (pre-dedup) per-property name, so we resolve it
+  // via customerByRawName first, then quoteCustomerAliases.js for the 15
+  // names that were merged/dropped during customer dedup.
+  console.log("  Importing quotes (estimates) from CSV...");
+  const importedQuotes = parseQuotesCsv(
+    path.join(__dirname, "seed-data", "quotes.csv"),
+  );
+  const usedEstimateNumbers = new Set();
+  let quotesImported = 0;
+  let quotesSkipped = 0;
+  for (const q of importedQuotes) {
+    const key = normalizeCustomerName(q.customerRawName);
+    const aliasedName = QUOTE_CUSTOMER_ALIASES[q.customerRawName];
+    const customer =
+      customerByRawName.get(key) ||
+      (aliasedName && customerByRawName.get(normalizeCustomerName(aliasedName)));
+
+    if (!customer) {
+      quotesSkipped++;
+      console.warn(
+        `    No customer match for quote ${q.quoteNumber} ("${q.customerRawName}") - skipped.`,
+      );
+      continue;
+    }
+
+    let estimateNumber = q.quoteNumber.toUpperCase();
+    if (usedEstimateNumbers.has(estimateNumber)) {
+      let suffix = 2;
+      while (usedEstimateNumbers.has(`${estimateNumber}-${suffix}`)) suffix++;
+      estimateNumber = `${estimateNumber}-${suffix}`;
+    }
+    usedEstimateNumbers.add(estimateNumber);
+
+    await prisma.estimate.create({
+      data: {
+        estimateNumber,
+        customerId: customer.id,
+        status: q.status,
+        title: q.address || `Quote ${estimateNumber}`,
+        summary: q.multiOption ? "Multi-option quote" : null,
+        validUntil: q.expirationDate,
+        subtotal: q.amount,
+        taxRate: 0,
+        taxAmount: 0,
+        total: q.amount,
+        notes: `Imported from QuickBooks export. Original status: ${q.originalStatus}. Printed: ${q.printed ? "Yes" : "No"}. Emailed: ${q.emailed ? "Yes" : "No"}.`,
+        createdById: admin.id,
+        createdAt: q.quoteDate,
+        sentAt: q.quoteDate,
+        approvedAt: q.status === "approved" ? q.quoteDate : null,
+        rejectedAt: q.status === "rejected" ? q.quoteDate : null,
+      },
+    });
+    quotesImported++;
+  }
+  console.log(`  Imported ${quotesImported} quotes (${quotesSkipped} skipped).`);
 
   // ── Jobs ──────────────────────────────────────────────────────────────────────
   console.log("  Creating jobs...");
