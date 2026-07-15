@@ -37,7 +37,16 @@ const list = async (req, res) => {
         take,
         orderBy: { createdAt: "desc" },
         include: {
-          inventoryItem: { select: { id: true, sku: true, name: true } },
+          inventoryItem: {
+            select: {
+              id: true,
+              sku: true,
+              name: true,
+              // Catalog sale price (not cost) so installed units can be billed
+              // onto an invoice at the pricebook rate.
+              pricebookItem: { select: { unitPrice: true, name: true } },
+            },
+          },
           stockLocation: { select: { id: true, name: true, code: true } },
         },
       }),
