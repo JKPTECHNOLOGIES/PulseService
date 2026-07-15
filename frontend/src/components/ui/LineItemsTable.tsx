@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import clsx from "clsx";
 import { formatCurrency } from "../../utils/formatters";
 import { useLookup } from "../../hooks/useMetadata";
 import { usePricebookItems } from "../../hooks/usePricebook";
@@ -14,6 +15,10 @@ export interface LineItem {
   quantity: number;
   unitPrice: number;
   total: number;
+  /** Whether this line counts toward the total and appears on the customer
+   * PDF/email. Defaults to true when omitted. Only rendered/editable when
+   * the table is used with `showIncludeToggle`. */
+  includeOnDocument?: boolean;
 }
 
 interface LineItemsTableProps {
@@ -23,6 +28,20 @@ interface LineItemsTableProps {
   /** When given, the pricebook quick-add picker shows that customer's
    * tier-adjusted price instead of the raw catalog price. */
   customerId?: string;
+  /** Shows a per-line checkbox controlling whether the line is billed and
+   * appears on the customer-facing PDF/email (invoices only - estimates
+   * don't pass this). */
+  showIncludeToggle?: boolean;
+  /** In `readonly` mode, the include checkbox is just an indicator (disabled)
+   * unless this is given — pass it to let the checkbox itself be toggled
+   * in place (e.g. on the invoice detail/view page) without entering full
+   * edit mode. Ignored outside `readonly` (the editable table always allows
+   * toggling directly). */
+  onToggleInclude?: (index: number) => void;
+}
+
+function isIncluded(item: LineItem): boolean {
+  return item.includeOnDocument !== false;
 }
 
 export default function LineItemsTable({
@@ -30,12 +49,21 @@ export default function LineItemsTable({
   onChange,
   readonly = false,
   customerId,
+  showIncludeToggle = false,
+  onToggleInclude,
 }: LineItemsTableProps) {
   const { options: lineItemTypes } = useLookup("lineItemType");
   const addItem = () => {
     onChange([
       ...items,
-      { type: "service", name: "", quantity: 1, unitPrice: 0, total: 0 },
+      {
+        type: "service",
+        name: "",
+        quantity: 1,
+        unitPrice: 0,
+        total: 0,
+        includeOnDocument: true,
+      },
     ]);
   };
 
@@ -59,7 +87,26 @@ export default function LineItemsTable({
     onChange(updated);
   };
 
-  const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+  const toggleInclude = (index: number) => {
+    onChange(
+      items.map((item, i) =>
+        i === index ? { ...item, includeOnDocument: !isIncluded(item) } : item,
+      ),
+    );
+  };
+
+  const allIncluded = items.length > 0 && items.every(isIncluded);
+  const toggleAllIncluded = () => {
+    const next = !allIncluded;
+    onChange(items.map((item) => ({ ...item, includeOnDocument: next })));
+  };
+
+  // Excluded lines stay on the invoice for record-keeping but don't count
+  // toward the total - mirrors the backend's calculateTotals rule exactly.
+  const subtotal = items.reduce(
+    (sum, item) => sum + (isIncluded(item) ? item.total : 0),
+    0,
+  );
 
   if (readonly) {
     return (
@@ -67,7 +114,13 @@ export default function LineItemsTable({
         {/* Mobile: stacked cards (the table overflows a phone width) */}
         <div className="md:hidden space-y-2">
           {items.map((item, i) => (
-            <div key={i} className="rounded-lg border border-gray-100 p-3">
+            <div
+              key={i}
+              className={clsx(
+                "rounded-lg border border-gray-100 p-3",
+                showIncludeToggle && !isIncluded(item) && "opacity-60",
+              )}
+            >
               <div className="flex items-start justify-between gap-3">
                 <p className="font-medium text-gray-900">{item.name}</p>
                 <p className="font-medium text-gray-900 shrink-0">
@@ -82,6 +135,31 @@ export default function LineItemsTable({
               <p className="text-gray-500 text-xs mt-1">
                 {item.quantity} × {formatCurrency(item.unitPrice)}
               </p>
+              {showIncludeToggle && (
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={isIncluded(item)}
+                    disabled={!onToggleInclude}
+                    onChange={
+                      onToggleInclude
+                        ? () => {
+                            onToggleInclude(i);
+                          }
+                        : undefined
+                    }
+                    title={
+                      isIncluded(item)
+                        ? "Included on the invoice and customer PDF/email"
+                        : "Kept for record only - not billed or shown to the customer"
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-[10px] uppercase font-semibold text-gray-400">
+                    {isIncluded(item) ? "On invoice" : "Not on invoice"}
+                  </span>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -89,6 +167,11 @@ export default function LineItemsTable({
         <table className="hidden md:table w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200">
+              {showIncludeToggle && (
+                <th className="text-left py-2 font-medium text-gray-600 w-10">
+                  <span className="sr-only">Included on invoice</span>
+                </th>
+              )}
               <th className="text-left py-2 font-medium text-gray-600 w-1/2">
                 Item
               </th>
@@ -103,13 +186,46 @@ export default function LineItemsTable({
           </thead>
           <tbody>
             {items.map((item, i) => (
-              <tr key={i} className="border-b border-gray-100">
+              <tr
+                key={i}
+                className={clsx(
+                  "border-b border-gray-100",
+                  showIncludeToggle && !isIncluded(item) && "opacity-60",
+                )}
+              >
+                {showIncludeToggle && (
+                  <td className="py-3">
+                    <input
+                      type="checkbox"
+                      checked={isIncluded(item)}
+                      disabled={!onToggleInclude}
+                      onChange={
+                        onToggleInclude
+                          ? () => {
+                              onToggleInclude(i);
+                            }
+                          : undefined
+                      }
+                      title={
+                        isIncluded(item)
+                          ? "Included on the invoice and customer PDF/email"
+                          : "Kept for record only - not billed or shown to the customer"
+                      }
+                      className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 disabled:opacity-50"
+                    />
+                  </td>
+                )}
                 <td className="py-3">
                   <p className="font-medium text-gray-900">{item.name}</p>
                   {item.description && (
                     <p className="text-gray-500 text-xs mt-0.5">
                       {item.description}
                     </p>
+                  )}
+                  {showIncludeToggle && !isIncluded(item) && (
+                    <span className="inline-block mt-0.5 text-[10px] uppercase font-semibold text-gray-400">
+                      Not on invoice
+                    </span>
                   )}
                 </td>
                 <td className="text-right py-3 text-gray-700">
@@ -134,7 +250,7 @@ export default function LineItemsTable({
       <PricebookQuickAdd
         customerId={customerId}
         onAdd={(item) => {
-          onChange([...items, item]);
+          onChange([...items, { ...item, includeOnDocument: true }]);
         }}
       />
       {/* Mobile: stacked editable cards (the 6-column table is unusable on a
@@ -143,9 +259,23 @@ export default function LineItemsTable({
         {items.map((item, i) => (
           <div
             key={i}
-            className="rounded-lg border border-gray-200 p-3 space-y-2"
+            className={clsx(
+              "rounded-lg border border-gray-200 p-3 space-y-2",
+              showIncludeToggle && !isIncluded(item) && "opacity-60",
+            )}
           >
             <div className="flex items-center gap-2">
+              {showIncludeToggle && (
+                <input
+                  type="checkbox"
+                  checked={isIncluded(item)}
+                  onChange={() => {
+                    toggleInclude(i);
+                  }}
+                  title="Include on the invoice and customer PDF/email"
+                  className="h-5 w-5 shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+              )}
               <select
                 value={item.type}
                 onChange={(e) => {
@@ -231,6 +361,17 @@ export default function LineItemsTable({
       <table className="hidden md:table w-full text-sm">
         <thead>
           <tr className="border-b border-gray-200">
+            {showIncludeToggle && (
+              <th className="py-2 w-8">
+                <input
+                  type="checkbox"
+                  checked={allIncluded}
+                  onChange={toggleAllIncluded}
+                  title="Include/exclude all lines"
+                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+              </th>
+            )}
             <th className="text-left py-2 font-medium text-gray-600 w-24">
               Type
             </th>
@@ -251,7 +392,26 @@ export default function LineItemsTable({
         </thead>
         <tbody>
           {items.map((item, i) => (
-            <tr key={i} className="border-b border-gray-100">
+            <tr
+              key={i}
+              className={clsx(
+                "border-b border-gray-100",
+                showIncludeToggle && !isIncluded(item) && "opacity-60",
+              )}
+            >
+              {showIncludeToggle && (
+                <td className="py-2 pr-2">
+                  <input
+                    type="checkbox"
+                    checked={isIncluded(item)}
+                    onChange={() => {
+                      toggleInclude(i);
+                    }}
+                    title="Include on the invoice and customer PDF/email"
+                    className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                </td>
+              )}
               <td className="py-2 pr-2">
                 <select
                   value={item.type}
