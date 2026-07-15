@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../store/authStore";
+import api from "../../lib/api";
+import type { User } from "../../types";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import BottomTabBar from "./BottomTabBar";
@@ -11,6 +13,7 @@ import ErrorBoundary from "../ErrorBoundary";
 
 export default function AppLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const updateUser = useAuthStore((s) => s.updateUser);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
 
@@ -19,6 +22,26 @@ export default function AppLayout() {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  // The signed-in user (including their `permissions` array) is persisted to
+  // localStorage at login time and otherwise never refreshed. If an admin
+  // re-maps roles in Settings -> Roles & Permissions (or a one-off data fix
+  // changes what a role can do) while someone is already logged in, their
+  // session keeps showing the stale permission set -- e.g. a nav item just
+  // silently disappears -- until they happen to log out and back in. Pull a
+  // fresh copy once per app load so that class of bug self-heals instead.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    api
+      .get<{ success: boolean; data: User }>("/auth/me")
+      .then((res) => {
+        updateUser(res.data);
+      })
+      .catch(() => {
+        // Offline or a transient error -- keep using the cached session.
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
