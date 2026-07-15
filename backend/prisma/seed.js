@@ -1,8 +1,10 @@
 require("dotenv").config();
+const path = require("path");
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const { LOOKUPS } = require("../src/constants/lookups");
 const { DEFAULT_ROLE_PERMISSIONS } = require("../src/constants/permissions");
+const { parseItemsCsv } = require("./seed-data/parseItemsCsv");
 
 const prisma = new PrismaClient();
 
@@ -1305,7 +1307,7 @@ async function main() {
 
   // ── Pricebook ─────────────────────────────────────────────────────────────────
   console.log("  Creating pricebook categories and items...");
-  const [catHVAC, catPlumbing, catParts, catLabor] = await Promise.all([
+  const [catHVAC, catPlumbing, catLabor] = await Promise.all([
     prisma.pricebookCategory.create({
       data: {
         name: "HVAC Services",
@@ -1318,13 +1320,6 @@ async function main() {
         name: "Plumbing Services",
         description: "Plumbing repair and installation services",
         sortOrder: 2,
-      },
-    }),
-    prisma.pricebookCategory.create({
-      data: {
-        name: "Parts & Materials",
-        description: "Parts, materials, and supplies",
-        sortOrder: 3,
       },
     }),
     prisma.pricebookCategory.create({
@@ -1435,60 +1430,6 @@ async function main() {
       },
     }),
 
-    // Parts & Materials
-    prisma.pricebookItem.create({
-      data: {
-        categoryId: catParts.id,
-        sku: "FILT-MERV13-1625",
-        name: "Air Filter MERV-13 16x25x1",
-        description: "High-efficiency pleated air filter",
-        type: "material",
-        unitCost: 7,
-        unitPrice: 25,
-        unit: "each",
-        taxable: true,
-      },
-    }),
-    prisma.pricebookItem.create({
-      data: {
-        categoryId: catParts.id,
-        sku: "WH-50GAL-GAS",
-        name: "50-Gal Gas Water Heater",
-        description: "Rheem Performance 50-gal natural gas, 9-year warranty",
-        type: "material",
-        unitCost: 580,
-        unitPrice: 1100,
-        unit: "each",
-        taxable: true,
-      },
-    }),
-    prisma.pricebookItem.create({
-      data: {
-        categoryId: catParts.id,
-        sku: "FAUC-CART-UNIV",
-        name: "Universal Faucet Cartridge",
-        description: "Replacement cartridge compatible with major brands",
-        type: "material",
-        unitCost: 11,
-        unitPrice: 48,
-        unit: "each",
-        taxable: true,
-      },
-    }),
-    prisma.pricebookItem.create({
-      data: {
-        categoryId: catParts.id,
-        sku: "CAP-45-5-MFD",
-        name: "Run Capacitor 45/5 MFD",
-        description: "Dual run capacitor for HVAC compressor/fan motor",
-        type: "material",
-        unitCost: 18,
-        unitPrice: 75,
-        unit: "each",
-        taxable: true,
-      },
-    }),
-
     // Labor
     prisma.pricebookItem.create({
       data: {
@@ -1515,6 +1456,71 @@ async function main() {
       },
     }),
   ]);
+
+  // ── Parts & equipment catalog (real data) ───────────────────────────────────
+  // Sourced from prisma/seed-data/pricebook-items.csv — a QuickBooks "Items"
+  // export. This replaces the old hand-written "Parts & Materials" demo items
+  // with the real catalog so it survives every reseed. To refresh, drop a new
+  // export at that path (same column headers) and re-run the seed.
+  console.log("  Importing parts/equipment catalog from CSV...");
+  const catalogRows = parseItemsCsv(
+    path.join(__dirname, "seed-data", "pricebook-items.csv"),
+  );
+
+  // Category names use QuickBooks' "Parent:Child" convention (e.g.
+  // "Material:Refrigeration"). Build the two top-level categories plus each
+  // distinct child, in the order first seen, and cache their generated ids.
+  const catalogCategoryIds = new Map(); // "Equipment" | "Material:Belts" | ... -> id
+  let catalogSortOrder = 10;
+
+  async function getCatalogCategoryId(rawCategory) {
+    const category = (rawCategory || "").trim();
+    if (!category) return null;
+    if (catalogCategoryIds.has(category)) return catalogCategoryIds.get(category);
+
+    const [topName, childName] = category.split(":").map((s) => s.trim());
+
+    let topId = catalogCategoryIds.get(topName);
+    if (!topId) {
+      const topCat = await prisma.pricebookCategory.create({
+        data: { name: topName, sortOrder: catalogSortOrder++ },
+      });
+      topId = topCat.id;
+      catalogCategoryIds.set(topName, topId);
+    }
+
+    if (!childName) {
+      catalogCategoryIds.set(category, topId);
+      return topId;
+    }
+
+    const childCat = await prisma.pricebookCategory.create({
+      data: { name: childName, parentId: topId, sortOrder: catalogSortOrder++ },
+    });
+    catalogCategoryIds.set(category, childCat.id);
+    return childCat.id;
+  }
+
+  const catalogItemsData = [];
+  for (const row of catalogRows) {
+    const categoryId = await getCatalogCategoryId(row.category);
+    const name = row.description || row.itemName;
+    catalogItemsData.push({
+      categoryId,
+      sku: row.itemName,
+      name,
+      description: row.description || null,
+      vendorPartNumber: row.mfgPartNumber || null,
+      type: row.category.startsWith("Equipment") ? "equipment" : "part",
+      unitPrice: row.rate,
+    });
+  }
+
+  await prisma.pricebookItem.createMany({
+    data: catalogItemsData,
+    skipDuplicates: true,
+  });
+  console.log(`  Imported ${catalogItemsData.length} catalog items.`);
 
   // ── Vendors ──────────────────────────────────────────────────────
   console.log("  Creating vendors...");
