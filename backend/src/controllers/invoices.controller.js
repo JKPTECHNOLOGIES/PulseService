@@ -64,10 +64,14 @@ const list = async (req, res) => {
         {
           customer: { companyName: { contains: search, mode: "insensitive" } },
         },
+        // Work order (job) number + description, so the search bar matches
+        // "by Name, Invoice #, or WO#" like the office is used to.
+        { job: { jobNumber: { contains: search, mode: "insensitive" } } },
+        { job: { summary: { contains: search, mode: "insensitive" } } },
       ];
     }
 
-    const [invoices, total] = await Promise.all([
+    const [invoices, total, agg] = await Promise.all([
       prisma.invoice.findMany({
         where,
         skip,
@@ -86,11 +90,21 @@ const list = async (req, res) => {
         orderBy: { createdAt: "desc" },
       }),
       prisma.invoice.count({ where }),
+      // Grand totals across the whole filtered set (not just this page), for
+      // the totals row under the table.
+      prisma.invoice.aggregate({
+        where,
+        _sum: { total: true, balance: true },
+      }),
     ]);
 
     return res.json({
       success: true,
       ...paginatedResponse(invoices, total, page, limit),
+      summary: {
+        total: agg._sum.total ?? 0,
+        balance: agg._sum.balance ?? 0,
+      },
     });
   } catch (err) {
     console.error("invoices.list error:", err);
@@ -145,16 +159,11 @@ const create = async (req, res) => {
       lineItems = [],
       discountType,
       discountValue = 0,
-      taxRate = 0,
+      taxRate: _taxRate,
       dueDate,
       ...invoiceData
     } = req.body;
-    const totals = calculateTotals(
-      lineItems,
-      discountType,
-      discountValue,
-      taxRate,
-    );
+    const totals = calculateTotals(lineItems, discountType, discountValue);
 
     const invoice = await prisma.invoice.create({
       data: {
@@ -165,7 +174,8 @@ const create = async (req, res) => {
         createdById: req.user.id,
         discountType,
         discountValue,
-        taxRate,
+        // Tax is no longer a supported charge on invoices; always zeroed.
+        taxRate: 0,
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
         total: totals.total,
@@ -180,6 +190,7 @@ const create = async (req, res) => {
             total: item.quantity * item.unitPrice,
             sortOrder: i,
             pricebookItemId: item.pricebookItemId,
+            includeOnDocument: item.includeOnDocument !== false,
           })),
         },
       },
@@ -199,7 +210,7 @@ const update = async (req, res) => {
       lineItems,
       discountType,
       discountValue = 0,
-      taxRate = 0,
+      taxRate: _taxRate,
       dueDate,
       id: _id,
       invoiceNumber: _in,
@@ -226,18 +237,20 @@ const update = async (req, res) => {
       });
     }
 
-    const updateData = { ...invoiceData, discountType, discountValue, taxRate };
+    const updateData = {
+      ...invoiceData,
+      discountType,
+      discountValue,
+      // Tax is no longer a supported charge on invoices; always zeroed
+      // whenever the invoice is edited.
+      taxRate: 0,
+    };
     if (dueDate !== undefined) {
       updateData.dueDate = dueDate ? new Date(dueDate) : null;
     }
 
     if (lineItems) {
-      const totals = calculateTotals(
-        lineItems,
-        discountType,
-        discountValue,
-        taxRate,
-      );
+      const totals = calculateTotals(lineItems, discountType, discountValue);
 
       updateData.subtotal = totals.subtotal;
       updateData.taxAmount = totals.taxAmount;
@@ -260,6 +273,7 @@ const update = async (req, res) => {
           total: item.quantity * item.unitPrice,
           sortOrder: i,
           pricebookItemId: item.pricebookItemId,
+          includeOnDocument: item.includeOnDocument !== false,
         })),
       };
     }
@@ -489,8 +503,30 @@ const voidInvoice = async (req, res) => {
   }
 };
 
+// Invoice counts per status (plus the grand total), used to badge the category
+// tabs on the invoice list.
+const stats = async (req, res) => {
+  try {
+    const grouped = await prisma.invoice.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    });
+    const byStatus = {};
+    let total = 0;
+    for (const g of grouped) {
+      byStatus[g.status] = g._count._all;
+      total += g._count._all;
+    }
+    return res.json({ success: true, data: { total, byStatus } });
+  } catch (err) {
+    console.error("invoices.stats error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
 module.exports = {
   list,
+  stats,
   get,
   getPdf,
   create,

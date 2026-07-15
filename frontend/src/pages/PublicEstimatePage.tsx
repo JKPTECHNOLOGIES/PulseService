@@ -73,7 +73,7 @@ export default function PublicEstimatePage() {
         setEstimate(res.data);
       })
       .catch((err: unknown) => {
-        setError(getErrorMessage(err, "This estimate link is invalid."));
+        setError(getErrorMessage(err, "This quote link is invalid."));
       })
       .finally(() => {
         setLoading(false);
@@ -95,8 +95,8 @@ export default function PublicEstimatePage() {
       setShowReject(false);
       toast.success(
         action === "approve"
-          ? "Estimate approved — thank you!"
-          : "Estimate declined.",
+          ? "Quote approved — thank you!"
+          : "Quote declined.",
       );
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, "Something went wrong."));
@@ -112,10 +112,10 @@ export default function PublicEstimatePage() {
       <div className="min-h-screen-safe bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-md text-center">
           <h1 className="text-lg font-semibold text-gray-900">
-            Estimate unavailable
+            Quote unavailable
           </h1>
           <p className="text-sm text-gray-500 mt-2">
-            {error || "This estimate could not be found."}
+            {error || "This quote could not be found."}
           </p>
         </div>
       </div>
@@ -147,12 +147,12 @@ export default function PublicEstimatePage() {
         {estimate.status === "approved" && (
           <div className="bg-green-50 border border-green-200 text-green-800 rounded-xl px-4 py-3 flex items-center gap-2 text-sm">
             <CheckCircleIcon className="h-5 w-5 shrink-0" />
-            You approved this estimate. Thank you! We'll be in touch shortly.
+            You approved this quote. Thank you! We'll be in touch shortly.
           </div>
         )}
         {estimate.status === "rejected" && (
           <div className="bg-gray-100 border border-gray-200 text-gray-600 rounded-xl px-4 py-3 text-sm">
-            This estimate was declined. Contact us if you'd like to revisit it.
+            This quote was declined. Contact us if you'd like to revisit it.
           </div>
         )}
 
@@ -160,7 +160,7 @@ export default function PublicEstimatePage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="px-6 py-5 border-b border-gray-100">
             <h1 className="text-xl font-bold text-gray-900">
-              Estimate #{estimate.estimateNumber}
+              Quote #{estimate.estimateNumber}
             </h1>
             <p className="text-gray-600 mt-0.5">{estimate.title}</p>
             <div className="mt-2 text-sm text-gray-500">
@@ -229,12 +229,16 @@ export default function PublicEstimatePage() {
                   </span>
                 </div>
               )}
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Tax ({estimate.taxRate}%)</span>
-                <span className="font-medium text-gray-900">
-                  {formatCurrency(estimate.taxAmount)}
-                </span>
-              </div>
+              {estimate.taxAmount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">
+                    Tax ({estimate.taxRate}%)
+                  </span>
+                  <span className="font-medium text-gray-900">
+                    {formatCurrency(estimate.taxAmount)}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2">
                 <span className="text-gray-900">Total</span>
                 <span className="text-primary-600">
@@ -283,7 +287,7 @@ export default function PublicEstimatePage() {
                     void act("approve");
                   }}
                 >
-                  Approve Estimate
+                  Approve Quote
                 </Button>
                 <Button
                   variant="outline"

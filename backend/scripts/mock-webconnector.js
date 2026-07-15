@@ -356,7 +356,6 @@ async function invoicePaymentPhase(token, customerId) {
     status: "sent",
     discountType: "fixed",
     discountValue: 10,
-    taxRate: 8.25,
     lineItems: [
       {
         type: "labor",
@@ -373,12 +372,12 @@ async function invoicePaymentPhase(token, customerId) {
   );
 
   const sent = await runSession(
-    "invoice add (tax + discount lines, customer already synced)",
+    "invoice add (discount line, customer already synced)",
   );
   const invoiceSend = sent.find((s) => s.rqType === "InvoiceAddRq");
   if (!invoiceSend)
     throw new Error("Expected an InvoiceAddRq to have been sent");
-  // 1 real line + 1 tax line + 1 discount line = 3
+  // 1 real line + 1 discount line = 2 (tax is no longer charged)
   console.log(`InvoiceAddRq confirmed sent: "${invoiceSend.label}"`);
 
   const mappingsAfterInvoice = await adminApi(
@@ -468,7 +467,6 @@ async function dependencyGatingPhase(token, mappedItem) {
   const invoice = await adminApi(token, "POST", "/invoices", {
     customerId: customer.data.id,
     status: "sent",
-    taxRate: 0,
     lineItems: [
       {
         type: "labor",

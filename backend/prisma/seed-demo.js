@@ -198,7 +198,7 @@ const EQUIP = [
   { type: "boiler", mfr: "Weil-McLain", model: "CGa" },
 ];
 
-function buildLineItems(taxRate) {
+function buildLineItems() {
   const count = rnd(1, 4);
   const items = [];
   for (let i = 0; i < count; i++) {
@@ -215,9 +215,9 @@ function buildLineItems(taxRate) {
     });
   }
   const subtotal = money(items.reduce((s, it) => s + it.total, 0));
-  const taxAmount = money(subtotal * (taxRate / 100));
-  const total = money(subtotal + taxAmount);
-  return { items, subtotal, taxAmount, total };
+  // Tax is not charged on estimates or invoices.
+  const total = subtotal;
+  return { items, subtotal, taxAmount: 0, total };
 }
 
 async function main() {
@@ -232,7 +232,6 @@ async function main() {
   }
 
   const settings = await prisma.companySettings.findFirst();
-  const taxRate = settings?.taxRate ?? 8.5;
   let nextCustomer = settings?.nextCustomerNumber ?? 100;
   let nextJob = settings?.nextJobNumber ?? 100;
   let nextEstimate = settings?.nextEstimateNumber ?? 100;
@@ -390,7 +389,7 @@ async function main() {
     if (offset < -3)
       return pick(["completed", "completed", "completed", "cancelled"]);
     if (offset < 0) return pick(["completed", "in_progress", "on_hold"]);
-    if (offset === 0) return pick(["scheduled", "dispatched", "in_progress"]);
+    if (offset === 0) return pick(["scheduled", "parts_on_hold", "in_progress"]);
     return pick(["scheduled", "new", "scheduled"]);
   }
   for (let i = 0; i < 70; i++) {
@@ -458,7 +457,7 @@ async function main() {
   for (let i = 0; i < 28; i++) {
     const customer = pick(customers);
     const status = pick(estStatuses);
-    const { items, subtotal, taxAmount, total } = buildLineItems(taxRate);
+    const { items, subtotal, taxAmount, total } = buildLineItems();
     const created = monthsAgo(rnd(0, 4));
     const num = nextEstimate++;
     await prisma.estimate.create({
@@ -477,7 +476,7 @@ async function main() {
         subtotal,
         discountType: "percentage",
         discountValue: 0,
-        taxRate,
+        taxRate: 0,
         taxAmount,
         total,
         notes: "Thank you for the opportunity.",
@@ -503,7 +502,7 @@ async function main() {
   // ── Invoices + payments (12 months of revenue) ──────────────────────────────
   console.log("  Creating invoices and payments...");
   async function makeInvoice({ customer, status, created, dueOffsetDays }) {
-    const { items, subtotal, taxAmount, total } = buildLineItems(taxRate);
+    const { items, subtotal, taxAmount, total } = buildLineItems();
     const num = nextInvoice++;
     const dueDate = new Date(
       created.getTime() + (dueOffsetDays ?? 30) * 86400000,
@@ -524,7 +523,7 @@ async function main() {
         status,
         dueDate,
         subtotal,
-        taxRate,
+        taxRate: 0,
         taxAmount,
         total,
         amountPaid,

@@ -35,7 +35,6 @@ import { useAuthStore } from "../store/authStore";
 import QuickBooksTab from "../components/settings/QuickBooksTab";
 
 interface BillingForm {
-  taxRate?: number;
   currency?: string;
   invoiceTerms?: string;
   estimateTerms?: string;
@@ -52,6 +51,9 @@ interface InviteForm {
 }
 
 interface EditUserForm {
+  firstName: string;
+  lastName: string;
+  email: string;
   role: string;
   isActive: boolean;
 }
@@ -251,7 +253,7 @@ function BillingTab() {
   if (isLoading) return <PageSpinner />;
 
   return (
-    <Card title="Billing & Tax Settings">
+    <Card title="Billing Settings">
       <form
         onSubmit={(e) =>
           void handleSubmit((d) => {
@@ -261,17 +263,6 @@ function BillingTab() {
         className="space-y-4"
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Default Tax Rate (%)
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              {...register("taxRate", { valueAsNumber: true })}
-              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Currency
@@ -628,7 +619,13 @@ function EditUserModal({
   onSubmit: (payload: EditUserForm) => void;
 }) {
   const { register, handleSubmit } = useForm<EditUserForm>({
-    defaultValues: { role: user.role, isActive: user.isActive },
+    defaultValues: {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
+    },
   });
 
   return (
@@ -640,11 +637,47 @@ function EditUserModal({
       <form
         onSubmit={(e) =>
           void handleSubmit((d) => {
-            onSubmit({ role: d.role, isActive: String(d.isActive) === "true" });
+            onSubmit({
+              firstName: d.firstName,
+              lastName: d.lastName,
+              email: d.email,
+              role: d.role,
+              isActive: String(d.isActive) === "true",
+            });
           })(e)
         }
         className="space-y-4"
       >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              First Name
+            </label>
+            <input
+              {...register("firstName")}
+              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Last Name
+            </label>
+            <input
+              {...register("lastName")}
+              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Email
+          </label>
+          <input
+            {...register("email")}
+            type="email"
+            className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Role

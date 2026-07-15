@@ -39,7 +39,12 @@ function render(kind, doc, settings) {
       const title = isInvoice ? "INVOICE" : "ESTIMATE";
       const number = isInvoice ? doc.invoiceNumber : doc.estimateNumber;
       const customer = doc.customer || {};
-      const lineItems = doc.lineItems || [];
+      // Lines marked "not included" (invoice-only; estimate items never set
+      // this) stay off the customer-facing document, matching the totals
+      // below, which are computed from the same rule server-side.
+      const lineItems = (doc.lineItems || []).filter(
+        (li) => li.includeOnDocument !== false,
+      );
       const company = settings || {};
       const rightBlockX = 320;
       const rightBlockW = RIGHT_EDGE - rightBlockX;
@@ -203,7 +208,9 @@ function render(kind, doc, settings) {
             : doc.discountValue;
         rows.push(["Discount", "-" + money(disc)]);
       }
-      rows.push([`Tax (${doc.taxRate || 0}%)`, money(doc.taxAmount)]);
+      if (doc.taxAmount) {
+        rows.push([`Tax (${doc.taxRate || 0}%)`, money(doc.taxAmount)]);
+      }
       rows.push(["Total", money(doc.total)]);
       if (isInvoice) {
         rows.push(["Amount Paid", "-" + money(doc.amountPaid)]);

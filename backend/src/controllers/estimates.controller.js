@@ -111,16 +111,11 @@ const create = async (req, res) => {
       lineItems = [],
       discountType,
       discountValue = 0,
-      taxRate = 0,
+      taxRate: _taxRate,
       validUntil,
       ...estimateData
     } = req.body;
-    const totals = calculateTotals(
-      lineItems,
-      discountType,
-      discountValue,
-      taxRate,
-    );
+    const totals = calculateTotals(lineItems, discountType, discountValue);
 
     const estimate = await prisma.estimate.create({
       data: {
@@ -132,7 +127,8 @@ const create = async (req, res) => {
         createdById: req.user.id,
         discountType,
         discountValue,
-        taxRate,
+        // Tax is no longer a supported charge on estimates; always zeroed.
+        taxRate: 0,
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
         total: totals.total,
@@ -164,7 +160,7 @@ const update = async (req, res) => {
       lineItems,
       discountType,
       discountValue = 0,
-      taxRate = 0,
+      taxRate: _taxRate,
       validUntil,
       id: _id,
       estimateNumber: _en,
@@ -177,19 +173,16 @@ const update = async (req, res) => {
       ...estimateData,
       discountType,
       discountValue,
-      taxRate,
+      // Tax is no longer a supported charge on estimates; always zeroed
+      // whenever the estimate is edited.
+      taxRate: 0,
     };
     if (validUntil !== undefined) {
       updateData.validUntil = validUntil ? new Date(validUntil) : null;
     }
 
     if (lineItems) {
-      const totals = calculateTotals(
-        lineItems,
-        discountType,
-        discountValue,
-        taxRate,
-      );
+      const totals = calculateTotals(lineItems, discountType, discountValue);
       updateData.subtotal = totals.subtotal;
       updateData.taxAmount = totals.taxAmount;
       updateData.total = totals.total;

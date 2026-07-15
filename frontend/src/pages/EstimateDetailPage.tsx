@@ -32,7 +32,7 @@ export default function EstimateDetailPage() {
   if (isLoading) return <PageSpinner />;
   if (!estimate)
     return (
-      <div className="text-center py-12 text-gray-500">Estimate not found</div>
+      <div className="text-center py-12 text-gray-500">Quote not found</div>
     );
 
   const lineItems = (estimate.lineItems ?? []).map((li) => ({
@@ -56,7 +56,7 @@ export default function EstimateDetailPage() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-sm text-gray-500">
         <Link to="/estimates" className="hover:text-primary-600">
-          Estimates
+          Quotes
         </Link>
         <ChevronRightIcon className="h-3.5 w-3.5" />
         <span className="text-gray-900 font-medium">
@@ -70,7 +70,7 @@ export default function EstimateDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-bold text-gray-900">
-                Estimate #{estimate.estimateNumber}
+                Quote #{estimate.estimateNumber}
               </h2>
               <StatusBadge status={estimate.status} type="estimate" />
             </div>
@@ -95,7 +95,7 @@ export default function EstimateDetailPage() {
               onClick={() => {
                 void downloadPdf(
                   `/estimates/${id ?? ""}/pdf`,
-                  `Estimate-${estimate.estimateNumber}.pdf`,
+                  `Quote-${estimate.estimateNumber}.pdf`,
                 );
               }}
             >
@@ -212,12 +212,14 @@ export default function EstimateDetailPage() {
               </span>
             </div>
           )}
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Tax ({estimate.taxRate}%)</span>
-            <span className="font-medium text-gray-900">
-              {formatCurrency(estimate.taxAmount)}
-            </span>
-          </div>
+          {estimate.taxAmount > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Tax ({estimate.taxRate}%)</span>
+              <span className="font-medium text-gray-900">
+                {formatCurrency(estimate.taxAmount)}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2 mt-2">
             <span className="text-gray-900">Total</span>
             <span className="text-primary-600">

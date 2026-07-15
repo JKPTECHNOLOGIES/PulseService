@@ -22,10 +22,10 @@ async function main() {
   await prisma.inventoryTransaction.deleteMany();
   await prisma.inventoryItemCostHistory.deleteMany();
   await prisma.inventoryStock.deleteMany();
-  await prisma.inventoryItemSupplier.deleteMany();
+  await prisma.inventoryItemVendor.deleteMany();
   await prisma.inventoryItem.deleteMany();
   await prisma.stockLocation.deleteMany();
-  await prisma.supplier.deleteMany();
+  await prisma.vendor.deleteMany();
   await prisma.agreementVisit.deleteMany();
   await prisma.serviceAgreement.deleteMany();
   await prisma.notification.deleteMany();
@@ -93,7 +93,6 @@ async function main() {
       phone: "561-217-4822",
       email: "info@primecomfortac.com",
       website: "https://www.primecomfortac.com",
-      taxRate: 0.085,
       currency: "USD",
       timezone: "America/New_York",
       invoiceTerms:
@@ -108,7 +107,7 @@ async function main() {
       nextInvoiceNumber: 1005,
       nextEstimateNumber: 1005,
       nextCustomerNumber: 1006,
-      nextSupplierNumber: 1003,
+      nextVendorNumber: 1003,
       nextPoNumber: 1002,
       nextReceiptNumber: 1002,
     },
@@ -167,76 +166,146 @@ async function main() {
   );
   const passHash = await bcrypt.hash("pass123", SALT_ROUNDS);
 
-  const [admin, dispatcher, tech1User, tech2User, tech3User, csr] =
-    await Promise.all([
-      prisma.user.create({
-        data: {
-          email: "admin@primecomfortac.com",
-          password: adminHash,
-          firstName: "John",
-          lastName: "Admin",
-          role: "admin",
-          phone: "(404) 555-0001",
-        },
-      }),
-      prisma.user.create({
-        data: {
-          email: "dispatcher@primecomfortac.com",
-          password: passHash,
-          firstName: "Sarah",
-          lastName: "Dispatch",
-          role: "dispatcher",
-          phone: "(404) 555-0002",
-        },
-      }),
-      prisma.user.create({
-        data: {
-          email: "tech1@primecomfortac.com",
-          password: passHash,
-          firstName: "Mike",
-          lastName: "Rivera",
-          role: "technician",
-          phone: "(404) 555-0201",
-        },
-      }),
-      prisma.user.create({
-        data: {
-          email: "tech2@primecomfortac.com",
-          password: passHash,
-          firstName: "Carlos",
-          lastName: "Mendez",
-          role: "technician",
-          phone: "(404) 555-0202",
-        },
-      }),
-      prisma.user.create({
-        data: {
-          email: "tech3@primecomfortac.com",
-          password: passHash,
-          firstName: "Lisa",
-          lastName: "Chen",
-          role: "technician",
-          phone: "(404) 555-0203",
-        },
-      }),
-      prisma.user.create({
-        data: {
-          email: "csr@primecomfortac.com",
-          password: passHash,
-          firstName: "Amy",
-          lastName: "Johnson",
-          role: "csr",
-          phone: "(404) 555-0003",
-        },
-      }),
-    ]);
+  // Real Prime Comfort roster (imported 2026-07-14 emp list). Emails follow the
+  // firstname@primecomfortac.com convention. The two Roberts collide on first
+  // name, so they're disambiguated by last initial: robert.s@ / robert.st@.
+  //
+  // `admin` (Darryl) is the break-glass admin and keeps the env-configurable
+  // password; every other seeded employee uses the shared dev password. `manager`
+  // (Iris, the office manager) is credited with the historical demo records that
+  // used to belong to the old dispatcher/CSR test accounts.
+  const [
+    admin,
+    manager,
+    tech1User,
+    tech2User,
+    tech3User,
+    tech4User,
+    tech5User,
+    tech6User,
+  ] = await Promise.all([
+    prisma.user.create({
+      data: {
+        email: "darryl@primecomfortac.com",
+        password: adminHash,
+        firstName: "Darryl",
+        lastName: "S.",
+        role: "admin",
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: "iris@primecomfortac.com",
+        password: passHash,
+        firstName: "Iris",
+        lastName: "O.",
+        role: "manager",
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: "charles@primecomfortac.com",
+        password: passHash,
+        firstName: "Charles",
+        lastName: "S.",
+        role: "technician",
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: "gabriel@primecomfortac.com",
+        password: passHash,
+        firstName: "Gabriel",
+        lastName: "A.",
+        role: "technician",
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: "jim@primecomfortac.com",
+        password: passHash,
+        firstName: "Jim",
+        lastName: "B.",
+        role: "technician",
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: "pablo@primecomfortac.com",
+        password: passHash,
+        firstName: "Pablo",
+        lastName: "R.",
+        role: "technician",
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: "robert.st@primecomfortac.com",
+        password: passHash,
+        firstName: "Robert",
+        lastName: "St.",
+        role: "technician",
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: "samuel@primecomfortac.com",
+        password: passHash,
+        firstName: "Samuel",
+        lastName: "M.",
+        role: "technician",
+      },
+    }),
+  ]);
+
+  // Remaining office admins. They hold no seeded demo records, so they don't
+  // need named handles — create them in one batch with the shared dev password.
+  await prisma.user.createMany({
+    data: [
+      {
+        email: "eric@primecomfortac.com",
+        password: passHash,
+        firstName: "Eric",
+        lastName: "I.",
+        role: "admin",
+      },
+      {
+        email: "mark@primecomfortac.com",
+        password: passHash,
+        firstName: "Mark",
+        lastName: "A.",
+        role: "admin",
+      },
+      {
+        email: "pilar@primecomfortac.com",
+        password: passHash,
+        firstName: "Pilar",
+        lastName: "S.",
+        role: "admin",
+      },
+      {
+        email: "ritter@primecomfortac.com",
+        password: passHash,
+        firstName: "Ritter",
+        lastName: "M.",
+        role: "admin",
+      },
+      {
+        email: "robert.s@primecomfortac.com",
+        password: passHash,
+        firstName: "Robert",
+        lastName: "S.",
+        role: "admin",
+      },
+    ],
+  });
 
   // ── Technicians ───────────────────────────────────────────────────────────────
   console.log("  Creating technician profiles...");
   const [tech1, tech2, tech3] = await Promise.all([
     prisma.technician.create({
       data: {
-        userId: tech1User.id,
+        userId: tech1User.id, // Charles S.
         employeeId: "EMP-001",
         skills: "HVAC,Refrigeration,Heat Pumps",
         zones: "North,Central",
@@ -248,7 +317,7 @@ async function main() {
     }),
     prisma.technician.create({
       data: {
-        userId: tech2User.id,
+        userId: tech2User.id, // Gabriel A.
         employeeId: "EMP-002",
         skills: "Plumbing,Water Heaters,Drain Cleaning",
         zones: "South,East",
@@ -260,7 +329,7 @@ async function main() {
     }),
     prisma.technician.create({
       data: {
-        userId: tech3User.id,
+        userId: tech3User.id, // Jim B.
         employeeId: "EMP-003",
         skills: "Electrical,HVAC,Controls",
         zones: "West,Central",
@@ -270,6 +339,34 @@ async function main() {
       },
     }),
   ]);
+
+  // The remaining technicians aren't tied to any seeded job, so they're created
+  // in one batch with sensible default skills/zones.
+  await prisma.technician.createMany({
+    data: [
+      {
+        userId: tech4User.id, // Pablo R.
+        employeeId: "EMP-004",
+        skills: "HVAC,Maintenance",
+        zones: "North,East",
+        isAvailable: true,
+      },
+      {
+        userId: tech5User.id, // Robert St.
+        employeeId: "EMP-005",
+        skills: "HVAC,Installation",
+        zones: "South,Central",
+        isAvailable: true,
+      },
+      {
+        userId: tech6User.id, // Samuel M.
+        employeeId: "EMP-006",
+        skills: "Plumbing,HVAC",
+        zones: "West,South",
+        isAvailable: true,
+      },
+    ],
+  });
 
   // ── Pricing Tiers ───────────────────────────────────────────────────────
   console.log("  Creating pricing tiers...");
@@ -518,7 +615,7 @@ async function main() {
       scheduledStart: todayAt(9),
       scheduledEnd: todayAt(11),
       businessUnit: "HVAC",
-      createdById: dispatcher.id,
+      createdById: manager.id,
       technicians: {
         create: [{ technicianId: tech1.id, isLead: true }],
       },
@@ -541,7 +638,7 @@ async function main() {
       scheduledEnd: todayAt(13),
       actualStart: todayAt(10, 5),
       businessUnit: "Plumbing",
-      createdById: dispatcher.id,
+      createdById: manager.id,
       technicians: {
         create: [{ technicianId: tech2.id, isLead: true }],
       },
@@ -568,7 +665,7 @@ async function main() {
       completionNotes:
         "Completed annual maintenance on all 6 units. Replaced filters on all units, cleaned coils on RTU-3 and RTU-4, checked refrigerant levels (all within spec). RTU-2 capacitor showing early signs of wear - recommend replacement within 6 months.",
       businessUnit: "HVAC",
-      createdById: dispatcher.id,
+      createdById: manager.id,
       technicians: {
         create: [
           { technicianId: tech1.id, isLead: true },
@@ -613,7 +710,7 @@ async function main() {
       description:
         "Pipe burst on 2nd floor near server room. Water actively leaking. Customer has shut off main. Needs immediate response.",
       businessUnit: "Plumbing",
-      createdById: csr.id,
+      createdById: manager.id,
     },
   });
 
@@ -637,7 +734,7 @@ async function main() {
       completionNotes:
         "Installed Nest 3rd Gen thermostat. Connected to customer Wi-Fi and set up app on their phone. Demonstrated operation. Works perfectly.",
       businessUnit: "HVAC",
-      createdById: dispatcher.id,
+      createdById: manager.id,
       technicians: {
         create: [{ technicianId: tech3.id, isLead: true }],
       },
@@ -664,7 +761,7 @@ async function main() {
       completionNotes:
         "Replaced faucet cartridge and both o-rings. Tested under full pressure - no leaks. Job complete.",
       businessUnit: "Plumbing",
-      createdById: dispatcher.id,
+      createdById: manager.id,
       technicians: {
         create: [{ technicianId: tech2.id, isLead: true }],
       },
@@ -686,7 +783,7 @@ async function main() {
       scheduledStart: daysOffset(1, 14),
       scheduledEnd: daysOffset(1, 16),
       businessUnit: "Plumbing",
-      createdById: dispatcher.id,
+      createdById: manager.id,
     },
   });
 
@@ -708,9 +805,9 @@ async function main() {
         subtotal: 7500,
         discountType: null,
         discountValue: 0,
-        taxRate: 8.5,
-        taxAmount: 637.5,
-        total: 8137.5,
+        taxRate: 0,
+        taxAmount: 0,
+        total: 7500,
         notes: "Includes all materials, labor, and old system disposal.",
         terms:
           "Deposit of 50% required before scheduling. Balance due upon completion.",
@@ -845,9 +942,9 @@ async function main() {
         subtotal: 460,
         discountType: null,
         discountValue: 0,
-        taxRate: 8.5,
-        taxAmount: 39.1,
-        total: 499.1,
+        taxRate: 0,
+        taxAmount: 0,
+        total: 460,
         createdById: tech1User.id,
         lineItems: {
           create: [
@@ -894,10 +991,10 @@ async function main() {
         subtotal: 1850,
         discountType: null,
         discountValue: 0,
-        taxRate: 8.5,
-        taxAmount: 157.25,
-        total: 2007.25,
-        createdById: dispatcher.id,
+        taxRate: 0,
+        taxAmount: 0,
+        total: 1850,
+        createdById: manager.id,
         sentAt: daysOffset(-8),
         rejectedAt: daysOffset(-5),
         rejectionReason: "Customer found a lower price through a competitor.",
@@ -950,10 +1047,10 @@ async function main() {
         status: "paid",
         dueDate: daysOffset(30),
         subtotal: 875,
-        taxRate: 8.5,
-        taxAmount: 74.375,
-        total: 949.375,
-        amountPaid: 949.375,
+        taxRate: 0,
+        taxAmount: 0,
+        total: 875,
+        amountPaid: 875,
         balance: 0,
         paidAt: daysOffset(-1, 15),
         sentAt: daysOffset(-1, 13),
@@ -1001,14 +1098,14 @@ async function main() {
         status: "paid",
         dueDate: daysOffset(30),
         subtotal: 295,
-        taxRate: 8.5,
-        taxAmount: 25.075,
-        total: 320.075,
-        amountPaid: 320.075,
+        taxRate: 0,
+        taxAmount: 0,
+        total: 295,
+        amountPaid: 295,
         balance: 0,
         paidAt: daysOffset(-7, 14, 15),
         sentAt: daysOffset(-7, 14, 10),
-        createdById: dispatcher.id,
+        createdById: manager.id,
         lineItems: {
           create: [
             {
@@ -1043,14 +1140,14 @@ async function main() {
         status: "paid",
         dueDate: daysOffset(30),
         subtotal: 180,
-        taxRate: 8.5,
-        taxAmount: 15.3,
-        total: 195.3,
-        amountPaid: 195.3,
+        taxRate: 0,
+        taxAmount: 0,
+        total: 180,
+        amountPaid: 180,
         balance: 0,
         paidAt: daysOffset(-14, 15),
         sentAt: daysOffset(-14, 14, 55),
-        createdById: dispatcher.id,
+        createdById: manager.id,
         lineItems: {
           create: [
             {
@@ -1097,11 +1194,11 @@ async function main() {
         subtotal: 7500,
         discountType: null,
         discountValue: 0,
-        taxRate: 8.5,
-        taxAmount: 637.5,
-        total: 8137.5,
-        balance: 8137.5,
-        notes: "Deposit of $4,068.75 (50%) collected at time of scheduling.",
+        taxRate: 0,
+        taxAmount: 0,
+        total: 7500,
+        balance: 7500,
+        notes: "Deposit of $3,750.00 (50%) collected at time of scheduling.",
         terms: "Balance due upon job completion.",
         createdById: admin.id,
         lineItems: {
@@ -1173,7 +1270,7 @@ async function main() {
       data: {
         invoiceId: invoice1.id,
         customerId: customer3.id,
-        amount: 949.375,
+        amount: 875,
         method: "card",
         status: "completed",
         referenceNumber: "CC-TXN-00421",
@@ -1185,7 +1282,7 @@ async function main() {
       data: {
         invoiceId: invoice2.id,
         customerId: customer1.id,
-        amount: 320.075,
+        amount: 295,
         method: "check",
         status: "completed",
         referenceNumber: "CHK-1042",
@@ -1197,7 +1294,7 @@ async function main() {
       data: {
         invoiceId: invoice3.id,
         customerId: customer2.id,
-        amount: 195.3,
+        amount: 180,
         method: "cash",
         status: "completed",
         notes: "Cash payment collected on-site",
@@ -1419,12 +1516,12 @@ async function main() {
     }),
   ]);
 
-  // ── Suppliers ─────────────────────────────────────────────────────────────────
-  console.log("  Creating suppliers...");
+  // ── Vendors ──────────────────────────────────────────────────────
+  console.log("  Creating vendors...");
   const [supplyCo, coolParts] = await Promise.all([
-    prisma.supplier.create({
+    prisma.vendor.create({
       data: {
-        supplierNumber: "SUP-1001",
+        vendorNumber: "VEN-1001",
         name: "Atlanta HVAC Supply Co.",
         contactName: "Dana Reyes",
         email: "orders@atlhvacsupply.com",
@@ -1437,9 +1534,9 @@ async function main() {
         isActive: true,
       },
     }),
-    prisma.supplier.create({
+    prisma.vendor.create({
       data: {
-        supplierNumber: "SUP-1002",
+        vendorNumber: "VEN-1002",
         name: "CoolParts Distribution",
         contactName: "Marcus Webb",
         email: "sales@coolparts.com",
@@ -1489,8 +1586,8 @@ async function main() {
 
   // ── Inventory items ───────────────────────────────────────────────────────────
   // Each entry seeds the item plus per-location stock (warehouse + trucks) and a
-  // primary-supplier catalog price. unitCost is the perpetual weighted-average.
-  console.log("  Creating inventory items, stock and supplier pricing...");
+  // primary-vendor catalog price. unitCost is the perpetual weighted-average.
+  console.log("  Creating inventory items, stock and vendor pricing...");
   const inventorySeed = [
     {
       sku: "FILT-1625",
@@ -1498,7 +1595,7 @@ async function main() {
       unitCost: 7,
       reorderPoint: 20,
       reorderQuantity: 50,
-      supplier: supplyCo,
+      vendor: supplyCo,
       wh: 40,
       t1: 6,
       t2: 2,
@@ -1509,7 +1606,7 @@ async function main() {
       unitCost: 7,
       reorderPoint: 20,
       reorderQuantity: 50,
-      supplier: supplyCo,
+      vendor: supplyCo,
       wh: 30,
       t1: 4,
       t2: 2,
@@ -1520,7 +1617,7 @@ async function main() {
       unitCost: 8,
       reorderPoint: 12,
       reorderQuantity: 30,
-      supplier: supplyCo,
+      vendor: supplyCo,
       wh: 14,
       t1: 3,
       t2: 1,
@@ -1531,7 +1628,7 @@ async function main() {
       unitCost: 175,
       reorderPoint: 3,
       reorderQuantity: 6,
-      supplier: coolParts,
+      vendor: coolParts,
       wh: 4,
       t1: 1,
       t2: 1,
@@ -1542,7 +1639,7 @@ async function main() {
       unitCost: 18,
       reorderPoint: 5,
       reorderQuantity: 10,
-      supplier: coolParts,
+      vendor: coolParts,
       wh: 11,
       t1: 3,
       t2: 1,
@@ -1553,7 +1650,7 @@ async function main() {
       unitCost: 16,
       reorderPoint: 4,
       reorderQuantity: 8,
-      supplier: coolParts,
+      vendor: coolParts,
       wh: 3,
       t1: 1,
       t2: 0,
@@ -1564,7 +1661,7 @@ async function main() {
       unitCost: 34,
       reorderPoint: 2,
       reorderQuantity: 5,
-      supplier: supplyCo,
+      vendor: supplyCo,
       wh: 4,
       t1: 1,
       t2: 0,
@@ -1575,7 +1672,7 @@ async function main() {
       unitCost: 4.5,
       reorderPoint: 10,
       reorderQuantity: 20,
-      supplier: supplyCo,
+      vendor: supplyCo,
       wh: 26,
       t1: 3,
       t2: 1,
@@ -1586,7 +1683,7 @@ async function main() {
       unitCost: 11,
       reorderPoint: 8,
       reorderQuantity: 15,
-      supplier: coolParts,
+      vendor: coolParts,
       wh: 20,
       t1: 1,
       t2: 1,
@@ -1597,7 +1694,7 @@ async function main() {
       unitCost: 179,
       reorderPoint: 2,
       reorderQuantity: 5,
-      supplier: coolParts,
+      vendor: coolParts,
       wh: 3,
       t1: 0,
       t2: 0,
@@ -1616,7 +1713,7 @@ async function main() {
         reorderPoint: row.reorderPoint,
         reorderQuantity: row.reorderQuantity,
         isSerialized: row.serialized ?? false,
-        defaultSupplierId: row.supplier.id,
+        defaultVendorId: row.vendor.id,
         isActive: true,
         stock: {
           create: [
@@ -1625,9 +1722,9 @@ async function main() {
             { stockLocationId: truck102.id, quantityOnHand: row.t2 },
           ],
         },
-        suppliers: {
+        vendors: {
           create: {
-            supplierId: row.supplier.id,
+            vendorId: row.vendor.id,
             unitCost: row.unitCost,
             isPrimary: true,
             isActive: true,
@@ -1644,7 +1741,7 @@ async function main() {
   const samplePO = await prisma.purchaseOrder.create({
     data: {
       poNumber: "PO-1001",
-      supplierId: coolParts.id,
+      vendorId: coolParts.id,
       status: "received",
       shipToLocationId: mainWarehouse.id,
       orderDate: new Date(),
@@ -1820,7 +1917,7 @@ async function main() {
   await Promise.all([
     prisma.notification.create({
       data: {
-        userId: dispatcher.id,
+        userId: manager.id,
         title: "Urgent Job Created",
         message:
           "Emergency burst pipe job JOB-1005 created for Brown Properties - needs immediate assignment.",
@@ -1831,7 +1928,7 @@ async function main() {
     }),
     prisma.notification.create({
       data: {
-        userId: dispatcher.id,
+        userId: manager.id,
         title: "Invoice Paid",
         message:
           "Invoice INV-1001 for $949.38 has been paid by TechCorp Solutions.",
@@ -1976,7 +2073,7 @@ async function main() {
         toNumber: "(404) 555-0100",
         duration: 245,
         reason: "AC not cooling - scheduling service",
-        handledById: csr.id,
+        handledById: manager.id,
         notes: "Customer reports AC running but not cooling. Booked JOB-1001.",
         createdAt: daysOffset(0, 8, 15),
       },
@@ -1990,7 +2087,7 @@ async function main() {
         toNumber: "(404) 555-0100",
         duration: 95,
         reason: "Emergency - burst pipe",
-        handledById: csr.id,
+        handledById: manager.id,
         notes: "Dispatched emergency JOB-1005 to Office Complex A.",
         createdAt: daysOffset(0, 7, 50),
       },
@@ -2004,7 +2101,7 @@ async function main() {
         toNumber: "(678) 555-2001",
         duration: 60,
         reason: "Appointment reminder",
-        handledById: dispatcher.id,
+        handledById: manager.id,
         notes: "Reminded customer of water heater replacement appointment.",
         createdAt: daysOffset(0, 9, 5),
       },
@@ -2018,7 +2115,7 @@ async function main() {
         toNumber: "(404) 555-0100",
         duration: 180,
         reason: "Quarterly maintenance question",
-        handledById: dispatcher.id,
+        handledById: manager.id,
         notes: "Confirmed Q3 inspection date per service agreement.",
         createdAt: daysOffset(-1, 10, 30),
       },
@@ -2057,7 +2154,7 @@ async function main() {
         direction: "outbound",
         channel: "sms",
         body: "Hi Robert, this is Prime Comfort Solutions confirming your HVAC tune-up tomorrow between 9-11am. Reply STOP to opt out.",
-        sentById: csr.id,
+        sentById: manager.id,
         sentAt: daysOffset(-1, 14, 0),
       },
     }),
@@ -2068,7 +2165,7 @@ async function main() {
         channel: "email",
         subject: "Invoice INV-1001 attached",
         body: "Hi David, attached is your invoice for the recent HVAC inspection. Let us know if you have any questions.",
-        sentById: dispatcher.id,
+        sentById: manager.id,
         sentAt: daysOffset(-2, 9, 30),
       },
     }),
@@ -2084,15 +2181,13 @@ async function main() {
   ]);
 
   console.log("\n✅ Seed completed successfully!");
-  console.log("\n  Test credentials:");
-  console.log("  ┌─────────────────────────────────────────────────┐");
-  console.log("  │  admin@primecomfortac.com   / admin123  (admin) │");
-  console.log("  │  dispatcher@primecomfortac.com / pass123        │");
-  console.log("  │  tech1@primecomfortac.com   / pass123 (Mike R.) │");
-  console.log("  │  tech2@primecomfortac.com   / pass123(Carlos M.)│");
-  console.log("  │  tech3@primecomfortac.com   / pass123 (Lisa C.) │");
-  console.log("  │  csr@primecomfortac.com     / pass123           │");
-  console.log("  └─────────────────────────────────────────────────┘\n");
+  console.log("\n  Seed login credentials (Prime Comfort roster):");
+  console.log("  ┌──────────────────────────────────────────────────────┐");
+  console.log("  │  darryl@primecomfortac.com  / admin123  (admin)      │");
+  console.log("  │  iris@primecomfortac.com    / pass123   (manager)    │");
+  console.log("  │  charles@primecomfortac.com / pass123   (technician) │");
+  console.log("  │  …all other employees       / pass123                │");
+  console.log("  └──────────────────────────────────────────────────────┘\n");
 }
 
 main()

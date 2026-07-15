@@ -17,6 +17,7 @@ import {
   useRecordPayment,
   useVoidInvoice,
   useReversePayment,
+  useUpdateInvoice,
 } from "../hooks/useInvoices";
 import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
@@ -54,6 +55,7 @@ export default function InvoiceDetailPage() {
   const paymentMutation = useRecordPayment();
   const voidMutation = useVoidInvoice();
   const reverseMutation = useReversePayment();
+  const updateMutation = useUpdateInvoice();
   const { getLabel: getPaymentMethodLabel } = useLookup("paymentMethod");
   const { can } = usePermissions();
 
@@ -75,7 +77,33 @@ export default function InvoiceDetailPage() {
     quantity: li.quantity,
     unitPrice: li.unitPrice,
     total: li.total,
+    includeOnDocument: li.includeOnDocument,
   }));
+
+  // Same rule the Edit/Void buttons already use: once a payment lands or the
+  // invoice is void, the backend refuses edits (accounting integrity), so the
+  // include-on-invoice checkbox becomes a plain indicator instead.
+  const canEditLineItems =
+    can("invoices.manage") &&
+    invoice.amountPaid === 0 &&
+    invoice.status !== "void";
+
+  // Toggling a single line's inclusion re-sends the whole line-item set (the
+  // backend replaces it wholesale) along with the invoice's current
+  // discount, which the API otherwise defaults to 0 if omitted.
+  const toggleLineItemInclude = (index: number) => {
+    const updated = lineItems.map((li, i) =>
+      i === index
+        ? { ...li, includeOnDocument: li.includeOnDocument === false }
+        : li,
+    );
+    updateMutation.mutate({
+      id: invoice.id,
+      lineItems: updated.map((li, idx) => ({ ...li, sortOrder: idx })),
+      discountType: invoice.discountType,
+      discountValue: invoice.discountValue,
+    });
+  };
 
   const discount = invoice.discountValue
     ? invoice.discountType === "percentage"
@@ -240,7 +268,19 @@ export default function InvoiceDetailPage() {
             /* read-only */
           }}
           readonly
+          showIncludeToggle
+          onToggleInclude={
+            canEditLineItems && !updateMutation.isPending
+              ? toggleLineItemInclude
+              : undefined
+          }
         />
+        {!canEditLineItems && (
+          <p className="mt-3 text-xs text-gray-400">
+            This invoice can't be changed because a payment has been recorded
+            or it is void.
+          </p>
+        )}
       </div>
 
       {/* Totals */}
@@ -260,12 +300,14 @@ export default function InvoiceDetailPage() {
               </span>
             </div>
           )}
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Tax ({invoice.taxRate}%)</span>
-            <span className="font-medium text-gray-900">
-              {formatCurrency(invoice.taxAmount)}
-            </span>
-          </div>
+          {invoice.taxAmount > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Tax ({invoice.taxRate}%)</span>
+              <span className="font-medium text-gray-900">
+                {formatCurrency(invoice.taxAmount)}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between text-sm border-t border-gray-200 pt-2">
             <span className="text-gray-900 font-semibold">Total</span>
             <span className="font-semibold text-gray-900">
