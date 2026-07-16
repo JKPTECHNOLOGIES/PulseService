@@ -7,7 +7,7 @@ const { DEFAULT_ROLE_PERMISSIONS } = require("../src/constants/permissions");
 const { parseItemsCsv } = require("./seed-data/parseItemsCsv");
 const { parseCustomersCsv, normalizeCustomerName, parseFullAddress } = require("./seed-data/parseCustomersCsv");
 const { parseQuotesCsv } = require("./seed-data/parseQuotesCsv");
-const { parseJobsCsv } = require("./seed-data/parseJobsCsv");
+const { parseWorkOrdersCsv } = require("./seed-data/parseWorkOrdersCsv");
 const { parseInvoicesCsv } = require("./seed-data/parseInvoicesCsv");
 const { parseEquipmentCsv } = require("./seed-data/parseEquipmentCsv");
 const CUSTOMER_NAME_ALIASES = require("./seed-data/customerNameAliases");
@@ -925,24 +925,50 @@ async function main() {
     },
   });
 
-  // ── Real jobs / work orders (from QuickBooks export) ──────────────────
-  // Sourced from prisma/seed-data/jobs.csv ("Jobs" in the old system = Work
-  // Orders here). Every row references its customer by the ORIGINAL
-  // (pre-dedup) per-property name, resolved via resolveCustomerByRawName()
-  // above. All 15 rows in this export list "Eric I." as project manager, who
-  // is a seeded admin (not a technician profile), so we credit him as
-  // createdById rather than assigning a JobTechnician.
-  console.log("  Importing jobs (work orders) from CSV...");
-  const ericPm = await prisma.user.findFirst({
-    where: { email: "eric@primecomfortac.com" },
-  });
-  const importedJobs = parseJobsCsv(
-    path.join(__dirname, "seed-data", "jobs.csv"),
+  // ── Real work orders (from QuickBooks-adjacent export) ─────────────
+  // Sourced from prisma/seed-data/workOrders.csv ("Jobs" in this app = Work
+  // Orders in the source system). This supersedes the small 15-row
+  // jobs.csv we imported previously -- every one of those 15 turned out to
+  // be a subset of this same underlying data (verified by customer+date
+  // overlap), so that file was removed rather than double-importing the
+  // same real-world events.
+  //
+  // Structural note: a single WO# can have multiple rows (same customer,
+  // same invoice, different scheduled visits -- a reschedule or a
+  // multi-day job). parseWorkOrdersCsv groups these into one Job per WO#;
+  // extra visits become JobScheduleBlock entries rather than duplicate
+  // jobs. jobNumber preserves the original WO# (e.g. WO-1630) instead of
+  // consuming the JOB- counter, same approach as quotes/invoices.
+  //
+  // Technician column: only 6 of the 11 people named there have a seeded
+  // Technician profile (Charles S., Jim B., Gabriel A., Robert St., Pablo
+  // R., Samuel M.) and get a real JobTechnician assignment. The other 4
+  // (Darryl S., Eric I., Robert S., Ritter M.) are seeded as admins only --
+  // per instruction, they're credited in notes ("Performed by: X") rather
+  // than given a technician profile.
+  console.log("  Importing work orders from CSV...");
+  const [allUsersForWo, allTechniciansForWo] = await Promise.all([
+    prisma.user.findMany({ select: { id: true, firstName: true, lastName: true } }),
+    prisma.technician.findMany({ select: { id: true, userId: true } }),
+  ]);
+  const technicianByUserId = new Map(allTechniciansForWo.map((t) => [t.userId, t.id]));
+  const personByName = new Map();
+  for (const u of allUsersForWo) {
+    personByName.set(`${u.firstName} ${u.lastName}`, {
+      userId: u.id,
+      technicianId: technicianByUserId.get(u.id) ?? null,
+    });
+  }
+
+  const importedWorkOrders = parseWorkOrdersCsv(
+    path.join(__dirname, "seed-data", "workOrders.csv"),
   );
-  const jobSettingsRow = await prisma.companySettings.findFirst();
-  let nextJobNumber = jobSettingsRow.nextJobNumber;
   let jobsImported = 0;
   let jobsSkipped = 0;
+  // WO row's Invoice/Quote reference (uppercased) -> created Job.id, used to
+  // backfill Invoice.jobId / Estimate.jobId once those exist further below.
+  const jobIdByInvoiceRef = new Map();
+  const jobIdByQuoteRef = new Map();
 
   function findMatchingLocationId(customer, jobLocation) {
     if (!customer.locations || customer.locations.length === 0) return null;
@@ -955,44 +981,75 @@ async function main() {
     return (match || customer.locations[0]).id;
   }
 
-  for (const j of importedJobs) {
-    const customer = resolveCustomerByRawName(j.customerRawName);
+  for (const wo of importedWorkOrders) {
+    const customer = resolveCustomerByRawName(wo.customerRawName);
     if (!customer) {
       jobsSkipped++;
       console.warn(
-        `    No customer match for job "${j.customerRawName}" - skipped.`,
+        `    No customer match for WO #${wo.wo} ("${wo.customerRawName}") - skipped.`,
       );
       continue;
     }
 
-    const jobNumber = `${jobSettingsRow.jobPrefix}-${nextJobNumber}`;
-    nextJobNumber += 1;
+    const mappedAddress = rawNameToAddress.get(
+      normalizeCustomerName(wo.customerRawName),
+    );
+    const locationId = findMatchingLocationId(
+      customer,
+      mappedAddress ? parseFullAddress(mappedAddress) : null,
+    );
 
-    await prisma.job.create({
+    const person = wo.technicianName ? personByName.get(wo.technicianName) : null;
+
+    const notesParts = [];
+    if (wo.technicianName && person && !person.technicianId) {
+      notesParts.push(`Performed by: ${wo.technicianName} (admin, not a technician profile).`);
+    } else if (wo.technicianName && !person) {
+      notesParts.push(`Performed by: ${wo.technicianName} (not found in seeded roster).`);
+    }
+    if (wo.invoiceRef) notesParts.push(`Invoice on file: ${wo.invoiceRef.toUpperCase()}.`);
+    if (wo.quoteRef) notesParts.push(`Quote on file: ${wo.quoteRef.toUpperCase()}.`);
+    if (wo.purchaseOrder) notesParts.push(`Purchase order: ${wo.purchaseOrder}.`);
+
+    const jobNumber = `WO-${wo.wo}`;
+    const created = await prisma.job.create({
       data: {
         jobNumber,
         customerId: customer.id,
-        locationId: findMatchingLocationId(customer, j.location),
-        type: "service",
-        status: j.status,
+        locationId,
+        type: wo.type,
+        status: wo.status,
         priority: "normal",
-        summary: j.address || `Work order ${jobNumber}`,
-        notes: `Imported from QuickBooks export. Original status: ${j.originalStatus}. Project manager on file: ${j.projManager || "-"}.`,
-        scheduledStart: j.startDate,
-        scheduledEnd: j.endDate,
-        actualStart: j.startDate,
-        actualEnd: j.status === "completed" ? j.endDate : null,
-        completedAt: j.status === "completed" ? j.endDate : null,
-        createdById: ericPm ? ericPm.id : admin.id,
+        tags: wo.task || null,
+        summary: wo.summary || wo.description || `${wo.task || "Work order"} (WO #${wo.wo})`,
+        description: wo.description || null,
+        notes: notesParts.length ? notesParts.join(" ") : null,
+        scheduledStart: wo.scheduledStart,
+        scheduledEnd: wo.scheduledEnd,
+        actualStart: wo.scheduledStart,
+        actualEnd: wo.completedAt,
+        completedAt: wo.status === "completed" ? wo.completedAt : null,
+        cancelledAt: wo.status === "cancelled" ? wo.completedAt : null,
+        createdAt: wo.createdAt,
+        createdById: person ? person.userId : admin.id,
+        technicians: person?.technicianId
+          ? { create: { technicianId: person.technicianId, isLead: true, status: wo.status === "completed" ? "completed" : "assigned" } }
+          : undefined,
+        scheduleBlocks: {
+          create: wo.visits.slice(1).map((v) => ({
+            start: v.scheduled,
+            end: v.scheduled,
+            note: `Visit${v.technician ? ` — Tech: ${v.technician}` : ""}${v.status !== wo.originalStatus ? `, status at the time: ${v.status}` : ""}`,
+          })),
+        },
       },
     });
     jobsImported++;
+
+    if (wo.invoiceRef) jobIdByInvoiceRef.set(wo.invoiceRef.toUpperCase(), created.id);
+    if (wo.quoteRef) jobIdByQuoteRef.set(wo.quoteRef.toUpperCase(), created.id);
   }
-  await prisma.companySettings.update({
-    where: { id: jobSettingsRow.id },
-    data: { nextJobNumber },
-  });
-  console.log(`  Imported ${jobsImported} jobs (${jobsSkipped} skipped).`);
+  console.log(`  Imported ${jobsImported} work orders (${jobsSkipped} skipped).`);
 
   // ── Estimates ──────────────────────────────────────────────────────
   console.log("  Creating estimates...");
@@ -1532,6 +1589,33 @@ async function main() {
   }
   console.log(
     `  Imported ${invoicesImported} invoices (${invoicesSkipped} skipped).`,
+  );
+
+  // ── Link work orders back to invoices/quotes ──────────────────
+  // The work-orders import above recorded which Job corresponds to each
+  // original Invoice #/Quote # reference; now that both real invoices and
+  // real quotes exist, backfill jobId on the ones that match. References
+  // that don't match (invoices/quotes outside those exports' date ranges)
+  // were already preserved in the job's notes, so nothing is lost either way.
+  console.log("  Linking work orders to invoices/quotes...");
+  let invoiceLinks = 0;
+  for (const [invoiceRef, jobId] of jobIdByInvoiceRef) {
+    const result = await prisma.invoice.updateMany({
+      where: { invoiceNumber: invoiceRef },
+      data: { jobId },
+    });
+    invoiceLinks += result.count;
+  }
+  let quoteLinks = 0;
+  for (const [quoteRef, jobId] of jobIdByQuoteRef) {
+    const result = await prisma.estimate.updateMany({
+      where: { estimateNumber: quoteRef },
+      data: { jobId },
+    });
+    quoteLinks += result.count;
+  }
+  console.log(
+    `  Linked ${invoiceLinks} invoices and ${quoteLinks} quotes to their work order.`,
   );
 
   // ── Payments ─────────────────────────────────────────────────────────────────────
