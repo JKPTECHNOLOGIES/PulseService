@@ -56,7 +56,7 @@ const navItems = [
     to: "/dashboard",
     label: "Dashboard",
     icon: HomeIcon,
-    roles: ["admin", "manager", "csr", "exec"],
+    roles: ["admin", "exec"],
   },
   {
     to: "/my-day",
@@ -113,7 +113,7 @@ const navItems = [
     to: "/pricebook/pricing-tiers",
     label: "Pricing Tiers",
     icon: TagIcon,
-    roles: ["admin", "manager", "csr"],
+    roles: ["admin"],
   },
   {
     to: "/inventory",

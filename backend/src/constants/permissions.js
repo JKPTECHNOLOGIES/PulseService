@@ -143,50 +143,12 @@ const ALL_PERMISSIONS = PERMISSION_GROUPS.flatMap((g) =>
 );
 
 // Default permission set per role. `admin` always receives every permission.
+// `manager` and `csr` are retired for now (client doesn't use them) -- see
+// the matching note in constants/lookups.js's userRole list. Left out of
+// this map entirely so a reseed doesn't recreate RolePermission rows for
+// them.
 const DEFAULT_ROLE_PERMISSIONS = {
   admin: ALL_PERMISSIONS,
-  manager: [
-    "customers.create",
-    "customers.edit",
-    "customers.delete",
-    "jobs.create",
-    "jobs.edit",
-    "jobs.delete",
-    "jobs.assign",
-    "jobs.status",
-    "dispatch.manage",
-    "estimates.manage",
-    "invoices.manage",
-    "invoices.void",
-    "payments.view",
-    "reports.financial",
-    "reports.operational",
-    "pricebook.manage",
-    "inventory.manage",
-    "vendors.manage",
-    "purchasing.manage",
-    "purchasing.receive",
-    "agreements.manage",
-    "agreements.visits",
-    "equipment.delete",
-    "calls.manage",
-    "campaigns.manage",
-    "settings.manage",
-    "quickbooks.manage",
-    "audit.view",
-  ],
-  csr: [
-    "customers.create",
-    "customers.edit",
-    "jobs.create",
-    "jobs.edit",
-    "jobs.status",
-    "estimates.manage",
-    "invoices.manage",
-    "payments.view",
-    "agreements.manage",
-    "calls.manage",
-  ],
   technician: ["jobs.status", "inventory.issueToJob"],
   exec: [
     "payments.view",

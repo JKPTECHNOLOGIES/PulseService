@@ -153,11 +153,14 @@ const LOOKUPS = {
       color: "bg-gray-100 text-gray-600",
     },
   ],
+  // "manager" and "csr" are retired for now (2026-07) -- this client doesn't
+  // use them. Not deleted from the codebase, just no longer offered: removing
+  // them here prunes them from the Lookup table (see sync-lookups.js) and the
+  // role dropdown/Roles & Permissions editor, without touching any existing
+  // user who happens to still have that role string.
   userRole: [
     { value: "admin", label: "Administrator" },
     { value: "exec", label: "Executive" },
-    { value: "manager", label: "Manager" },
-    { value: "csr", label: "Customer Service Rep" },
     { value: "technician", label: "Technician" },
   ],
   customerType: [

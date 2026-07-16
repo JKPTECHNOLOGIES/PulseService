@@ -181,7 +181,10 @@ async function main() {
   // `admin` (Darryl) is the break-glass admin and keeps the env-configurable
   // password; every other seeded employee uses the shared dev password. `manager`
   // (Iris, the office manager) is credited with the historical demo records that
-  // used to belong to the old dispatcher/CSR test accounts.
+  // used to belong to the old dispatcher/CSR test accounts. She's seeded with
+  // the "admin" role since "manager" is retired for now (client doesn't use
+  // it) -- the variable is still named `manager` for the office-manager
+  // persona she represents in the demo data, not the (now-unused) role string.
   const [
     admin,
     manager,
@@ -207,7 +210,9 @@ async function main() {
         password: passHash,
         firstName: "Iris",
         lastName: "O.",
-        role: "manager",
+        // "manager" role retired for now (client doesn't use it) -- Iris
+        // keeps her office-manager duties in the app as an admin.
+        role: "admin",
       },
     }),
     prisma.user.create({
@@ -2515,9 +2520,9 @@ async function main() {
 
   console.log("\n✅ Seed completed successfully!");
   console.log("\n  Seed login credentials (Prime Comfort roster):");
-  console.log("  ┌──────────────────────────────────────────────────────┐");
+  console.log("  ┌─────────────────────────────────────────────────────┐");
   console.log("  │  darryl@primecomfortac.com  / admin123  (admin)      │");
-  console.log("  │  iris@primecomfortac.com    / pass123   (manager)    │");
+  console.log("  │  iris@primecomfortac.com    / pass123   (admin)      │");
   console.log("  │  charles@primecomfortac.com / pass123   (technician) │");
   console.log("  │  …all other employees       / pass123                │");
   console.log("  └──────────────────────────────────────────────────────┘\n");
