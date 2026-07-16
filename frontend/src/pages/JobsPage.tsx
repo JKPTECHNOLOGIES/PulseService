@@ -279,6 +279,15 @@ export default function JobsPage() {
           />
         ) : (
           <>
+            {pagination && (
+              <div className="px-5 py-4 border-b border-gray-100">
+                <Pagination
+                  page={pagination.page}
+                  totalPages={pagination.totalPages}
+                  onPageChange={setPage}
+                />
+              </div>
+            )}
             <DataTable<Job>
               columns={columns}
               rows={jobs}
