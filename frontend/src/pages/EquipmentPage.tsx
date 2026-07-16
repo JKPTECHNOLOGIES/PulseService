@@ -71,8 +71,11 @@ const schema = z.object({
   manufacturer: z.string().optional(),
   model: z.string().optional(),
   serialNumber: z.string().optional(),
+  description: z.string().optional(),
   installDate: z.string().optional(),
   warrantyExpiry: z.string().optional(),
+  partsWarrantyExpiry: z.string().optional(),
+  replaceByDate: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -121,11 +124,18 @@ function EquipmentModal({
           manufacturer: equipment.manufacturer ?? "",
           model: equipment.model ?? "",
           serialNumber: equipment.serialNumber ?? "",
+          description: equipment.description ?? "",
           installDate: equipment.installDate
             ? equipment.installDate.slice(0, 10)
             : "",
           warrantyExpiry: equipment.warrantyExpiry
             ? equipment.warrantyExpiry.slice(0, 10)
+            : "",
+          partsWarrantyExpiry: equipment.partsWarrantyExpiry
+            ? equipment.partsWarrantyExpiry.slice(0, 10)
+            : "",
+          replaceByDate: equipment.replaceByDate
+            ? equipment.replaceByDate.slice(0, 10)
             : "",
           notes: equipment.notes ?? "",
         }
@@ -157,8 +167,11 @@ function EquipmentModal({
       manufacturer: blank(data.manufacturer),
       model: blank(data.model),
       serialNumber: blank(data.serialNumber),
+      description: blank(data.description),
       installDate: toIso(data.installDate),
       warrantyExpiry: toIso(data.warrantyExpiry),
+      partsWarrantyExpiry: toIso(data.partsWarrantyExpiry),
+      replaceByDate: toIso(data.replaceByDate),
       notes: blank(data.notes),
     };
     if (equipment) {
@@ -279,6 +292,18 @@ function EquipmentModal({
             <div />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Description
+            </label>
+            <textarea
+              rows={2}
+              className={clsx(SELECT_CLASS, "resize-none")}
+              placeholder="Manufacturer spec, e.g. 3 Ton Variable Speed Air Conditioner, R-454B, up to 19.50 SEER2…"
+              {...register("description")}
+            />
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Install date"
@@ -286,9 +311,22 @@ function EquipmentModal({
               {...register("installDate")}
             />
             <Input
-              label="Warranty expires"
+              label="Labor warranty expires"
               type="date"
               {...register("warrantyExpiry")}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Parts warranty expires"
+              type="date"
+              {...register("partsWarrantyExpiry")}
+            />
+            <Input
+              label="Recommended replace-by"
+              type="date"
+              {...register("replaceByDate")}
             />
           </div>
 
@@ -299,7 +337,7 @@ function EquipmentModal({
             <textarea
               rows={2}
               className={clsx(SELECT_CLASS, "resize-none")}
-              placeholder="Service notes, warnings, history…"
+              placeholder="Installation-specific notes, e.g. horizontal in attic hatch next to kitchen…"
               {...register("notes")}
             />
           </div>

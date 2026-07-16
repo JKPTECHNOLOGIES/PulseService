@@ -2337,13 +2337,19 @@ async function main() {
   ]);
 
   // ── Real equipment (from QuickBooks-adjacent export) ─────────────────
-  // Sourced from prisma/seed-data/equipment.csv. Each row references its
-  // customer by the ORIGINAL (pre-dedup) per-property name, resolved via
-  // resolveCustomerByRawName(). For customers with multiple locations (the
-  // merge groups from the customers import), rawNameToAddress lets us pick
-  // the specific location this unit was installed at instead of defaulting
-  // to the first one. `type` is free-text/customizable in this app, so the
-  // source's type string ("Air Handler", "Condenser", ...) is kept as-is.
+  // Sourced from prisma/seed-data/equipment.csv (2026-07-16 export, which
+  // added Comments/Additional Info/Serial Number columns over the 07-15
+  // version -- Comments is a manufacturer/spec description -> description;
+  // Additional Info is where/how this specific unit was installed -> notes;
+  // Serial Number -> serialNumber. Parts vs. labor warranty are both real,
+  // distinct dates now (see the Equipment model), not folded into notes.
+  // Each row references its customer by the ORIGINAL (pre-dedup) per-property
+  // name, resolved via resolveCustomerByRawName(). For customers with
+  // multiple locations (the merge groups from the customers import),
+  // rawNameToAddress lets us pick the specific location this unit was
+  // installed at instead of defaulting to the first one. `type` is
+  // free-text/customizable in this app, so the source's type string
+  // ("Air Handler", "Condenser", ...) is kept as-is.
   console.log("  Importing equipment from CSV...");
   const importedEquipment = parseEquipmentCsv(
     path.join(__dirname, "seed-data", "equipment.csv"),
@@ -2368,18 +2374,6 @@ async function main() {
       mappedAddress ? parseFullAddress(mappedAddress) : null,
     );
 
-    const notesParts = [];
-    if (eq.partsWarranty) {
-      notesParts.push(`Parts warranty until ${eq.partsWarranty.toISOString().slice(0, 10)}.`);
-    }
-    if (eq.laborWarranty) {
-      notesParts.push(`Labor warranty until ${eq.laborWarranty.toISOString().slice(0, 10)}.`);
-    }
-    if (eq.replaceBy) {
-      notesParts.push(`Recommended replace-by date: ${eq.replaceBy.toISOString().slice(0, 10)}.`);
-    }
-    notesParts.push("Imported from QuickBooks-adjacent equipment export.");
-
     await prisma.equipment.create({
       data: {
         customerId: customer.id,
@@ -2388,9 +2382,13 @@ async function main() {
         type: eq.type,
         manufacturer: eq.manufacturer,
         model: eq.model,
+        serialNumber: eq.serialNumber,
+        description: eq.description,
         installDate: eq.installDate,
         warrantyExpiry: eq.warrantyExpiry,
-        notes: notesParts.join(" "),
+        partsWarrantyExpiry: eq.partsWarrantyExpiry,
+        replaceByDate: eq.replaceBy,
+        notes: eq.notes,
       },
     });
     equipmentImported++;

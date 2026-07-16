@@ -770,8 +770,11 @@ export interface Equipment {
   manufacturer?: string;
   model?: string;
   serialNumber?: string;
+  description?: string;
   installDate?: string;
   warrantyExpiry?: string;
+  partsWarrantyExpiry?: string;
+  replaceByDate?: string;
   condition?: string;
   notes?: string;
   createdAt: string;

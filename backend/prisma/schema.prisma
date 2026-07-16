@@ -869,8 +869,20 @@ model Equipment {
   manufacturer   String?
   model          String?
   serialNumber   String?
-  installDate    DateTime?
-  warrantyExpiry DateTime?
+  // Manufacturer/spec description (e.g. "3 Ton Variable Speed Air Conditioner
+  // R-454B Up to 19.50 SEER2") -- distinct from `notes`, which is for
+  // installation-specific/field notes (e.g. "horizontal in attic hatch").
+  description         String?
+  installDate         DateTime?
+  // The nearer-term, contractor-backed warranty -- what the Warranty column,
+  // badge, and warranty filter (active/expiring/expired) key off of.
+  warrantyExpiry      DateTime?
+  // The manufacturer-backed parts warranty, tracked separately since it's
+  // typically a much longer term than labor and isn't what "expiring soon"
+  // should warn about.
+  partsWarrantyExpiry DateTime?
+  // Recommended replacement date (end of expected service life).
+  replaceByDate       DateTime?
   condition      String?
   notes          String?
   createdAt      DateTime  @default(now())

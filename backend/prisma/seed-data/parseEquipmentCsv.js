@@ -49,13 +49,17 @@ function parseCsv(text) {
   return rows.filter((r) => r.length > 1 || (r[0] && r[0].trim() !== ""));
 }
 
-// "12/10/2025 0:00" -> Date. Time component is always midnight in this
+// "2025-12-10 12:00 AM" -> Date. Time component is always midnight in this
 // export, so only the date part matters.
-function parseUsDate(s) {
-  const m = (s || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+function parseDateTime(s) {
+  const m = (s || "").trim().match(
+    /^(\d{4})-(\d{2})-(\d{2}) (\d{1,2}):(\d{2}) (AM|PM)$/,
+  );
   if (!m) return null;
-  const [, mo, d, y] = m;
-  return new Date(Number(y), Number(mo) - 1, Number(d));
+  const [, y, mo, d, hRaw, min, ampm] = m;
+  let h = Number(hRaw) % 12;
+  if (ampm === "PM") h += 12;
+  return new Date(Number(y), Number(mo) - 1, Number(d), h, Number(min));
 }
 
 function parseEquipmentCsv(filePath) {
@@ -74,25 +78,37 @@ function parseEquipmentCsv(filePath) {
     partsWarranty: header.indexOf("Parts Warranty"),
     laborWarranty: header.indexOf("Labor Warranty"),
     replaceBy: header.indexOf("Replace By"),
+    comments: header.indexOf("Comments"),
+    additionalInfo: header.indexOf("Additional Info"),
+    serialNumber: header.indexOf("Serial Number"),
   };
 
   return rows.slice(1).map((r) => {
-    const partsWarranty = parseUsDate(r[idx.partsWarranty]);
-    const laborWarranty = parseUsDate(r[idx.laborWarranty]);
+    const partsWarranty = parseDateTime(r[idx.partsWarranty]);
+    const laborWarranty = parseDateTime(r[idx.laborWarranty]);
     return {
       customerRawName: (r[idx.customer] || "").trim().replace(/^"+|"+$/g, ""),
       name: (r[idx.name] || "").trim(),
       manufacturer: (r[idx.manufacturer] || "").trim() || null,
       model: (r[idx.model] || "").trim() || null,
       type: (r[idx.type] || "").trim() || null,
-      installDate: parseUsDate(r[idx.install]),
+      serialNumber: (r[idx.serialNumber] || "").trim() || null,
+      // "Comments" is a manufacturer/spec description of the model (distinct
+      // from "Additional Info", which is where/how this specific unit was
+      // installed) -> Equipment.description / Equipment.notes respectively.
+      description: (r[idx.comments] || "").trim() || null,
+      notes: (r[idx.additionalInfo] || "").trim() || null,
+      installDate: parseDateTime(r[idx.install]),
       partsWarranty,
       laborWarranty,
       // Labor warranty is the nearer-term, more operationally relevant date
-      // (contractor-backed, usually 1-2yr) vs. parts (manufacturer-backed,
-      // often 10yr+); falls back to parts warranty when labor isn't given.
+      // (contractor-backed, usually 1-2yr) -- what the app's single Warranty
+      // badge/filter keys off of -- falling back to parts warranty (usually
+      // much longer, manufacturer-backed) when labor isn't given. Parts is
+      // also kept in full alongside it as its own field.
       warrantyExpiry: laborWarranty || partsWarranty,
-      replaceBy: parseUsDate(r[idx.replaceBy]),
+      partsWarrantyExpiry: partsWarranty,
+      replaceBy: parseDateTime(r[idx.replaceBy]),
     };
   });
 }
