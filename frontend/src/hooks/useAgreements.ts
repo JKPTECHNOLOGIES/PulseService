@@ -152,3 +152,42 @@ export function useCompleteVisit() {
     },
   });
 }
+
+// Billing (the monetary side of an agreement -- separate from RecurringJob,
+// which generates the labor side / work orders).
+export function useGenerateAgreementInvoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (agreementId: string) =>
+      api.post<ApiResponse<unknown>>(
+        `/agreements/${agreementId}/generate-invoice`,
+      ),
+    onSuccess: (_data, agreementId) => {
+      void qc.invalidateQueries({ queryKey: ["agreement", agreementId] });
+      void qc.invalidateQueries({ queryKey: ["agreements"] });
+      void qc.invalidateQueries({ queryKey: ["invoices"] });
+      toast.success("Invoice generated");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to generate invoice"));
+    },
+  });
+}
+
+export function useRunDueAgreementBilling() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.post<ApiResponse<{ created: number }>>(
+        "/agreements/run-due-billing",
+      ),
+    onSuccess: (res) => {
+      void qc.invalidateQueries({ queryKey: ["agreements"] });
+      void qc.invalidateQueries({ queryKey: ["invoices"] });
+      toast.success(`Generated ${String(res.data.created)} invoice(s)`);
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to run due billing"));
+    },
+  });
+}

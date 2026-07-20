@@ -10,6 +10,8 @@ const {
   send,
   scheduleVisit,
   completeVisit,
+  generateInvoice,
+  runDueBilling,
 } = require("../controllers/agreements.controller");
 
 router.use(auth);
@@ -31,6 +33,19 @@ router.put(
   "/:id/visits/:visitId/complete",
   requirePermission("agreements.visits"),
   completeVisit,
+);
+
+// Billing (the monetary side of an agreement -- separate from RecurringJob,
+// which generates the labor side / work orders).
+router.post(
+  "/run-due-billing",
+  requirePermission("agreements.manage"),
+  runDueBilling,
+);
+router.post(
+  "/:id/generate-invoice",
+  requirePermission("agreements.manage"),
+  generateInvoice,
 );
 
 module.exports = router;

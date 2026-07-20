@@ -36,12 +36,14 @@ const list = async (req, res) => {
       dateTo,
       technicianId,
       archived,
+      recurringJobId,
     } = req.query;
     const { skip, take } = paginate(page, limit);
 
     const where = {};
     if (status) where.status = status;
     if (type) where.type = type;
+    if (recurringJobId) where.recurringJobId = recurringJobId;
     // Archived jobs are hidden by default so they stop cluttering active
     // lists/boards without ever being destroyed; ?archived=true shows only
     // archived ones, ?archived=all shows everything.

@@ -646,6 +646,30 @@ export interface ServiceAgreement {
   notes?: string;
   customer?: Customer;
   visits?: AgreementVisit[];
+  // Present when the agreement's billing cycle(s) have been invoiced (the
+  // monetary side -- see RecurringJob/Job for the separate labor side).
+  invoices?: {
+    id: string;
+    invoiceNumber: string;
+    status: string;
+    total: number;
+    balance: number;
+    createdAt: string;
+  }[];
+  // Present when this agreement has recurring visit schedules (the labor
+  // side -- see `invoices` above for the separate billing side). Each entry
+  // is a RecurringJob template; see useRecurring.ts for the full shape.
+  recurringJobs?: {
+    id: string;
+    summary: string;
+    frequency: string;
+    interval: number;
+    nextRunDate: string;
+    isActive: boolean;
+    lastRunAt?: string;
+    _count?: { jobs: number };
+  }[];
+  _count?: { visits: number; invoices: number };
 }
 
 export interface Campaign {

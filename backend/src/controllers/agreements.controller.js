@@ -1,9 +1,105 @@
 const prisma = require('../config/database');
-const { paginate, paginatedResponse } = require('../utils/helpers');
+const {
+  paginate,
+  paginatedResponse,
+  generateNumber,
+  calculateTotals,
+} = require('../utils/helpers');
 const { generateAgreementPdf } = require('../services/pdf.service');
 const { sendMail } = require('../services/email.service');
 
 const money = (n) => '$' + Number(n || 0).toFixed(2);
+
+// Advance a billing date by one cycle. Distinct from RecurringJob's schedule
+// advance (different frequency vocabulary: monthly/quarterly/semi_annual/annual).
+function advanceBilling(date, frequency) {
+  const d = new Date(date);
+  switch (frequency) {
+    case 'quarterly':
+      d.setMonth(d.getMonth() + 3);
+      break;
+    case 'semi_annual':
+      d.setMonth(d.getMonth() + 6);
+      break;
+    case 'annual':
+      d.setFullYear(d.getFullYear() + 1);
+      break;
+    case 'monthly':
+    default:
+      d.setMonth(d.getMonth() + 1);
+      break;
+  }
+  return d;
+}
+
+// Creates one Invoice for an agreement's billing cycle (the monetary side of a
+// service agreement -- separate from RecurringJob, which generates the labor
+// side / work orders). Advances nextBillingDate. Shared by the manual
+// "Generate Invoice" action and the "run due billing" sweep.
+async function generateInvoiceForAgreement(agreement, userId) {
+  const settings = await prisma.companySettings.findFirst();
+  if (!settings) throw new Error('Company settings not found');
+
+  const invoiceNumber = generateNumber(
+    settings.invoicePrefix,
+    settings.nextInvoiceNumber,
+  );
+  const amount = Number(agreement.amount || 0);
+  const lineItems = [
+    {
+      type: 'service',
+      name: `Service Agreement \u2014 ${agreement.name}`,
+      description: `${agreement.agreementNumber} billing cycle`,
+      quantity: 1,
+      unitPrice: amount,
+    },
+  ];
+  const totals = calculateTotals(lineItems, undefined, 0);
+
+  const invoice = await prisma.$transaction(async (tx) => {
+    const created = await tx.invoice.create({
+      data: {
+        invoiceNumber,
+        customerId: agreement.customerId,
+        serviceAgreementId: agreement.id,
+        status: 'draft',
+        subtotal: totals.subtotal,
+        taxAmount: totals.taxAmount,
+        total: totals.total,
+        balance: totals.total,
+        createdById: userId,
+        lineItems: {
+          create: lineItems.map((item, i) => ({
+            type: item.type,
+            name: item.name,
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            total: item.quantity * item.unitPrice,
+            sortOrder: i,
+          })),
+        },
+      },
+      include: { lineItems: true },
+    });
+    await tx.companySettings.update({
+      where: { id: settings.id },
+      data: { nextInvoiceNumber: { increment: 1 } },
+    });
+    await tx.serviceAgreement.update({
+      where: { id: agreement.id },
+      data: {
+        nextBillingDate: advanceBilling(
+          agreement.nextBillingDate || new Date(),
+          agreement.billingFrequency,
+        ),
+      },
+    });
+    return created;
+  });
+
+  return invoice;
+}
 
 // Loads an agreement with the relations the PDF needs (customer + ordered
 // visits). Shared by getPdf and send.
@@ -33,7 +129,7 @@ const list = async (req, res) => {
         take,
         include: {
           customer: { select: { id: true, firstName: true, lastName: true, companyName: true } },
-          _count: { select: { visits: true } },
+          _count: { select: { visits: true, invoices: true } },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -54,6 +150,30 @@ const get = async (req, res) => {
       include: {
         customer: true,
         visits: { orderBy: { scheduledDate: 'asc' } },
+        invoices: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            status: true,
+            total: true,
+            balance: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        recurringJobs: {
+          select: {
+            id: true,
+            summary: true,
+            frequency: true,
+            interval: true,
+            nextRunDate: true,
+            isActive: true,
+            lastRunAt: true,
+            _count: { select: { jobs: true } },
+          },
+          orderBy: { nextRunDate: 'asc' },
+        },
       },
     });
 
@@ -227,6 +347,47 @@ const completeVisit = async (req, res) => {
   }
 };
 
+// Manual "Generate Invoice" action -- bills this agreement's cycle now,
+// regardless of nextBillingDate, and advances the schedule.
+const generateInvoice = async (req, res) => {
+  try {
+    const agreement = await prisma.serviceAgreement.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!agreement) {
+      return res.status(404).json({ success: false, error: 'Agreement not found' });
+    }
+    const invoice = await generateInvoiceForAgreement(agreement, req.user.id);
+    return res.status(201).json({ success: true, data: invoice });
+  } catch (err) {
+    console.error('agreements.generateInvoice error:', err);
+    return res.status(500).json({ success: false, error: 'Server error' });
+  }
+};
+
+// Bills every active agreement whose nextBillingDate has arrived. Mirrors
+// RecurringJob's "run due" sweep, kept entirely separate so a business can
+// run job generation and invoice billing on independent schedules.
+const runDueBilling = async (req, res) => {
+  try {
+    const due = await prisma.serviceAgreement.findMany({
+      where: {
+        status: 'active',
+        nextBillingDate: { lte: new Date() },
+      },
+    });
+    let created = 0;
+    for (const agreement of due) {
+      await generateInvoiceForAgreement(agreement, req.user.id);
+      created += 1;
+    }
+    return res.json({ success: true, data: { created } });
+  } catch (err) {
+    console.error('agreements.runDueBilling error:', err);
+    return res.status(500).json({ success: false, error: 'Server error' });
+  }
+};
+
 module.exports = {
   list,
   get,
@@ -236,4 +397,6 @@ module.exports = {
   send,
   scheduleVisit,
   completeVisit,
+  generateInvoice,
+  runDueBilling,
 };

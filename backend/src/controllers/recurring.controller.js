@@ -44,6 +44,10 @@ const list = async (req, res) => {
   try {
     const templates = await prisma.recurringJob.findMany({
       orderBy: [{ isActive: "desc" }, { nextRunDate: "asc" }],
+      include: {
+        _count: { select: { jobs: true } },
+        agreement: { select: { id: true, agreementNumber: true, name: true } },
+      },
     });
     return res.json({ success: true, data: await withCustomers(templates) });
   } catch (err) {
@@ -72,12 +76,14 @@ const create = async (req, res) => {
       priority = "normal",
       interval = 1,
       locationId,
+      agreementId,
     } = req.body;
 
     const template = await prisma.recurringJob.create({
       data: {
         customerId,
         locationId: locationId || null,
+        agreementId: agreementId || null,
         summary,
         description: description || null,
         type,
@@ -96,8 +102,15 @@ const create = async (req, res) => {
 
 const update = async (req, res) => {
   try {
-    const { id: _id, createdAt: _c, updatedAt: _u, customer: _cust, ...data } =
-      req.body;
+    const {
+      id: _id,
+      createdAt: _c,
+      updatedAt: _u,
+      customer: _cust,
+      agreement: _ag,
+      _count: _cnt,
+      ...data
+    } = req.body;
     if (data.nextRunDate) data.nextRunDate = new Date(data.nextRunDate);
     if (data.interval !== undefined) {
       data.interval = Math.max(1, parseInt(data.interval) || 1);
@@ -159,6 +172,9 @@ async function generateOne(template, userId) {
       description: template.description,
       scheduledStart: template.nextRunDate,
       createdById: userId,
+      // Traceable back-reference: the labor side of a recurring arrangement
+      // (see ServiceAgreement/Invoice for the separate billing side).
+      recurringJobId: template.id,
     },
   });
 

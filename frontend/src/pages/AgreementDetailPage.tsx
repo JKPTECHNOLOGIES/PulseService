@@ -1,24 +1,28 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ChevronRightIcon,
   PencilIcon,
   PlusIcon,
-  CheckCircleIcon,
   ArrowDownTrayIcon,
   PaperAirplaneIcon,
+  BoltIcon,
 } from "@heroicons/react/24/outline";
 import {
   useAgreement,
   useUpdateAgreement,
   useSendAgreement,
-  useScheduleVisit,
-  useCompleteVisit,
+  useGenerateAgreementInvoice,
 } from "../hooks/useAgreements";
+import {
+  useGenerateRecurringJob,
+  recurringFreqLabel,
+} from "../hooks/useRecurring";
 import { useLookup } from "../hooks/useMetadata";
 import { usePermissions } from "../hooks/usePermissions";
 import Button from "../components/ui/Button";
-import { StatusBadge } from "../components/ui/Badge";
+import { Can } from "../components/ui/Can";
+import Badge, { StatusBadge } from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
 import { PageSpinner } from "../components/ui/Spinner";
 import { NumberInput } from "../components/ui/NumberInput";
@@ -42,11 +46,12 @@ const inputClass =
 
 export default function AgreementDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { data: agreement, isLoading } = useAgreement(id ?? "");
   const updateAgreement = useUpdateAgreement();
   const sendMutation = useSendAgreement();
-  const scheduleVisit = useScheduleVisit();
-  const completeVisit = useCompleteVisit();
+  const generateInvoice = useGenerateAgreementInvoice();
+  const generateRecurring = useGenerateRecurringJob();
   const { can } = usePermissions();
 
   const { options: statusOptions, getLabel: getStatusLabel } =
@@ -66,10 +71,6 @@ export default function AgreementDetailPage() {
     terms: "",
     notes: "",
   });
-
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [visitName, setVisitName] = useState("");
-  const [visitDate, setVisitDate] = useState("");
 
   useEffect(() => {
     if (agreement) {
@@ -122,27 +123,8 @@ export default function AgreementDetailPage() {
     );
   };
 
-  const saveVisit = () => {
-    if (!visitName.trim()) return;
-    scheduleVisit.mutate(
-      {
-        agreementId: agreement.id,
-        name: visitName.trim(),
-        scheduledDate: visitDate
-          ? new Date(visitDate).toISOString()
-          : undefined,
-      },
-      {
-        onSuccess: () => {
-          setScheduleOpen(false);
-          setVisitName("");
-          setVisitDate("");
-        },
-      },
-    );
-  };
-
-  const visits = agreement.visits ?? [];
+  const recurringJobs = agreement.recurringJobs ?? [];
+  const invoices = agreement.invoices ?? [];
   const customerName = agreement.customer
     ? (agreement.customer.companyName ??
       `${agreement.customer.firstName} ${agreement.customer.lastName}`)
@@ -301,68 +283,136 @@ export default function AgreementDetailPage() {
               </div>
             )}
           </div>
+
+          {/* Billing: the monetary side of the agreement -- separate from
+              Visits, which is the labor/scheduling side. */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900">
+                Billing ({invoices.length})
+              </h3>
+              <Can permission="agreements.manage">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={<BoltIcon className="h-3.5 w-3.5" />}
+                  loading={generateInvoice.isPending}
+                  onClick={() => {
+                    generateInvoice.mutate(agreement.id);
+                  }}
+                >
+                  Generate Invoice
+                </Button>
+              </Can>
+            </div>
+            {invoices.length === 0 ? (
+              <p className="text-sm text-gray-400">
+                No invoices generated yet.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {invoices.map((inv) => (
+                  <div
+                    key={inv.id}
+                    className="flex items-center justify-between gap-2 text-sm border-b border-gray-50 pb-2 last:border-0 last:pb-0"
+                  >
+                    <Link
+                      to={`/invoices/${inv.id}`}
+                      className="font-medium text-primary-600 hover:text-primary-700"
+                    >
+                      #{inv.invoiceNumber}
+                    </Link>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <StatusBadge status={inv.status} type="invoice" />
+                      <span className="font-medium text-gray-900">
+                        {formatCurrency(inv.total)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Visits */}
+        {/* Recurring Visits: the labor/scheduling side, generated via the
+            Recurring page's templates -- separate from Billing above, which
+            is the monetary/invoicing side. */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-900">
-              Visits ({visits.length})
+              Recurring Visits ({recurringJobs.length})
             </h3>
-            <button
-              onClick={() => {
-                setScheduleOpen(true);
-              }}
-              className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
-            >
-              <PlusIcon className="h-3.5 w-3.5" />
-              Schedule
-            </button>
+            <Can permission={["jobs.create", "agreements.manage"]}>
+              <button
+                onClick={() => {
+                  navigate("/recurring", {
+                    state: {
+                      agreementId: agreement.id,
+                      agreementNumber: agreement.agreementNumber,
+                      customerId: agreement.customerId,
+                    },
+                  });
+                }}
+                className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
+              >
+                <PlusIcon className="h-3.5 w-3.5" />
+                New
+              </button>
+            </Can>
           </div>
-          {visits.length === 0 ? (
-            <p className="text-sm text-gray-400">No visits scheduled yet.</p>
+          {recurringJobs.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              No recurring visits scheduled yet.
+            </p>
           ) : (
             <div className="space-y-3">
-              {visits.map((v) => (
+              {recurringJobs.map((r) => (
                 <div
-                  key={v.id}
+                  key={r.id}
                   className="flex items-start justify-between gap-2 border-b border-gray-50 pb-3 last:border-0 last:pb-0"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900">
-                      {v.name}
+                      {r.summary}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {v.completedDate
-                        ? `Completed ${formatDate(v.completedDate)}`
-                        : v.scheduledDate
-                          ? `Scheduled ${formatDate(v.scheduledDate)}`
-                          : "Unscheduled"}
+                      {recurringFreqLabel(r.frequency)} · Next{" "}
+                      {formatDate(r.nextRunDate)} · {r._count?.jobs ?? 0}{" "}
+                      generated
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <StatusBadge
-                      status={v.status}
-                      category="agreementVisitStatus"
-                    />
-                    {v.status !== "completed" && (
+                    <Badge
+                      className={
+                        r.isActive
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-500"
+                      }
+                    >
+                      {r.isActive ? "Active" : "Paused"}
+                    </Badge>
+                    <Can permission={["jobs.create", "agreements.manage"]}>
                       <button
-                        title="Mark complete"
+                        title="Generate a work order now"
                         onClick={() => {
-                          completeVisit.mutate({
-                            agreementId: agreement.id,
-                            visitId: v.id,
-                          });
+                          generateRecurring.mutate(r.id);
                         }}
-                        disabled={completeVisit.isPending}
-                        className="text-gray-400 hover:text-green-600 disabled:opacity-50"
+                        disabled={generateRecurring.isPending}
+                        className="text-gray-400 hover:text-primary-600 disabled:opacity-50"
                       >
-                        <CheckCircleIcon className="h-5 w-5" />
+                        <BoltIcon className="h-4 w-4" />
                       </button>
-                    )}
+                    </Can>
                   </div>
                 </div>
               ))}
+              <Link
+                to="/recurring"
+                className="block text-xs text-primary-600 hover:text-primary-700 font-medium pt-1"
+              >
+                Manage on the Recurring page →
+              </Link>
             </div>
           )}
         </div>
@@ -525,61 +575,6 @@ export default function AgreementDetailPage() {
               disabled={!form.name.trim()}
             >
               Save Changes
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Schedule visit modal */}
-      <Modal
-        isOpen={scheduleOpen}
-        onClose={() => {
-          setScheduleOpen(false);
-        }}
-        title="Schedule Visit"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Visit Name
-            </label>
-            <input
-              className={inputClass}
-              placeholder="e.g. Spring maintenance"
-              value={visitName}
-              onChange={(e) => {
-                setVisitName(e.target.value);
-              }}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Scheduled Date
-            </label>
-            <input
-              type="date"
-              className={inputClass}
-              value={visitDate}
-              onChange={(e) => {
-                setVisitDate(e.target.value);
-              }}
-            />
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setScheduleOpen(false);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={saveVisit}
-              loading={scheduleVisit.isPending}
-              disabled={!visitName.trim()}
-            >
-              Schedule
             </Button>
           </div>
         </div>

@@ -4,12 +4,14 @@ import {
   PlusIcon,
   ArrowDownTrayIcon,
   PaperAirplaneIcon,
+  BoltIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import {
   useAgreements,
   useCreateAgreement,
   useSendAgreement,
+  useRunDueAgreementBilling,
 } from "../hooks/useAgreements";
 import { useCustomers } from "../hooks/useCustomers";
 import Button from "../components/ui/Button";
@@ -51,6 +53,7 @@ export default function AgreementsPage() {
   const customers = customersData?.data ?? [];
   const createAgreement = useCreateAgreement();
   const sendAgreement = useSendAgreement();
+  const runDueBilling = useRunDueAgreementBilling();
 
   const [newOpen, setNewOpen] = useState(false);
   const [form, setForm] = useState({
@@ -219,14 +222,28 @@ export default function AgreementsPage() {
         <p className="text-sm text-gray-500">
           {pagination ? `${String(pagination.total)} agreements` : ""}
         </p>
-        <Button
-          icon={<PlusIcon className="h-4 w-4" />}
-          onClick={() => {
-            setNewOpen(true);
-          }}
-        >
-          New Agreement
-        </Button>
+        <div className="flex gap-2">
+          <Can permission="agreements.manage">
+            <Button
+              variant="outline"
+              icon={<BoltIcon className="h-4 w-4" />}
+              loading={runDueBilling.isPending}
+              onClick={() => {
+                runDueBilling.mutate();
+              }}
+            >
+              Run due billing
+            </Button>
+          </Can>
+          <Button
+            icon={<PlusIcon className="h-4 w-4" />}
+            onClick={() => {
+              setNewOpen(true);
+            }}
+          >
+            New Agreement
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">

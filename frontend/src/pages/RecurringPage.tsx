@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import {
   PlusIcon,
@@ -15,6 +16,8 @@ import {
   useDeleteRecurringJob,
   useGenerateRecurringJob,
   useRunDueRecurringJobs,
+  RECURRING_FREQUENCIES,
+  recurringFreqLabel,
   type RecurringJob,
 } from "../hooks/useRecurring";
 import { useCustomers } from "../hooks/useCustomers";
@@ -26,16 +29,6 @@ import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { LookupSelect } from "../components/ui/LookupSelect";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatDate } from "../utils/formatters";
-
-const FREQUENCIES = [
-  { value: "weekly", label: "Weekly" },
-  { value: "biweekly", label: "Every 2 weeks" },
-  { value: "monthly", label: "Monthly" },
-  { value: "quarterly", label: "Quarterly" },
-  { value: "yearly", label: "Yearly" },
-];
-const freqLabel = (v: string) =>
-  FREQUENCIES.find((f) => f.value === v)?.label ?? v;
 
 interface FormValues {
   customerId: string;
@@ -49,6 +42,15 @@ interface FormValues {
 }
 
 export default function RecurringPage() {
+  const location = useLocation();
+  // Set when arriving via a service agreement's "New" recurring-visit
+  // shortcut, so the new schedule is pre-linked to that agreement + customer.
+  const prefill = location.state as {
+    agreementId?: string;
+    agreementNumber?: string;
+    customerId?: string;
+  } | null;
+
   const { data: templates, isLoading } = useRecurringJobs();
   const { data: customersData } = useCustomers({ limit: 100 });
   const createMutation = useCreateRecurringJob();
@@ -57,7 +59,7 @@ export default function RecurringPage() {
   const generateMutation = useGenerateRecurringJob();
   const runDueMutation = useRunDueRecurringJobs();
 
-  const [modalOpen, setModalOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(!!prefill?.agreementId);
   const [toDelete, setToDelete] = useState<RecurringJob | null>(null);
 
   const customers = customersData?.data ?? [];
@@ -65,6 +67,7 @@ export default function RecurringPage() {
 
   const { register, handleSubmit, reset } = useForm<FormValues>({
     defaultValues: {
+      customerId: prefill?.customerId ?? "",
       type: "service",
       priority: "normal",
       frequency: "monthly",
@@ -76,6 +79,7 @@ export default function RecurringPage() {
     await createMutation.mutateAsync({
       ...data,
       interval: data.interval || 1,
+      agreementId: prefill?.agreementId,
     });
     setModalOpen(false);
     reset({
@@ -138,7 +142,13 @@ export default function RecurringPage() {
                     Frequency
                   </th>
                   <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
+                    Agreement
+                  </th>
+                  <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
                     Next Run
+                  </th>
+                  <th className="text-center py-3 px-3 font-medium text-gray-500 text-xs uppercase">
+                    Generated
                   </th>
                   <th className="text-center py-3 px-3 font-medium text-gray-500 text-xs uppercase">
                     Status
@@ -161,11 +171,27 @@ export default function RecurringPage() {
                         : "-"}
                     </td>
                     <td className="py-3 px-3 text-gray-600">
-                      {freqLabel(r.frequency)}
+                      {recurringFreqLabel(r.frequency)}
                       {r.interval > 1 ? ` ×${String(r.interval)}` : ""}
+                    </td>
+                    <td className="py-3 px-3">
+                      {r.agreement ? (
+                        <Link
+                          to={`/agreements/${r.agreement.id}`}
+                          className="text-primary-600 hover:text-primary-700 font-medium"
+                        >
+                          #{r.agreement.agreementNumber}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
                     </td>
                     <td className="py-3 px-3 text-gray-600">
                       {formatDate(r.nextRunDate)}
+                    </td>
+                    <td className="py-3 px-3 text-center text-gray-600">
+                      {r._count?.jobs ?? 0} work order
+                      {r._count?.jobs === 1 ? "" : "s"}
                     </td>
                     <td className="py-3 px-3 text-center">
                       <Badge
@@ -236,6 +262,14 @@ export default function RecurringPage() {
           onSubmit={(e) => void handleSubmit(onSubmit)(e)}
           className="space-y-4"
         >
+          {prefill?.agreementId && (
+            <p className="text-sm bg-primary-50 border border-primary-100 rounded-lg px-3.5 py-2.5 text-primary-800">
+              This schedule will be linked to service agreement{" "}
+              {prefill.agreementNumber ? `#${prefill.agreementNumber}` : ""} —
+              its generated work orders will show up there as Recurring
+              Visits.
+            </p>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Customer
@@ -285,7 +319,7 @@ export default function RecurringPage() {
                 {...register("frequency")}
                 className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
               >
-                {FREQUENCIES.map((f) => (
+                {RECURRING_FREQUENCIES.map((f) => (
                   <option key={f.value} value={f.value}>
                     {f.label}
                   </option>
