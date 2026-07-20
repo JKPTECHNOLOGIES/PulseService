@@ -206,6 +206,7 @@ export interface Invoice {
   customerId: string;
   jobId?: string;
   estimateId?: string;
+  serviceAgreementId?: string;
   status: string;
   dueDate?: string;
   subtotal: number;
@@ -222,7 +223,25 @@ export interface Invoice {
   paidAt?: string;
   createdAt: string;
   customer?: Customer;
-  job?: { id: string; jobNumber: string; summary?: string };
+  job?: {
+    id: string;
+    jobNumber: string;
+    summary?: string;
+    status?: string;
+    purchaseOrders?: {
+      id: string;
+      poNumber: string;
+      status: string;
+      totalAmount: number;
+    }[];
+  };
+  // Present when this invoice was generated for a ServiceAgreement billing
+  // cycle (the monetary side -- see Job/RecurringJob for the labor side).
+  serviceAgreement?: {
+    id: string;
+    agreementNumber: string;
+    name: string;
+  };
   lineItems?: InvoiceLineItem[];
   payments?: Payment[];
 }

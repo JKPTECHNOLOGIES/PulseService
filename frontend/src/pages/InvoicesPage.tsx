@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PlusIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
+import {
+  PlusIcon,
+  PaperAirplaneIcon,
+  InformationCircleIcon,
+} from "@heroicons/react/24/outline";
+import { Popover } from "@headlessui/react";
 import clsx from "clsx";
 import {
   useInvoices,
@@ -16,7 +21,12 @@ import EmptyState from "../components/ui/EmptyState";
 import DataTable, { Column, SortState } from "../components/ui/DataTable";
 import SavedViewsMenu from "../components/ui/SavedViewsMenu";
 import { TableSkeleton } from "../components/ui/Skeleton";
-import { formatCurrency, formatDate } from "../utils/formatters";
+import {
+  formatCurrency,
+  formatDate,
+  statusDotColor,
+  getInvoiceStatusColor,
+} from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import type { Invoice } from "../types";
 
@@ -56,13 +66,19 @@ export default function InvoicesPage() {
 
   // Category tabs mirror the office's mental model: All + one per status, with
   // live counts. "overdue" is shown as "Past Due" to match familiar wording.
+  // "viewed" and "void" are hidden here to keep the bar short -- they're rare
+  // in practice and still reachable via All + the status color/legend; the
+  // color dot still shows on any invoice actually in one of those states.
+  const HIDDEN_STATUS_TABS = new Set(["viewed", "void"]);
   const tabs = [
     { value: "all", label: "All", count: stats?.total },
-    ...statusOptions.map((o) => ({
-      value: o.value,
-      label: o.value === "overdue" ? "Past Due" : o.label,
-      count: stats ? (stats.byStatus[o.value] ?? 0) : undefined,
-    })),
+    ...statusOptions
+      .filter((o) => !HIDDEN_STATUS_TABS.has(o.value))
+      .map((o) => ({
+        value: o.value,
+        label: o.value === "overdue" ? "Past Due" : o.label,
+        count: stats ? (stats.byStatus[o.value] ?? 0) : undefined,
+      })),
   ];
 
   const applyView = (view: InvoicesView) => {
@@ -72,41 +88,73 @@ export default function InvoicesPage() {
     setPage(1);
   };
 
+  // Solid dot color for an invoice's pay status, replacing the old dedicated
+  // "Pay Status" column (see legend rendered above the table).
+  const statusDot = (invoiceStatus: string) => {
+    const opt = statusOptions.find((o) => o.value === invoiceStatus);
+    return statusDotColor(opt?.color ?? getInvoiceStatusColor(invoiceStatus));
+  };
+
   const columns: Column<Invoice>[] = [
     {
       key: "invoice",
       header: "Invoice #",
+      thClassName: "w-[8%]",
       sortValue: (inv) => inv.invoiceNumber,
       exportValue: (inv) => inv.invoiceNumber,
       render: (inv) => (
-        <span className="font-medium text-primary-600">
-          #{inv.invoiceNumber}
+        <span className="inline-flex items-center gap-2">
+          <span
+            className={clsx(
+              "h-2.5 w-2.5 rounded-full shrink-0",
+              statusDot(inv.status),
+            )}
+            title={
+              statusOptions.find((o) => o.value === inv.status)?.label ??
+              inv.status
+            }
+          />
+          <span className="font-medium text-primary-600">
+            #{inv.invoiceNumber}
+          </span>
         </span>
       ),
     },
     {
       key: "customer",
       header: "Customer",
+      thClassName: "w-[13%]",
       sortValue: (inv) => customerName(inv).toLowerCase(),
       exportValue: (inv) => customerName(inv),
       render: (inv) => (
-        <span className="text-gray-900">{customerName(inv) || "-"}</span>
+        <span
+          className="block truncate text-gray-900"
+          title={customerName(inv) || undefined}
+        >
+          {customerName(inv) || "-"}
+        </span>
       ),
     },
     {
       key: "workOrder",
       header: "Work Order",
+      thClassName: "w-[40%]",
       sortValue: (inv) => inv.job?.jobNumber ?? "",
       exportValue: (inv) =>
         inv.job ? `#${inv.job.jobNumber} ${inv.job.summary ?? ""}`.trim() : "",
       render: (inv) =>
         inv.job ? (
-          <div className="min-w-0 max-w-[16rem]">
-            <span className="font-medium text-gray-700">
-              #{inv.job.jobNumber}
-            </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-gray-700">
+                #{inv.job.jobNumber}
+              </span>
+              {inv.job.status && (
+                <StatusBadge status={inv.job.status} type="job" />
+              )}
+            </div>
             {inv.job.summary && (
-              <p className="text-xs text-gray-400 truncate">
+              <p className="text-sm text-gray-500 line-clamp-2 mt-0.5">
                 {inv.job.summary}
               </p>
             )}
@@ -118,10 +166,11 @@ export default function InvoicesPage() {
     {
       key: "date",
       header: "Date",
+      thClassName: "w-[8%]",
       sortValue: (inv) => new Date(inv.createdAt).getTime(),
       exportValue: (inv) => formatDate(inv.createdAt),
       render: (inv) => (
-        <span className="text-gray-500 text-xs">
+        <span className="text-gray-500 text-xs whitespace-nowrap">
           {formatDate(inv.createdAt)}
         </span>
       ),
@@ -129,20 +178,24 @@ export default function InvoicesPage() {
     {
       key: "dueDate",
       header: "Due Date",
+      thClassName: "w-[8%]",
       sortValue: (inv) => (inv.dueDate ? new Date(inv.dueDate).getTime() : 0),
       exportValue: (inv) => (inv.dueDate ? formatDate(inv.dueDate) : ""),
       render: (inv) => (
-        <span className="text-gray-500 text-xs">{formatDate(inv.dueDate)}</span>
+        <span className="text-gray-500 text-xs whitespace-nowrap">
+          {formatDate(inv.dueDate)}
+        </span>
       ),
     },
     {
       key: "total",
       header: "Total",
       align: "right",
+      thClassName: "w-[11%]",
       sortValue: (inv) => inv.total,
       exportValue: (inv) => inv.total,
       render: (inv) => (
-        <span className="font-medium text-gray-900">
+        <span className="font-medium text-gray-900 whitespace-nowrap">
           {formatCurrency(inv.total)}
         </span>
       ),
@@ -151,12 +204,13 @@ export default function InvoicesPage() {
       key: "balance",
       header: "Balance",
       align: "right",
+      thClassName: "w-[11%]",
       sortValue: (inv) => inv.balance,
       exportValue: (inv) => inv.balance,
       render: (inv) => (
         <span
           className={clsx(
-            "font-medium",
+            "font-medium whitespace-nowrap",
             inv.balance > 0 ? "text-red-600" : "text-green-600",
           )}
         >
@@ -165,11 +219,14 @@ export default function InvoicesPage() {
       ),
     },
     {
+      // Visually replaced by the color-coded dot on the Invoice # column plus
+      // the legend above the table, but kept in CSV exports since color
+      // doesn't survive into a spreadsheet.
       key: "status",
       header: "Pay Status",
-      sortValue: (inv) => inv.status,
+      exportOnly: true,
       exportValue: (inv) => inv.status,
-      render: (inv) => <StatusBadge status={inv.status} type="invoice" />,
+      render: () => null,
     },
   ];
 
@@ -209,39 +266,67 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      {/* Category tabs */}
-      <div className="border-b border-gray-200 overflow-x-auto">
-        <div className="flex min-w-max">
-          {tabs.map((t) => (
-            <button
-              key={t.value}
-              onClick={() => {
-                setStatus(t.value);
-                setPage(1);
-              }}
-              className={clsx(
-                "relative px-3.5 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors",
-                status === t.value
-                  ? "border-primary-600 text-primary-700"
-                  : "border-transparent text-gray-500 hover:text-gray-700",
-              )}
-            >
-              {t.label}
-              {typeof t.count === "number" && (
+      {/* Category tabs + status color legend (replaces the old dedicated
+          "Pay Status" column — each invoice's row is color-coded via the dot
+          next to its number instead; this popover explains what each color
+          means without permanently occupying page space). */}
+      <div className="flex items-end justify-between gap-3 border-b border-gray-200">
+        <div className="overflow-x-auto">
+          <div className="flex min-w-max">
+            {tabs.map((t) => (
+              <button
+                key={t.value}
+                onClick={() => {
+                  setStatus(t.value);
+                  setPage(1);
+                }}
+                className={clsx(
+                  "relative px-3.5 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors",
+                  status === t.value
+                    ? "border-primary-600 text-primary-700"
+                    : "border-transparent text-gray-500 hover:text-gray-700",
+                )}
+              >
+                {t.label}
+                {typeof t.count === "number" && (
+                  <span
+                    className={clsx(
+                      "ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-semibold",
+                      status === t.value
+                        ? "bg-primary-100 text-primary-700"
+                        : "bg-gray-100 text-gray-500",
+                    )}
+                  >
+                    {t.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <Popover className="relative mb-1.5 shrink-0">
+          <Popover.Button className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700">
+            <InformationCircleIcon className="h-4 w-4" />
+            Status colors
+          </Popover.Button>
+          <Popover.Panel className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-gray-100 bg-white py-2 shadow-lg">
+            {statusOptions.map((o) => (
+              <div
+                key={o.value}
+                className="flex items-center gap-2 px-3 py-1 text-sm text-gray-600"
+              >
                 <span
                   className={clsx(
-                    "ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-semibold",
-                    status === t.value
-                      ? "bg-primary-100 text-primary-700"
-                      : "bg-gray-100 text-gray-500",
+                    "h-2.5 w-2.5 rounded-full shrink-0",
+                    statusDotColor(o.color ?? ""),
                   )}
-                >
-                  {t.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+                />
+                {o.value === "overdue" ? "Past Due" : o.label}
+              </div>
+            ))}
+          </Popover.Panel>
+        </Popover>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -268,6 +353,7 @@ export default function InvoicesPage() {
               }}
               sort={sort}
               onSortChange={setSort}
+              tableLayout="fixed"
               csvFilename="invoices"
               renderMobileCard={(inv) => (
                 <div>

@@ -85,7 +85,9 @@ const list = async (req, res) => {
               companyName: true,
             },
           },
-          job: { select: { id: true, jobNumber: true, summary: true } },
+          job: {
+            select: { id: true, jobNumber: true, summary: true, status: true },
+          },
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -119,9 +121,26 @@ const get = async (req, res) => {
       include: {
         customer: true,
         job: {
-          select: { id: true, jobNumber: true, summary: true, status: true },
+          select: {
+            id: true,
+            jobNumber: true,
+            summary: true,
+            status: true,
+            purchaseOrders: {
+              select: {
+                id: true,
+                poNumber: true,
+                status: true,
+                totalAmount: true,
+              },
+              orderBy: { orderDate: "desc" },
+            },
+          },
         },
         estimate: { select: { id: true, estimateNumber: true } },
+        serviceAgreement: {
+          select: { id: true, agreementNumber: true, name: true },
+        },
         lineItems: { orderBy: { sortOrder: "asc" } },
         payments: { orderBy: { createdAt: "desc" } },
         createdBy: { select: { id: true, firstName: true, lastName: true } },

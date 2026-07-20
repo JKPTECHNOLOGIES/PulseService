@@ -157,6 +157,65 @@ export default function InvoiceDetailPage() {
                 </Link>
               </p>
             )}
+            {invoice.serviceAgreement && (
+              <p className="text-sm text-gray-500 mt-1">
+                Service Agreement:{" "}
+                <Link
+                  to={`/agreements/${invoice.serviceAgreement.id}`}
+                  className="text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  #{invoice.serviceAgreement.agreementNumber}
+                </Link>
+                <span className="text-gray-400">
+                  {" "}
+                  — {invoice.serviceAgreement.name}
+                </span>
+              </p>
+            )}
+            {invoice.job && (
+              <p className="text-sm text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+                <span>
+                  Work Order:{" "}
+                  <Link
+                    to={`/jobs/${invoice.job.id}`}
+                    className="text-primary-600 hover:text-primary-700 font-medium"
+                  >
+                    #{invoice.job.jobNumber}
+                  </Link>
+                  {invoice.job.summary && (
+                    <span className="text-gray-400">
+                      {" "}
+                      — {invoice.job.summary}
+                    </span>
+                  )}
+                </span>
+                {invoice.job.status && (
+                  <StatusBadge status={invoice.job.status} type="job" />
+                )}
+              </p>
+            )}
+            {invoice.job?.purchaseOrders &&
+              invoice.job.purchaseOrders.length > 0 && (
+                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1.5 flex-wrap">
+                  <span className="text-gray-400">Purchase orders:</span>
+                  {invoice.job.purchaseOrders.map((po, i, arr) => (
+                    <span key={po.id} className="inline-flex items-center gap-1">
+                      <Link
+                        to={`/purchasing/${po.id}`}
+                        className="font-mono text-primary-600 hover:text-primary-700"
+                      >
+                        {po.poNumber}
+                      </Link>
+                      <span className="text-gray-400">
+                        ({formatCurrency(po.totalAmount)})
+                      </span>
+                      {i < arr.length - 1 && (
+                        <span className="text-gray-300">·</span>
+                      )}
+                    </span>
+                  ))}
+                </p>
+              )}
           </div>
           <div className="flex gap-2 shrink-0 flex-wrap justify-end">
             <Button
@@ -327,6 +386,37 @@ export default function InvoiceDetailPage() {
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Notes & Terms */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 className="font-semibold text-gray-900 mb-4">Notes & Terms</h3>
+        {invoice.notes || invoice.terms ? (
+          <div className="space-y-4">
+            {invoice.notes && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                  Notes
+                </p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {invoice.notes}
+                </p>
+              </div>
+            )}
+            {invoice.terms && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                  Terms
+                </p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {invoice.terms}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">No notes or terms added</p>
+        )}
       </div>
 
       {/* Payment history */}

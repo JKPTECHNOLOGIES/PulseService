@@ -66,6 +66,18 @@ export function getEstimateStatusColor(status: string): string {
   return colors[status] || "bg-gray-100 text-gray-800";
 }
 
+/**
+ * Derives a solid indicator color from a DB-driven status badge color (e.g.
+ * "bg-blue-100 text-blue-800" -> "bg-blue-500"). Used for compact color
+ * swatches/dots/legends in place of a full text badge (dispatch cards, the
+ * invoices list, etc). The resulting classes must stay in the Tailwind
+ * safelist since they're built dynamically.
+ */
+export function statusDotColor(badge: string): string {
+  const match = /bg-([a-z]+)-\d+/.exec(badge);
+  return match ? `bg-${match[1]}-500` : "bg-gray-500";
+}
+
 export function capitalize(str: string): string {
   return str
     .replace(/_/g, " ")

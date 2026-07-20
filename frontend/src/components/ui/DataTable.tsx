@@ -29,6 +29,12 @@ export interface Column<T> {
   align?: "left" | "right";
   thClassName?: string;
   tdClassName?: string;
+  /**
+   * When true, the column is included in CSV exports but not rendered as a
+   * visible table column. Useful when a value is represented visually some
+   * other way (e.g. color coding) but should still be available in exports.
+   */
+  exportOnly?: boolean;
 }
 
 interface DataTableProps<T> {
@@ -69,6 +75,15 @@ interface DataTableProps<T> {
 
   /** Optional per-row class (e.g. to highlight low-stock rows). */
   rowClassName?: (row: T) => string | false | undefined;
+
+  /**
+   * "auto" (default) lets the browser size columns from content, which can
+   * scatter leftover width unpredictably across columns. "fixed" respects
+   * each column's `thClassName` width exactly — use it when you want to
+   * deliberately control which column absorbs the extra space (give columns
+   * explicit `w-[n%]` widths in that case).
+   */
+  tableLayout?: "auto" | "fixed";
 }
 
 export default function DataTable<T>({
@@ -87,7 +102,13 @@ export default function DataTable<T>({
   rowActions,
   renderMobileCard,
   rowClassName,
+  tableLayout = "auto",
 }: DataTableProps<T>) {
+  const visibleColumns = useMemo(
+    () => columns.filter((c) => !c.exportOnly),
+    [columns],
+  );
+
   const sortedRows = useMemo(() => {
     if (!sort) return rows;
     const col = columns.find((c) => c.key === sort.key);
@@ -169,7 +190,7 @@ export default function DataTable<T>({
   const isMobile = useIsMobile();
   const showCards = Boolean(renderMobileCard) && isMobile;
 
-  const sortableColumns = columns.filter((c) => c.sortValue);
+  const sortableColumns = visibleColumns.filter((c) => c.sortValue);
   // On mobile the column headers are gone, so surface sorting via a menu.
   const showSortMenu =
     showCards && Boolean(onSortChange) && sortableColumns.length > 0;
@@ -304,7 +325,12 @@ export default function DataTable<T>({
         </ul>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table
+            className={clsx(
+              "w-full text-sm",
+              tableLayout === "fixed" && "table-fixed",
+            )}
+          >
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 {selectable && (
@@ -317,7 +343,7 @@ export default function DataTable<T>({
                     />
                   </th>
                 )}
-                {columns.map((col) => (
+                {visibleColumns.map((col) => (
                   <th
                     key={col.key}
                     onClick={() => {
@@ -382,7 +408,7 @@ export default function DataTable<T>({
                         />
                       </td>
                     )}
-                    {columns.map((col) => (
+                    {visibleColumns.map((col) => (
                       <td
                         key={col.key}
                         className={clsx(

@@ -57,7 +57,7 @@ import { useLookup } from "../hooks/useMetadata";
 import { useDragScroll } from "../hooks/useDragScroll";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { PageSpinner } from "../components/ui/Spinner";
-import { formatCurrency } from "../utils/formatters";
+import { formatCurrency, statusDotColor } from "../utils/formatters";
 import { Job, Technician } from "../types";
 
 // Full 24-hour day so jobs scheduled at any hour show on the board.
@@ -109,13 +109,7 @@ function shiftJobTime(
   };
 }
 
-// Derive a solid card color from a DB-driven status badge color
-// (e.g. "bg-blue-100 text-blue-800" -> "bg-blue-500") so dispatch cards match
-// the job's status everywhere else in the app.
-function solidStatusColor(badge: string): string {
-  const match = /bg-([a-z]+)-\d+/.exec(badge);
-  return match ? `bg-${match[1]}-500` : "bg-gray-500";
-}
+
 
 function getJobPosition(job: Job): { left: number; width: number } | null {
   if (!job.scheduledStart) return null;
@@ -194,7 +188,7 @@ function JobCard({
     disabled: !draggable,
   });
   const { getColor } = useLookup("jobStatus");
-  const color = solidStatusColor(getColor(job.status));
+  const color = statusDotColor(getColor(job.status));
 
   if (compact) {
     const customerName = job.customer
@@ -659,7 +653,7 @@ function JobChip({ job, onClick }: { job: Job; onClick: () => void }) {
     id: job.id,
   });
   const { getColor } = useLookup("jobStatus");
-  const color = solidStatusColor(getColor(job.status));
+  const color = statusDotColor(getColor(job.status));
 
   const customerName = job.customer
     ? `${job.customer.firstName} ${job.customer.lastName}`
@@ -1274,7 +1268,7 @@ export default function DispatchPage() {
               <span
                 className={clsx(
                   "h-2.5 w-2.5 rounded-sm shrink-0",
-                  solidStatusColor(o.color ?? ""),
+                  statusDotColor(o.color ?? ""),
                 )}
               />
               <span className="text-[11px] text-gray-500">{o.label}</span>
