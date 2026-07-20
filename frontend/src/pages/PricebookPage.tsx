@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 import {
@@ -6,6 +6,7 @@ import {
   FolderIcon,
   PencilIcon,
   ArrowUpTrayIcon,
+  QrCodeIcon,
   TagIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
@@ -25,7 +26,10 @@ import { LookupSelect } from "../components/ui/LookupSelect";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
+import toast from "../lib/toast";
 import { PricebookItem } from "../types";
+
+const BarcodeScanner = lazy(() => import("../components/ui/BarcodeScanner"));
 
 interface ItemForm {
   sku: string;
@@ -40,16 +44,31 @@ interface ItemForm {
 
 export default function PricebookPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const [itemModal, setItemModal] = useState(false);
   const [categoryModal, setCategoryModal] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PricebookItem | null>(null);
 
   const { data: categories, isLoading: catLoading } = usePricebookCategories();
   const { data: items, isLoading: itemsLoading } = usePricebookItems({
     categoryId: selectedCategory ?? undefined,
+    search: search || undefined,
   });
   const { getLabel: getItemTypeLabel } = useLookup("pricebookItemType");
+
+  // Scanned barcode -> match an item by SKU (within the current category
+  // filter) and open it for editing.
+  const handleScan = (code: string) => {
+    const term = code.trim().toLowerCase();
+    const match = (items ?? []).find((i) => i.sku.toLowerCase() === term);
+    if (match) openEditItem(match);
+    else
+      toast.error(
+        `No pricebook item with SKU \u201C${code}\u201D in this category. Try "All" or check the SKU.`,
+      );
+  };
 
   const createItem = useCreatePricebookItem();
   const updateItem = useUpdatePricebookItem();
@@ -170,9 +189,21 @@ export default function PricebookPage() {
       {/* Items */}
       <div className="flex-1 min-w-0">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Items</h3>
-            <div className="flex gap-2">
+          <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                }}
+                placeholder="Search SKU or name..."
+                className="px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-64"
+              />
+              <p className="text-sm text-gray-500">
+                {items?.length ?? 0} items
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
               <Link to="/pricebook/pricing-tiers">
                 <Button
                   size="sm"
@@ -182,6 +213,16 @@ export default function PricebookPage() {
                   Pricing Tiers
                 </Button>
               </Link>
+              <Button
+                size="sm"
+                variant="outline"
+                icon={<QrCodeIcon className="h-4 w-4" />}
+                onClick={() => {
+                  setScannerOpen(true);
+                }}
+              >
+                Scan
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
@@ -483,6 +524,18 @@ export default function PricebookPage() {
           </div>
         </form>
       </Modal>
+
+      {scannerOpen && (
+        <Suspense fallback={null}>
+          <BarcodeScanner
+            isOpen
+            onClose={() => {
+              setScannerOpen(false);
+            }}
+            onDetected={handleScan}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
