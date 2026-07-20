@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   PlusIcon,
   TrashIcon,
@@ -26,6 +26,8 @@ import {
 } from "../hooks/usePurchasing";
 import { useVendors } from "../hooks/useVendors";
 import { useStockLocations, useInventoryItems } from "../hooks/useInventory";
+import { useCustomers } from "../hooks/useCustomers";
+import { useJobs } from "../hooks/useJobs";
 import type { PurchaseOrder } from "../types";
 
 const INPUT =
@@ -48,11 +50,18 @@ const csvColumns = [
 
 export default function PurchaseOrdersPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Set when arriving via a job's "Create PO" shortcut (Materials & Equipment
+  // card), so the modal opens pre-linked to that work order + customer.
+  const prefill = location.state as {
+    jobId?: string;
+    customerId?: string;
+  } | null;
   const [statusFilter, setStatusFilter] = useState("");
   const { data, isLoading } = usePurchaseOrders(
     statusFilter ? { status: statusFilter } : {},
   );
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(!!prefill?.jobId);
   const [reorderOpen, setReorderOpen] = useState(false);
   const [sort, setSort] = useState<SortState | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -86,6 +95,26 @@ export default function PurchaseOrdersPage() {
       sortValue: (po) => po.status,
       exportValue: (po) => po.status,
       render: (po) => <StatusBadge status={po.status} category="poStatus" />,
+    },
+    {
+      key: "workOrder",
+      header: "Work Order",
+      sortValue: (po) => po.job?.jobNumber ?? "",
+      exportValue: (po) => (po.job ? `#${po.job.jobNumber}` : ""),
+      render: (po) =>
+        po.job ? (
+          <Link
+            to={`/jobs/${po.job.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+            className="text-primary-600 hover:text-primary-700 font-medium"
+          >
+            #{po.job.jobNumber}
+          </Link>
+        ) : (
+          <span className="text-gray-300">-</span>
+        ),
     },
     {
       key: "shipTo",
@@ -200,6 +229,7 @@ export default function PurchaseOrdersPage() {
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {po.shipToLocation?.code ?? "-"} · {formatDate(po.orderDate)}
+                  {po.job ? ` · #${po.job.jobNumber}` : ""}
                 </p>
                 <p className="text-sm text-gray-900 font-medium mt-0.5">
                   {formatCurrency(num(po.totalAmount))}
@@ -223,6 +253,8 @@ export default function PurchaseOrdersPage() {
 
       <CreatePOModal
         open={creating}
+        defaultJobId={prefill?.jobId}
+        defaultCustomerId={prefill?.customerId}
         onClose={() => {
           setCreating(false);
         }}
@@ -417,25 +449,49 @@ interface DraftLine extends POLineInput {
 function CreatePOModal({
   open,
   onClose,
+  defaultJobId,
+  defaultCustomerId,
 }: {
   open: boolean;
   onClose: () => void;
+  defaultJobId?: string;
+  defaultCustomerId?: string;
 }) {
   const navigate = useNavigate();
   const create = useCreatePurchaseOrder();
   const { data: vendors } = useVendors({ active: "true" });
   const { data: locations } = useStockLocations({ active: "true" });
   const { data: items } = useInventoryItems();
+  const { data: customersData } = useCustomers({ limit: 200 });
+  const { data: jobsData } = useJobs({ limit: 100 });
 
   const [vendorId, setVendorId] = useState("");
   const [shipToLocationId, setShipTo] = useState("");
   const [expectedDate, setExpectedDate] = useState("");
+  const [customerId, setCustomerId] = useState("");
+  const [jobId, setJobId] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([]);
+
+  const customers = customersData?.data ?? [];
+  const customerJobs = (jobsData?.data ?? []).filter(
+    (j) => j.customerId === customerId,
+  );
+
+  // Arriving via a job's "Create PO" shortcut pre-links this PO to that work
+  // order + customer, so materials bought for a job stay tied to it.
+  useEffect(() => {
+    if (open && defaultJobId) {
+      setJobId(defaultJobId);
+      if (defaultCustomerId) setCustomerId(defaultCustomerId);
+    }
+  }, [open, defaultJobId, defaultCustomerId]);
 
   const reset = () => {
     setVendorId("");
     setShipTo("");
     setExpectedDate("");
+    setCustomerId("");
+    setJobId("");
     setLines([]);
   };
 
@@ -524,6 +580,50 @@ function CreatePOModal({
               }}
               className={INPUT}
             />
+          </Field>
+        </div>
+
+        {/* Materials are usually bought for a specific job/customer -- linking
+            here is what makes them show up on that job's Materials & Equipment
+            card, and on the invoice raised from it. */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label="Customer (optional)">
+            <select
+              value={customerId}
+              onChange={(e) => {
+                setCustomerId(e.target.value);
+                setJobId("");
+              }}
+              className={INPUT}
+            >
+              <option value="">Not linked to a customer</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.companyName?.trim()
+                    ? c.companyName
+                    : `${c.firstName} ${c.lastName}`}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Work order (optional)">
+            <select
+              value={jobId}
+              onChange={(e) => {
+                setJobId(e.target.value);
+              }}
+              className={INPUT}
+              disabled={!customerId}
+            >
+              <option value="">
+                {customerId ? "Not linked to a work order" : "Select a customer first"}
+              </option>
+              {customerJobs.map((j) => (
+                <option key={j.id} value={j.id}>
+                  #{j.jobNumber} - {j.summary}
+                </option>
+              ))}
+            </select>
           </Field>
         </div>
 
@@ -654,6 +754,8 @@ function CreatePOModal({
                   const res = await create.mutateAsync({
                     vendorId,
                     shipToLocationId: shipToLocationId || undefined,
+                    jobId: jobId || undefined,
+                    customerId: customerId || undefined,
                     expectedDate: expectedDate || undefined,
                     lines: lines.map((l) => ({
                       inventoryItemId: l.inventoryItemId,

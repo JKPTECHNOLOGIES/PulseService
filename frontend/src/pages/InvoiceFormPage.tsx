@@ -19,6 +19,7 @@ import { useLookup } from "../hooks/useMetadata";
 import { useJobParts } from "../hooks/useInventory";
 import { useSerializedUnits } from "../hooks/useSerials";
 import { useJobTimeEntries } from "../hooks/useTime";
+import { usePurchaseOrders } from "../hooks/usePurchasing";
 import { useFormDraft } from "../hooks/useFormDraft";
 
 // Enum values are validated server-side against the DB-driven lookups; the form
@@ -34,6 +35,9 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+
+// Decimal fields arrive from the API as strings; coerce defensively.
+const num = (v: unknown): number => Number(v ?? 0);
 
 // See EstimateFormPage: autosave a New Invoice draft so navigating away or a
 // reload doesn't lose it. Cleared once the invoice is created.
@@ -130,6 +134,19 @@ export default function InvoiceFormPage() {
   // catalog sale price when the unit's item is mapped to the pricebook.
   const { data: jobUnits } = useSerializedUnits({ jobId, limit: 100 });
   const installedUnits = jobId ? (jobUnits?.data ?? []) : [];
+
+  // Purchase orders raised specifically for this job -- surfaced so the office
+  // remembers to bill back the materials cost, with a shortcut to the job's
+  // Materials & Equipment card (which has the full line-item detail).
+  const { data: jobPOs } = usePurchaseOrders(
+    { jobId, limit: 50 },
+    { enabled: !!jobId },
+  );
+  const jobPurchaseOrders = jobId ? (jobPOs?.data ?? []) : [];
+  const jobPOTotal = jobPurchaseOrders.reduce(
+    (sum, po) => sum + num(po.totalAmount),
+    0,
+  );
   const addEquipmentLines = () => {
     if (installedUnits.length === 0) return;
     setLineItems((items) => [
@@ -429,6 +446,25 @@ export default function InvoiceFormPage() {
                 }}
               >
                 Add logged labor
+              </Button>
+            </div>
+          )}
+          {jobId && jobPurchaseOrders.length > 0 && (
+            <div className="mb-3 flex items-center justify-between bg-primary-50 border border-primary-100 rounded-lg px-3.5 py-2.5">
+              <p className="text-sm text-primary-800">
+                {jobPurchaseOrders.length} purchase order(s) totaling{" "}
+                {formatCurrency(jobPOTotal)} on this job — remember to bill
+                back materials cost.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  navigate(`/jobs/${jobId}`);
+                }}
+              >
+                View on job
               </Button>
             </div>
           )}

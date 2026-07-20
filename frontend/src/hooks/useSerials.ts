@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
+import { OFFLINE_MK } from "../lib/offlineMutations";
 import type { ApiResponse, PaginatedResponse, SerializedUnit } from "../types";
 import toast from "../lib/toast";
 
@@ -84,6 +85,9 @@ export function useDeleteSerializedUnit() {
 export function useUninstallSerializedUnit() {
   const qc = useQueryClient();
   return useMutation({
+    // Keyed to the offline default so removing a unit with no signal replays
+    // after an app reload (see lib/offlineMutations.ts).
+    mutationKey: OFFLINE_MK.uninstallSerializedUnit,
     mutationFn: (id: string) =>
       api.post<ApiResponse<SerializedUnit>>(`/serials/${id}/uninstall`),
     onSuccess: () => {
@@ -99,6 +103,9 @@ export function useUninstallSerializedUnit() {
 export function useInstallSerializedUnit() {
   const qc = useQueryClient();
   return useMutation({
+    // Keyed to the offline default so installing a unit with no signal
+    // replays after an app reload (see lib/offlineMutations.ts).
+    mutationKey: OFFLINE_MK.installSerializedUnit,
     mutationFn: ({
       id,
       ...payload

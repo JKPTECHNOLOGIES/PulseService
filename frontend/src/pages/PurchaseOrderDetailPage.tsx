@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeftIcon,
   TruckIcon,
   ArrowUturnLeftIcon,
+  QrCodeIcon,
 } from "@heroicons/react/24/outline";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
@@ -25,6 +26,8 @@ import {
 } from "../hooks/usePurchasing";
 import { useStockLocations } from "../hooks/useInventory";
 import type { POLine, PurchaseOrder } from "../types";
+
+const BarcodeScanner = lazy(() => import("../components/ui/BarcodeScanner"));
 
 const num = (v: unknown) => Number(v ?? 0);
 const INPUT =
@@ -355,6 +358,31 @@ function ReceiveModal({
     setRows((r) => ({ ...r, [lineId]: { ...r[lineId], ...patch } }));
   };
 
+  const splitSerials = (value: string) =>
+    value
+      .split(/[\n,]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+  // Line currently being scanned into (null when the scanner is closed).
+  const [scanningLineId, setScanningLineId] = useState<string | null>(null);
+  const scanningRow = scanningLineId ? rows[scanningLineId] : undefined;
+  const scannedCount = scanningRow ? splitSerials(scanningRow.serials).length : 0;
+
+  const addScannedSerial = (lineId: string, code: string) => {
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    setRows((r) => {
+      const row = r[lineId];
+      const existing = splitSerials(row.serials);
+      if (existing.includes(trimmed)) return r; // skip duplicates
+      return {
+        ...r,
+        [lineId]: { ...row, serials: [...existing, trimmed].join(", ") },
+      };
+    });
+  };
+
   const remaining = (l: POLine) => num(l.quantity) - num(l.receivedQuantity);
 
   const submit = () => {
@@ -362,10 +390,7 @@ function ReceiveModal({
     for (const l of openLines) {
       const row = rows[l.id];
       if (row.quantityReceived <= 0) continue;
-      const serialNumbers = row.serials
-        .split(/[\n,]/)
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const serialNumbers = splitSerials(row.serials);
       items.push({
         lineId: l.id,
         quantityReceived: row.quantityReceived,
@@ -450,9 +475,21 @@ function ReceiveModal({
                 </div>
                 {isSerial && (
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      Serial numbers (comma or line separated, optional)
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs text-gray-500">
+                        Serial numbers (comma or line separated, optional)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScanningLineId(l.id);
+                        }}
+                        className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
+                      >
+                        <QrCodeIcon className="h-3.5 w-3.5" />
+                        Scan
+                      </button>
+                    </div>
                     <textarea
                       rows={2}
                       value={row.serials}
@@ -481,6 +518,22 @@ function ReceiveModal({
           </Button>
         </div>
       </div>
+
+      {scanningLineId && (
+        <Suspense fallback={null}>
+          <BarcodeScanner
+            isOpen
+            continuous
+            scannedCount={scannedCount}
+            onClose={() => {
+              setScanningLineId(null);
+            }}
+            onDetected={(code) => {
+              addScannedSerial(scanningLineId, code);
+            }}
+          />
+        </Suspense>
+      )}
     </Modal>
   );
 }

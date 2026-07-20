@@ -7,6 +7,16 @@ interface BarcodeScannerProps {
   isOpen: boolean;
   onClose: () => void;
   onDetected: (code: string) => void;
+  /**
+   * When true, the scanner keeps running after each detection (and manual
+   * entry clears instead of closing) so several codes can be scanned
+   * back-to-back without reopening the modal each time -- e.g. serial
+   * numbers while receiving a multi-unit PO line. Defaults to false (existing
+   * single-shot behavior used by inventory/pricebook SKU lookups).
+   */
+  continuous?: boolean;
+  /** Shown under the video when `continuous` is on, e.g. "3 scanned". */
+  scannedCount?: number;
 }
 
 /**
@@ -18,21 +28,25 @@ export default function BarcodeScanner({
   isOpen,
   onClose,
   onDetected,
+  continuous = false,
+  scannedCount,
 }: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
   const [manual, setManual] = useState("");
 
-  // Keep the latest callbacks in refs so the camera-init effect can depend only
-  // on `isOpen`. Otherwise a parent re-render (new onDetected/onClose refs)
-  // would tear down and restart the camera stream -- flicker and, on some
-  // devices, a repeated permission prompt.
+  // Keep the latest callbacks/flags in refs so the camera-init effect can
+  // depend only on `isOpen`. Otherwise a parent re-render (new onDetected
+  // ref, or scannedCount ticking up) would tear down and restart the camera
+  // stream -- flicker and, on some devices, a repeated permission prompt.
   const onDetectedRef: MutableRefObject<(code: string) => void> =
     useRef(onDetected);
   const onCloseRef: MutableRefObject<() => void> = useRef(onClose);
+  const continuousRef = useRef(continuous);
   useEffect(() => {
     onDetectedRef.current = onDetected;
     onCloseRef.current = onClose;
+    continuousRef.current = continuous;
   });
 
   useEffect(() => {
@@ -43,14 +57,28 @@ export default function BarcodeScanner({
     const reader = new BrowserMultiFormatReader();
     let controls: { stop: () => void } | undefined;
     let done = false;
+    // Dedupe: the decoder keeps firing rapidly while the same code is still
+    // in frame. In continuous mode, only treat it as a new scan once the
+    // code changes (or the same one reappears after a short gap).
+    let lastCode = "";
+    let lastAt = 0;
 
     reader
       .decodeFromVideoDevice(undefined, video, (result, _err, ctrl) => {
         controls = ctrl;
-        if (result && !done) {
+        if (!result || done) return;
+
+        const text = result.getText();
+        if (continuousRef.current) {
+          const now = Date.now();
+          if (text === lastCode && now - lastAt < 1500) return;
+          lastCode = text;
+          lastAt = now;
+          onDetectedRef.current(text);
+        } else {
           done = true;
           ctrl.stop();
-          onDetectedRef.current(result.getText());
+          onDetectedRef.current(text);
           onCloseRef.current();
         }
       })
@@ -73,7 +101,8 @@ export default function BarcodeScanner({
     const code = manual.trim();
     if (!code) return;
     onDetected(code);
-    onClose();
+    setManual("");
+    if (!continuous) onClose();
   };
 
   return (
@@ -91,6 +120,11 @@ export default function BarcodeScanner({
           <p className="mt-2 text-center text-xs text-gray-500">
             Point the camera at a barcode or QR code.
           </p>
+          {continuous && typeof scannedCount === "number" && (
+            <p className="mt-1 text-center text-xs font-medium text-primary-600">
+              {scannedCount} scanned
+            </p>
+          )}
         </>
       )}
 
@@ -126,6 +160,18 @@ export default function BarcodeScanner({
           </button>
         </div>
       </form>
+
+      {continuous && (
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center justify-center min-h-[44px] px-4 rounded-lg text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            Done
+          </button>
+        </div>
+      )}
     </Modal>
   );
 }

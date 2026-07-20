@@ -55,6 +55,15 @@ const list = async (req, res) => {
         include: {
           vendor: { select: { id: true, name: true } },
           shipToLocation: { select: { id: true, name: true, code: true } },
+          job: { select: { id: true, jobNumber: true, summary: true } },
+          customer: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              companyName: true,
+            },
+          },
           _count: { select: { lines: true } },
         },
       }),
