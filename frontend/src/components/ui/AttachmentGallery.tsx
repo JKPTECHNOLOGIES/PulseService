@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import {
   PhotoIcon,
   ArrowUpTrayIcon,
   TrashIcon,
   XMarkIcon,
+  ClockIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import api from "../../lib/api";
@@ -13,9 +14,25 @@ import {
   useUploadAttachment,
   useDeleteAttachment,
 } from "../../hooks/useAttachments";
+import {
+  usePendingUploads,
+  removePendingUpload,
+} from "../../hooks/useOfflineUploads";
 import type { Attachment, AttachmentEntityType } from "../../types";
 import Spinner from "./Spinner";
 import ConfirmDialog from "./ConfirmDialog";
+
+// Local preview for a queued (not-yet-uploaded) file -- there's no server id
+// to fetch yet, so this reads the File directly via an object URL.
+function PendingImage({ file }: { file: File }) {
+  const url = useMemo(() => URL.createObjectURL(file), [file]);
+  useEffect(() => {
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [url]);
+  return <img src={url} alt={file.name} className="h-full w-full object-cover" />;
+}
 
 interface AttachmentGalleryProps {
   entityType: AttachmentEntityType;
@@ -83,6 +100,7 @@ export default function AttachmentGallery({
   const { data: attachments, isLoading } = useAttachments(entityType, entityId);
   const upload = useUploadAttachment(entityType, entityId);
   const del = useDeleteAttachment(entityType, entityId);
+  const pendingUploads = usePendingUploads(entityType, entityId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [preview, setPreview] = useState<Attachment | null>(null);
@@ -135,7 +153,7 @@ export default function AttachmentGallery({
         <div className="flex justify-center py-6">
           <Spinner className="h-6 w-6 text-primary-600" />
         </div>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && pendingUploads.length === 0 ? (
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -148,6 +166,41 @@ export default function AttachmentGallery({
         </button>
       ) : (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+          {/* Queued uploads: captured offline, not yet on the server. Shown
+              first so what's still pending is immediately visible. */}
+          {pendingUploads.map((pending) => (
+            <div
+              key={pending.id}
+              className="group relative aspect-square overflow-hidden rounded-lg border border-amber-200 bg-gray-50"
+            >
+              <PendingImage file={pending.file} />
+              <div
+                className={clsx(
+                  "absolute left-1 top-1 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-oncolor",
+                  pending.status === "error" ? "bg-red-600" : "bg-amber-500",
+                )}
+                title={
+                  pending.status === "error"
+                    ? (pending.error ?? "Failed to sync")
+                    : "Will upload when back online"
+                }
+              >
+                <ClockIcon className="h-3 w-3" />
+                {pending.status === "error" ? "Failed" : "Queued"}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  void removePendingUpload(pending.id);
+                }}
+                title="Discard"
+                aria-label="Discard queued photo"
+                className="absolute right-1 top-1 rounded-full bg-black/50 p-2 text-oncolor transition-opacity opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
           {items.map((att) => (
             <div
               key={att.id}

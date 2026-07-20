@@ -1,10 +1,16 @@
 import { useRef, useState } from "react";
-import { PencilSquareIcon, CheckBadgeIcon } from "@heroicons/react/24/outline";
+import {
+  PencilSquareIcon,
+  CheckBadgeIcon,
+  ClockIcon,
+} from "@heroicons/react/24/outline";
+import clsx from "clsx";
 import toast from "../../lib/toast";
 import {
   useAttachments,
   useUploadAttachment,
 } from "../../hooks/useAttachments";
+import { usePendingUploads } from "../../hooks/useOfflineUploads";
 import type { AttachmentEntityType } from "../../types";
 import Modal from "./Modal";
 import Button from "./Button";
@@ -25,11 +31,16 @@ export default function SignatureCard({
 }: SignatureCardProps) {
   const { data: attachments } = useAttachments(entityType, entityId);
   const upload = useUploadAttachment(entityType, entityId);
+  const pendingUploads = usePendingUploads(entityType, entityId);
   const padRef = useRef<SignaturePadHandle>(null);
   const [open, setOpen] = useState(false);
 
   const signatureCount = (attachments ?? []).filter((a) =>
     a.filename.startsWith(SIGNATURE_PREFIX),
+  ).length;
+  // Captured offline, not yet on the server -- see hooks/useOfflineUploads.ts.
+  const pendingSignatureCount = pendingUploads.filter(
+    (u) => u.caption === "Signature",
   ).length;
 
   const save = async () => {
@@ -73,13 +84,28 @@ export default function SignatureCard({
         </button>
       </div>
 
-      {signatureCount > 0 ? (
+      {signatureCount > 0 && (
         <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-100 px-3 py-2 text-sm text-green-700">
           <CheckBadgeIcon className="h-5 w-5 shrink-0" />
           {signatureCount} signature{signatureCount === 1 ? "" : "s"} on file
           <span className="text-green-600/70">— view under Photos below</span>
         </div>
-      ) : (
+      )}
+      {pendingSignatureCount > 0 && (
+        <div
+          className={clsx(
+            "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+            "bg-amber-50 border-amber-100 text-amber-700",
+            signatureCount > 0 && "mt-2",
+          )}
+        >
+          <ClockIcon className="h-5 w-5 shrink-0" />
+          {pendingSignatureCount} signature
+          {pendingSignatureCount === 1 ? "" : "s"} queued — will upload when
+          back online
+        </div>
+      )}
+      {signatureCount === 0 && pendingSignatureCount === 0 && (
         <p className="text-xs text-gray-400">No signature captured yet.</p>
       )}
 

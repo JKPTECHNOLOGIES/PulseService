@@ -3,7 +3,9 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { onlineManager } from "@tanstack/react-query";
 import { useJob, useCreateJob, useUpdateJob, useJobTypes } from "../hooks/useJobs";
+import toast from "../lib/toast";
 import { useCustomers } from "../hooks/useCustomers";
 import { useTechnicians } from "../hooks/useTechnicians";
 import Button from "../components/ui/Button";
@@ -134,13 +136,23 @@ export default function JobFormPage() {
     };
 
     if (isEditing) {
-      await updateMutation.mutateAsync({
-        id: id,
+      const vars = {
+        id,
         ...payload,
         expectedUpdatedAt: job?.updatedAt,
-      });
-      navigate(`/jobs/${id}`);
-    } else {
+      };
+      if (onlineManager.isOnline()) {
+        await updateMutation.mutateAsync(vars);
+        navigate(`/jobs/${id}`);
+      } else {
+        // Offline: this queues (see lib/offlineMutations.ts) and won't
+        // settle until reconnect, so don't block navigation waiting on it --
+        // the job's cache entry already reflects the edit optimistically
+        // (see useUpdateJob's onMutate).
+        updateMutation.mutate(vars);
+        navigate(`/jobs/${id}`);
+      }
+    } else if (onlineManager.isOnline()) {
       const result = (await createMutation.mutateAsync(payload)) as {
         data?: { id?: string };
         id?: string;
@@ -148,6 +160,14 @@ export default function JobFormPage() {
       clearDraft();
       const newId = result.data?.id ?? result.id;
       navigate(newId ? `/jobs/${newId}` : "/jobs");
+    } else {
+      // Offline: this queues (see lib/offlineMutations.ts) and won't settle
+      // until reconnect, so there's no new job id to navigate to yet -- it
+      // simply won't appear in job lists/dispatch until the create syncs.
+      createMutation.mutate(payload);
+      clearDraft();
+      toast.success("Job saved \u2014 will be created when back online");
+      navigate("/jobs");
     }
   };
 

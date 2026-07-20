@@ -269,6 +269,9 @@ export function useIssueToJob() {
 export function useReverseTransaction() {
   const qc = useQueryClient();
   return useMutation({
+    // Keyed to the offline default so removing a part with no signal replays
+    // after an app reload (see lib/offlineMutations.ts).
+    mutationKey: OFFLINE_MK.reverseTransaction,
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
       api.post(`/inventory/transactions/${id}/reverse`, { reason }),
     onSuccess: () => {

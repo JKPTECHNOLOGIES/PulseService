@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { onlineManager, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -11,6 +12,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { useMyDay } from "../hooks/useMyDay";
 import { useCurrentTimeEntry, useClockOut } from "../hooks/useTime";
+import { jobQueryKey, fetchJob } from "../hooks/useJobs";
+import { attachmentsQueryKey, fetchAttachments } from "../hooks/useAttachments";
 import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import { TableSkeleton } from "../components/ui/Skeleton";
@@ -127,9 +130,31 @@ function ClockChip() {
 
 export default function MyDayPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const today = toDateStr(new Date());
   const [date, setDate] = useState(today);
   const { data: jobs, isLoading, isError, refetch } = useMyDay(date);
+  const isToday = date === today;
+
+  // Warm the cache for today's agenda while we still have a connection, so a
+  // job's detail + photos are already there if signal drops mid-route. The
+  // service worker's NetworkFirst cache (see vite.config.ts) is what actually
+  // serves these offline -- this just triggers the real GETs proactively
+  // instead of waiting for the tech to open each job one at a time.
+  useEffect(() => {
+    if (!isToday || !jobs || jobs.length === 0) return;
+    if (!onlineManager.isOnline()) return;
+    for (const job of jobs) {
+      void qc.prefetchQuery({
+        queryKey: jobQueryKey(job.id),
+        queryFn: () => fetchJob(job.id),
+      });
+      void qc.prefetchQuery({
+        queryKey: attachmentsQueryKey("job", job.id),
+        queryFn: () => fetchAttachments("job", job.id),
+      });
+    }
+  }, [isToday, jobs, qc]);
 
   const shiftDay = (delta: number) => {
     const d = parseDate(date);
@@ -137,7 +162,6 @@ export default function MyDayPage() {
     setDate(toDateStr(d));
   };
 
-  const isToday = date === today;
   const dateLabel = parseDate(date).toLocaleDateString([], {
     weekday: "long",
     month: "short",

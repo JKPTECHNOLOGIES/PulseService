@@ -1,13 +1,24 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { onlineManager } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import toast, { Toaster } from "./lib/toast";
 import { registerSW } from "virtual:pwa-register";
 import App from "./App";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { queryClient, persister } from "./lib/queryClient";
+import { drainUploadQueue } from "./lib/offlineUploads";
 import "./index.css";
+
+// Photo/signature uploads bypass the JSON mutation queue entirely (see
+// lib/offlineUploads.ts), so they need their own drain trigger: once on
+// startup (in case items were queued in a previous session that's already
+// back online) and again every time connectivity returns.
+if (onlineManager.isOnline()) void drainUploadQueue(queryClient);
+onlineManager.subscribe((online) => {
+  if (online) void drainUploadQueue(queryClient);
+});
 
 // When a code-split chunk fails to load after a redeploy (its hashed filename no
 // longer exists on the server), Vite emits `vite:preloadError`. Reload once to

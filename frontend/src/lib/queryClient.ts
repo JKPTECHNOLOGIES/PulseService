@@ -1,6 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { registerOfflineMutations } from "./offlineMutations";
+import { clearPendingUploads } from "./offlineUploads";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,8 +26,9 @@ export const persister = createAsyncStoragePersister({
 });
 
 /**
- * Wipes cached data, the persisted offline queue, and the service worker's API
- * caches. Called on logout so one account never sees another's cached data.
+ * Wipes cached data, the persisted offline queue, queued photo/signature
+ * uploads, and the service worker's API caches. Called on logout so one
+ * account never sees (or uploads) another's data.
  */
 export async function clearOfflineData(): Promise<void> {
   queryClient.clear();
@@ -34,6 +36,11 @@ export async function clearOfflineData(): Promise<void> {
     window.localStorage.removeItem(PERSIST_KEY);
   } catch {
     /* ignore storage errors */
+  }
+  try {
+    await clearPendingUploads();
+  } catch {
+    /* ignore IndexedDB errors */
   }
   if ("caches" in window) {
     try {
