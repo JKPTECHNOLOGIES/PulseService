@@ -27,6 +27,9 @@ import {
   useJobTimeEntries,
   useClockIn,
   useClockOut,
+  useCreateTimeEntry,
+  useUpdateTimeEntry,
+  useDeleteTimeEntry,
 } from "../hooks/useTime";
 import { useLookup } from "../hooks/useMetadata";
 import { usePermissions } from "../hooks/usePermissions";
@@ -72,6 +75,15 @@ function formatDuration(mins?: number | null): string {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return h > 0 ? `${String(h)}h ${String(m)}m` : `${String(m)}m`;
+}
+
+// Converts an ISO timestamp to the local `datetime-local` input format
+// ("YYYY-MM-DDTHH:mm", in the browser's timezone, no seconds/offset).
+function toLocalInputValue(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -125,6 +137,16 @@ export default function JobDetailPage() {
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [newStatus, setNewStatus] = useState("");
   const [selectedTech, setSelectedTech] = useState("");
+  const [timeEntryModal, setTimeEntryModal] = useState<{
+    id?: string;
+    technicianId: string;
+    startTime: string;
+    endTime: string;
+    notes: string;
+  } | null>(null);
+  const [deleteTimeConfirm, setDeleteTimeConfirm] = useState<string | null>(
+    null,
+  );
 
   const { data: job, isLoading } = useJob(id ?? "");
   const { data: techsData } = useTechnicians();
@@ -132,6 +154,9 @@ export default function JobDetailPage() {
   const { data: jobTimeEntries } = useJobTimeEntries(id ?? "");
   const clockIn = useClockIn();
   const clockOut = useClockOut();
+  const createTimeEntry = useCreateTimeEntry();
+  const updateTimeEntry = useUpdateTimeEntry();
+  const deleteTimeEntry = useDeleteTimeEntry();
   const updateStatus = useUpdateJobStatus();
   const assignTech = useAssignTechnician();
   const archiveJob = useArchiveJob();
@@ -217,6 +242,11 @@ export default function JobDetailPage() {
               </span>
             </div>
             <p className="text-gray-600 mt-1">{job.summary}</p>
+            {job.recurringJob && (
+              <p className="text-xs text-gray-400 mt-1">
+                Generated from recurring service — {job.recurringJob.summary}
+              </p>
+            )}
           </div>
           <div className="flex flex-col gap-2 shrink-0 sm:flex-row sm:flex-wrap">
             <Can permission="invoices.manage">
@@ -550,6 +580,34 @@ export default function JobDetailPage() {
                 </span>
               </div>
             </div>
+            {job.invoices && job.invoices.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs font-medium text-gray-500 mb-2">
+                  Invoices
+                </p>
+                <div className="space-y-2">
+                  {job.invoices.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="flex items-center justify-between gap-2 text-sm"
+                    >
+                      <Link
+                        to={`/invoices/${inv.id}`}
+                        className="font-medium text-primary-600 hover:text-primary-700"
+                      >
+                        #{inv.invoiceNumber}
+                      </Link>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <StatusBadge status={inv.status} type="invoice" />
+                        <span className="font-medium text-gray-900">
+                          {formatCurrency(inv.total)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Time Tracking */}
@@ -559,29 +617,47 @@ export default function JobDetailPage() {
                 <ClockIcon className="h-4 w-4 text-gray-400" />
                 Time Tracking
               </h3>
-              {currentEntry && currentEntry.jobId === job.id ? (
-                <Button
-                  size="sm"
-                  variant="danger"
-                  loading={clockOut.isPending}
-                  onClick={() => {
-                    clockOut.mutate();
-                  }}
-                >
-                  Clock Out
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  loading={clockIn.isPending}
-                  disabled={!!currentEntry && currentEntry.jobId !== job.id}
-                  onClick={() => {
-                    clockIn.mutate({ jobId: job.id });
-                  }}
-                >
-                  Clock In
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                <Can permission="time.manage">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setTimeEntryModal({
+                        technicianId: "",
+                        startTime: toLocalInputValue(new Date().toISOString()),
+                        endTime: "",
+                        notes: "",
+                      });
+                    }}
+                  >
+                    Add Entry
+                  </Button>
+                </Can>
+                {currentEntry && currentEntry.jobId === job.id ? (
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    loading={clockOut.isPending}
+                    onClick={() => {
+                      clockOut.mutate();
+                    }}
+                  >
+                    Clock Out
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    loading={clockIn.isPending}
+                    disabled={!!currentEntry && currentEntry.jobId !== job.id}
+                    onClick={() => {
+                      clockIn.mutate({ jobId: job.id });
+                    }}
+                  >
+                    Clock In
+                  </Button>
+                )}
+              </div>
             </div>
             {currentEntry && currentEntry.jobId !== job.id && (
               <p className="text-xs text-amber-600 mb-3">
@@ -609,7 +685,7 @@ export default function JobDetailPage() {
                 {jobTimeEntries.map((e) => (
                   <div
                     key={e.id}
-                    className="flex items-center justify-between text-sm"
+                    className="flex items-center justify-between gap-2 text-sm"
                   >
                     <div className="min-w-0">
                       <p className="text-gray-900 truncate">
@@ -617,18 +693,49 @@ export default function JobDetailPage() {
                           ? `${e.user.firstName} ${e.user.lastName}`
                           : "Technician"}
                       </p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-gray-400 truncate">
                         {formatDateTime(e.startTime)}
+                        {e.notes ? ` · ${e.notes}` : ""}
                       </p>
                     </div>
-                    <span
-                      className={clsx(
-                        "text-xs font-medium shrink-0",
-                        e.endTime ? "text-gray-600" : "text-green-600",
-                      )}
-                    >
-                      {e.endTime ? formatDuration(e.duration) : "In progress"}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={clsx(
+                          "text-xs font-medium",
+                          e.endTime ? "text-gray-600" : "text-green-600",
+                        )}
+                      >
+                        {e.endTime ? formatDuration(e.duration) : "In progress"}
+                      </span>
+                      <Can permission="time.manage">
+                        <button
+                          type="button"
+                          title="Edit entry"
+                          onClick={() => {
+                            setTimeEntryModal({
+                              id: e.id,
+                              technicianId: e.technicianId ?? "",
+                              startTime: toLocalInputValue(e.startTime),
+                              endTime: toLocalInputValue(e.endTime),
+                              notes: e.notes ?? "",
+                            });
+                          }}
+                          className="text-gray-400 hover:text-primary-600"
+                        >
+                          <PencilIcon className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete entry"
+                          onClick={() => {
+                            setDeleteTimeConfirm(e.id);
+                          }}
+                          className="text-gray-400 hover:text-red-600"
+                        >
+                          <TrashIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </Can>
+                    </div>
                   </div>
                 ))}
                 <div className="flex justify-between border-t border-gray-100 pt-2 text-sm">
@@ -755,6 +862,165 @@ export default function JobDetailPage() {
         </div>
       </Modal>
 
+      {/* Add/Edit Time Entry Modal (admin-only, time.manage) */}
+      <Modal
+        isOpen={!!timeEntryModal}
+        onClose={() => {
+          setTimeEntryModal(null);
+        }}
+        title={timeEntryModal?.id ? "Edit Time Entry" : "Add Time Entry"}
+      >
+        {timeEntryModal && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Technician
+              </label>
+              <select
+                value={timeEntryModal.technicianId}
+                onChange={(e) => {
+                  setTimeEntryModal({
+                    ...timeEntryModal,
+                    technicianId: e.target.value,
+                  });
+                }}
+                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+              >
+                <option value="">Choose a technician...</option>
+                {techs.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.user.firstName} {t.user.lastName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Start
+                </label>
+                <input
+                  type="datetime-local"
+                  value={timeEntryModal.startTime}
+                  onChange={(e) => {
+                    setTimeEntryModal({
+                      ...timeEntryModal,
+                      startTime: e.target.value,
+                    });
+                  }}
+                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  End{" "}
+                  <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  value={timeEntryModal.endTime}
+                  onChange={(e) => {
+                    setTimeEntryModal({
+                      ...timeEntryModal,
+                      endTime: e.target.value,
+                    });
+                  }}
+                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Notes
+              </label>
+              <textarea
+                value={timeEntryModal.notes}
+                onChange={(e) => {
+                  setTimeEntryModal({
+                    ...timeEntryModal,
+                    notes: e.target.value,
+                  });
+                }}
+                rows={2}
+                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setTimeEntryModal(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (
+                    !timeEntryModal.startTime ||
+                    (!timeEntryModal.id && !timeEntryModal.technicianId)
+                  ) {
+                    return;
+                  }
+                  const payload = {
+                    technicianId: timeEntryModal.technicianId,
+                    jobId: job.id,
+                    startTime: new Date(timeEntryModal.startTime).toISOString(),
+                    endTime: timeEntryModal.endTime
+                      ? new Date(timeEntryModal.endTime).toISOString()
+                      : null,
+                    notes: timeEntryModal.notes || undefined,
+                  };
+                  if (timeEntryModal.id) {
+                    updateTimeEntry.mutate(
+                      { id: timeEntryModal.id, ...payload },
+                      {
+                        onSuccess: () => {
+                          setTimeEntryModal(null);
+                        },
+                      },
+                    );
+                  } else {
+                    createTimeEntry.mutate(payload, {
+                      onSuccess: () => {
+                        setTimeEntryModal(null);
+                      },
+                    });
+                  }
+                }}
+                loading={createTimeEntry.isPending || updateTimeEntry.isPending}
+                disabled={
+                  !timeEntryModal.startTime ||
+                  (!timeEntryModal.id && !timeEntryModal.technicianId)
+                }
+              >
+                {timeEntryModal.id ? "Save" : "Add"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        isOpen={!!deleteTimeConfirm}
+        onClose={() => {
+          setDeleteTimeConfirm(null);
+        }}
+        onConfirm={() => {
+          if (deleteTimeConfirm) {
+            deleteTimeEntry.mutate(deleteTimeConfirm, {
+              onSuccess: () => {
+                setDeleteTimeConfirm(null);
+              },
+            });
+          }
+        }}
+        title="Delete time entry"
+        message="This will permanently remove this time entry. This can't be undone."
+        confirmLabel="Delete"
+        loading={deleteTimeEntry.isPending}
+      />
+
       <ConfirmDialog
         isOpen={archiveConfirm}
         onClose={() => {
@@ -785,6 +1051,7 @@ function JobMaterialsCard({
   jobId: string;
   customerId: string;
 }) {
+  const navigate = useNavigate();
   const { can } = usePermissions();
   const canViewPurchasing =
     can("purchasing.manage") || can("purchasing.receive");
@@ -810,8 +1077,8 @@ function JobMaterialsCard({
         <h3 className="font-semibold text-gray-900">
           Materials &amp; Equipment
         </h3>
-        <Can permission={["inventory.manage", "inventory.issueToJob"]}>
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
+          <Can permission={["inventory.manage", "inventory.issueToJob"]}>
             <button
               onClick={() => {
                 setAddPartOpen(true);
@@ -828,8 +1095,18 @@ function JobMaterialsCard({
             >
               Install unit
             </button>
-          </div>
-        </Can>
+          </Can>
+          <Can permission="purchasing.manage">
+            <button
+              onClick={() => {
+                navigate("/purchasing", { state: { jobId, customerId } });
+              }}
+              className="inline-flex items-center min-h-[44px] sm:min-h-0 px-1 text-sm sm:text-xs text-primary-600 hover:text-primary-700 font-medium"
+            >
+              Create PO
+            </button>
+          </Can>
+        </div>
       </div>
 
       <div className="space-y-4">

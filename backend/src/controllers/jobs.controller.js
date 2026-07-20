@@ -172,6 +172,9 @@ const get = async (req, res) => {
           orderBy: { startTime: "desc" },
         },
         call: { select: { id: true, fromNumber: true, reason: true } },
+        recurringJob: {
+          select: { id: true, summary: true, frequency: true },
+        },
       },
     });
 

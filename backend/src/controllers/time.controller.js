@@ -110,4 +110,154 @@ const listForJob = async (req, res) => {
   }
 };
 
-module.exports = { current, clockIn, clockOut, listForJob };
+// Admin-only (time.manage): manually log a completed (or still-open, if no
+// endTime) entry for a technician — e.g. hours forgotten in the field, or
+// backfilled from a paper timesheet. Duration is derived from start/end
+// exactly like clock-out.
+const create = async (req, res) => {
+  try {
+    const { technicianId, jobId, type = "work", startTime, endTime, notes } =
+      req.body;
+
+    if (!technicianId || !startTime) {
+      return res.status(400).json({
+        success: false,
+        error: "technicianId and startTime are required",
+      });
+    }
+
+    const tech = await prisma.technician.findUnique({
+      where: { id: technicianId },
+      select: { userId: true },
+    });
+    if (!tech) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Technician not found" });
+    }
+
+    const start = new Date(startTime);
+    const end = endTime ? new Date(endTime) : null;
+    if (end && end <= start) {
+      return res
+        .status(400)
+        .json({ success: false, error: "End time must be after start time" });
+    }
+    const duration = end
+      ? Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000))
+      : null;
+
+    const entry = await prisma.timeEntry.create({
+      data: {
+        userId: tech.userId,
+        technicianId,
+        jobId: jobId || null,
+        type,
+        startTime: start,
+        endTime: end,
+        duration,
+        notes: notes || null,
+      },
+      include: {
+        user: { select: { firstName: true, lastName: true } },
+        job: { select: { id: true, jobNumber: true, summary: true } },
+      },
+    });
+    return res.status(201).json({ success: true, data: entry });
+  } catch (err) {
+    console.error("time.create error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+// Admin-only (time.manage): edit any field of an existing entry (correct
+// hours, reassign to a different technician, tweak notes). Duration is
+// recomputed whenever start and/or end change.
+const update = async (req, res) => {
+  try {
+    const existing = await prisma.timeEntry.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Time entry not found" });
+    }
+
+    const data = {};
+
+    if (req.body.technicianId) {
+      const tech = await prisma.technician.findUnique({
+        where: { id: req.body.technicianId },
+        select: { userId: true },
+      });
+      if (!tech) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Technician not found" });
+      }
+      data.technicianId = req.body.technicianId;
+      data.userId = tech.userId;
+    }
+    if (req.body.jobId !== undefined) data.jobId = req.body.jobId || null;
+    if (req.body.type !== undefined) data.type = req.body.type;
+    if (req.body.notes !== undefined) data.notes = req.body.notes || null;
+
+    const startProvided = req.body.startTime !== undefined;
+    const endProvided = req.body.endTime !== undefined;
+    const start = startProvided ? new Date(req.body.startTime) : existing.startTime;
+    const end = endProvided
+      ? req.body.endTime
+        ? new Date(req.body.endTime)
+        : null
+      : existing.endTime;
+
+    if (end && end <= start) {
+      return res
+        .status(400)
+        .json({ success: false, error: "End time must be after start time" });
+    }
+
+    if (startProvided) data.startTime = start;
+    if (endProvided) data.endTime = end;
+    if (startProvided || endProvided) {
+      data.duration = end
+        ? Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000))
+        : null;
+    }
+
+    const entry = await prisma.timeEntry.update({
+      where: { id: req.params.id },
+      data,
+      include: {
+        user: { select: { firstName: true, lastName: true } },
+        job: { select: { id: true, jobNumber: true, summary: true } },
+      },
+    });
+    return res.json({ success: true, data: entry });
+  } catch (err) {
+    console.error("time.update error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+// Admin-only (time.manage): remove an incorrect or duplicate entry.
+const remove = async (req, res) => {
+  try {
+    await prisma.timeEntry.delete({ where: { id: req.params.id } });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("time.remove error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+module.exports = {
+  current,
+  clockIn,
+  clockOut,
+  listForJob,
+  create,
+  update,
+  remove,
+};

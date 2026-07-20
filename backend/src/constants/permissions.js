@@ -43,6 +43,15 @@ const PERMISSION_GROUPS = [
     ],
   },
   {
+    group: "Time Tracking",
+    permissions: [
+      {
+        key: "time.manage",
+        label: "Manually add, edit & assign time entries (beyond clock in/out)",
+      },
+    ],
+  },
+  {
     group: "Estimates",
     permissions: [
       { key: "estimates.manage", label: "Create & manage estimates" },

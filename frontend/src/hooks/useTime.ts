@@ -74,3 +74,64 @@ export function useClockOut() {
     },
   });
 }
+
+export interface TimeEntryInput {
+  technicianId: string;
+  jobId?: string;
+  startTime: string;
+  endTime?: string | null;
+  notes?: string;
+}
+
+// Admin-only (time.manage): manually add a time entry on a technician's
+// behalf, e.g. hours forgotten in the field or backfilled from a timesheet.
+export function useCreateTimeEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: TimeEntryInput) =>
+      api.post<ApiResponse<TimeEntry>>("/time", vars),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["time"] });
+      toast.success("Time entry added");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to add time entry"));
+    },
+  });
+}
+
+// Admin-only (time.manage): edit an existing entry's technician, times, or
+// notes.
+export function useUpdateTimeEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...vars
+    }: Partial<TimeEntryInput> & { id: string }) =>
+      api.put<ApiResponse<TimeEntry>>(`/time/${id}`, vars),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["time"] });
+      toast.success("Time entry updated");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to update time entry"));
+    },
+  });
+}
+
+// Admin-only (time.manage): remove an incorrect or duplicate entry.
+export function useDeleteTimeEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.delete<ApiResponse<null>>(`/time/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["time"] });
+      toast.success("Time entry removed");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to remove time entry"));
+    },
+  });
+}
