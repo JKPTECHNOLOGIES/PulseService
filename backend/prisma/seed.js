@@ -174,9 +174,11 @@ async function main() {
   );
   const passHash = await bcrypt.hash("pass123", SALT_ROUNDS);
 
-  // Real Prime Comfort roster (imported 2026-07-14 emp list). Emails follow the
-  // firstname@primecomfortac.com convention. The two Roberts collide on first
-  // name, so they're disambiguated by last initial: robert.s@ / robert.st@.
+  // Real Prime Comfort roster (refreshed from the 2026-07-14 emp list export).
+  // Emails come straight from that export, not a firstname@ convention -- e.g.
+  // Samuel's is sammy@ and Robert St.'s is robxm@, which is also how the two
+  // Roberts (Robert S. / Robert St.) end up disambiguated without needing an
+  // invented suffix.
   //
   // `admin` (Darryl) is the break-glass admin and keeps the env-configurable
   // password; every other seeded employee uses the shared dev password. `manager`
@@ -217,7 +219,7 @@ async function main() {
     }),
     prisma.user.create({
       data: {
-        email: "charles@primecomfortac.com",
+        email: "charlie@primecomfortac.com",
         password: passHash,
         firstName: "Charles",
         lastName: "S.",
@@ -253,7 +255,7 @@ async function main() {
     }),
     prisma.user.create({
       data: {
-        email: "robert.st@primecomfortac.com",
+        email: "robxm@primecomfortac.com",
         password: passHash,
         firstName: "Robert",
         lastName: "St.",
@@ -262,7 +264,7 @@ async function main() {
     }),
     prisma.user.create({
       data: {
-        email: "samuel@primecomfortac.com",
+        email: "sammy@primecomfortac.com",
         password: passHash,
         firstName: "Samuel",
         lastName: "M.",
@@ -304,10 +306,17 @@ async function main() {
         role: "admin",
       },
       {
-        email: "robert.s@primecomfortac.com",
+        email: "robert@primecomfortac.com",
         password: passHash,
         firstName: "Robert",
         lastName: "S.",
+        role: "admin",
+      },
+      {
+        email: "jkptest@primecomfortac.com",
+        password: passHash,
+        firstName: "JKPTest",
+        lastName: "",
         role: "admin",
       },
     ],
@@ -2608,7 +2617,7 @@ async function main() {
   console.log("  ┌─────────────────────────────────────────────────────┐");
   console.log("  │  darryl@primecomfortac.com  / admin123  (admin)      │");
   console.log("  │  iris@primecomfortac.com    / pass123   (admin)      │");
-  console.log("  │  charles@primecomfortac.com / pass123   (technician) │");
+  console.log("  │  charlie@primecomfortac.com / pass123   (technician) │");
   console.log("  │  …all other employees       / pass123                │");
   console.log("  └──────────────────────────────────────────────────────┘\n");
 }
