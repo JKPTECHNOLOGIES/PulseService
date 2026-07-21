@@ -165,14 +165,23 @@ async function main() {
   // ── Users ─────────────────────────────────────────────────────────────────────
   console.log("  Creating users...");
   const SALT_ROUNDS = 10;
-  // Admin password is env-configurable so a real/secure password is never
-  // hardcoded in this (public) repo. Falls back to a throwaway default for
-  // local dev; rotate it in a live DB with scripts/set-admin-password.js.
+  // Admin/employee/break-glass passwords are all env-configurable so a real,
+  // secure password is never hardcoded in this (public) repo. Each falls back
+  // to a throwaway default for local dev only; rotate them in any live DB
+  // with scripts/set-admin-password.js <email> (or the Users page's "Reset
+  // Password" action).
   const adminHash = await bcrypt.hash(
     process.env.SEED_ADMIN_PASSWORD || "admin123",
     SALT_ROUNDS,
   );
-  const passHash = await bcrypt.hash("pass123", SALT_ROUNDS);
+  const passHash = await bcrypt.hash(
+    process.env.SEED_EMPLOYEE_PASSWORD || "pass123",
+    SALT_ROUNDS,
+  );
+  const breakglassHash = await bcrypt.hash(
+    process.env.BREAKGLASS_ADMIN_PASSWORD || "changeme-breakglass-123",
+    SALT_ROUNDS,
+  );
 
   // Real Prime Comfort roster (refreshed from the 2026-07-14 emp list export).
   // Emails come straight from that export, not a firstname@ convention -- e.g.
@@ -180,13 +189,18 @@ async function main() {
   // Roberts (Robert S. / Robert St.) end up disambiguated without needing an
   // invented suffix.
   //
-  // `admin` (Darryl) is the break-glass admin and keeps the env-configurable
-  // password; every other seeded employee uses the shared dev password. `manager`
-  // (Iris, the office manager) is credited with the historical demo records that
-  // used to belong to the old dispatcher/CSR test accounts. She's seeded with
-  // the "admin" role since "manager" is retired for now (client doesn't use
-  // it) -- the variable is still named `manager` for the office-manager
-  // persona she represents in the demo data, not the (now-unused) role string.
+  // `admin` (Darryl) is a normal employee admin account -- once Microsoft SSO
+  // ships he (like every other real employee) logs in with his 365 account.
+  // The dedicated `sysadmin@pulseservice.local` account below is the actual
+  // break-glass login: its email deliberately isn't a real mailbox in any
+  // Microsoft tenant, so it can never be matched or shadowed by Microsoft
+  // SSO/auto-provisioning, and it's the one credential meant to keep working
+  // even during an Azure/365 outage. `manager` (Iris, the office manager) is
+  // credited with the historical demo records that used to belong to the old
+  // dispatcher/CSR test accounts. She's seeded with the "admin" role since
+  // "manager" is retired for now (client doesn't use it) -- the variable is
+  // still named `manager` for the office-manager persona she represents in
+  // the demo data, not the (now-unused) role string.
   const [
     admin,
     manager,
@@ -320,6 +334,21 @@ async function main() {
         role: "admin",
       },
     ],
+  });
+
+  // Dedicated break-glass admin -- deliberately NOT a real Microsoft 365
+  // mailbox (the .local TLD guarantees no Entra ID tenant will ever own it),
+  // so Microsoft SSO login/auto-provisioning can never match or shadow this
+  // account. This is the one login meant to always work by password alone,
+  // independent of Azure/365 being up or correctly configured.
+  await prisma.user.create({
+    data: {
+      email: "sysadmin@pulseservice.local",
+      password: breakglassHash,
+      firstName: "Break-Glass",
+      lastName: "Admin",
+      role: "admin",
+    },
   });
 
   // ── Technicians ───────────────────────────────────────────────────────────────
@@ -2613,13 +2642,18 @@ async function main() {
   ]);
 
   console.log("\n✅ Seed completed successfully!");
-  console.log("\n  Seed login credentials (Prime Comfort roster):");
-  console.log("  ┌─────────────────────────────────────────────────────┐");
-  console.log("  │  darryl@primecomfortac.com  / admin123  (admin)      │");
-  console.log("  │  iris@primecomfortac.com    / pass123   (admin)      │");
-  console.log("  │  charlie@primecomfortac.com / pass123   (technician) │");
-  console.log("  │  …all other employees       / pass123                │");
-  console.log("  └──────────────────────────────────────────────────────┘\n");
+  console.log(
+    "\n  Seed login credentials (dev-only defaults -- override via\n" +
+      "  SEED_ADMIN_PASSWORD / SEED_EMPLOYEE_PASSWORD / BREAKGLASS_ADMIN_PASSWORD\n" +
+      "  for any real deployment):",
+  );
+  console.log("  ┌───────────────────────────────────────────────┐");
+  console.log("  │  darryl@primecomfortac.com     / admin123 (admin)      │");
+  console.log("  │  iris@primecomfortac.com       / pass123  (admin)      │");
+  console.log("  │  charlie@primecomfortac.com    / pass123  (technician) │");
+  console.log("  │  …all other employees          / pass123               │");
+  console.log("  │  sysadmin@pulseservice.local   / changeme-breakglass-123 │");
+  console.log("  └──────────────────────────────────────────────────┘\n");
 }
 
 main()
