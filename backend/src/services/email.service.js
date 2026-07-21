@@ -1,4 +1,5 @@
 const nodemailer = require("nodemailer");
+const graphMail = require("./graph-mail.service");
 
 // A single transport is created lazily and cached. If SMTP_* env vars are set we
 // use the real mail server; otherwise we fall back to an Ethereal test inbox so
@@ -40,8 +41,16 @@ async function getTransport() {
 /**
  * Sends an email and returns `{ messageId, previewUrl }`. `previewUrl` is only
  * populated when running against the Ethereal test inbox (no real SMTP).
+ *
+ * When MS_TENANT_ID/MS_CLIENT_ID/MS_CLIENT_SECRET/MS_MAIL_FROM are set, mail
+ * is sent through Microsoft Graph (app-only OAuth2) instead of SMTP — this
+ * takes priority since it's the modern, supported path for Microsoft 365.
  */
 async function sendMail({ to, subject, text, html, attachments }) {
+  if (graphMail.isConfigured()) {
+    return graphMail.sendMail({ to, subject, text, html, attachments });
+  }
+
   const transport = await getTransport();
   const from =
     process.env.SMTP_FROM ||

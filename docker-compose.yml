@@ -36,6 +36,11 @@ services:
       JWT_SECRET: ${JWT_SECRET:-pulseservice-super-secret-jwt-key-change-in-production}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      # Microsoft Graph mail (app-only OAuth2) — takes priority over SMTP_* below
+      MS_TENANT_ID: ${MS_TENANT_ID:-}
+      MS_CLIENT_ID: ${MS_CLIENT_ID:-}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
+      MS_MAIL_FROM: ${MS_MAIL_FROM:-}
     ports:
       - "3000:3000"
     restart: unless-stopped
