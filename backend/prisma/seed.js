@@ -1580,7 +1580,10 @@ async function main() {
         balance: inv.balance,
         notes: notesParts.join("\n\n"),
         createdById: manager.id,
-        createdAt: inv.date,
+        // A handful of rows have no Date at all in the source (still-pending
+        // invoices with nothing filled in yet) -- createdAt isn't nullable,
+        // so fall back to letting it default to now() rather than crash.
+        createdAt: inv.date || undefined,
         sentAt: inv.date,
         paidAt: inv.status === "paid" ? inv.date : null,
       },
