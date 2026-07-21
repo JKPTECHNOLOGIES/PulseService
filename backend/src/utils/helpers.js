@@ -36,6 +36,14 @@ function csvToArray(value) {
     .filter(Boolean);
 }
 
+// Builds the next sequential employee id (EMP-001, EMP-002, ...) for auto-
+// provisioned technician profiles (admin-created or Microsoft SSO auto-
+// provisioned). `tx` is a Prisma client or transaction client.
+async function nextEmployeeId(tx) {
+  const count = await tx.technician.count();
+  return `EMP-${String(count + 1).padStart(3, "0")}`;
+}
+
 function paginate(page = 1, limit = 20) {
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
@@ -59,6 +67,7 @@ module.exports = {
   generateNumber,
   calculateTotals,
   csvToArray,
+  nextEmployeeId,
   paginate,
   paginatedResponse,
 };

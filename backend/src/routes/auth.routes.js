@@ -7,6 +7,7 @@ const {
   updateProfile,
   changePassword,
 } = require("../controllers/auth.controller");
+const microsoftAuth = require("../controllers/microsoftAuth.controller");
 
 // Throttle credential endpoints to blunt brute-force / credential-stuffing.
 // Escape hatch for local dev/testing (e.g. repeatedly re-seeding and logging
@@ -25,6 +26,8 @@ const loginLimiter =
 const passwordLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 
 router.post("/login", loginLimiter, login);
+router.get("/microsoft/login", loginLimiter, microsoftAuth.login);
+router.get("/microsoft/callback", microsoftAuth.callback);
 router.get("/me", auth, getMe);
 router.put("/profile", auth, updateProfile);
 router.put("/password", auth, passwordLimiter, changePassword);

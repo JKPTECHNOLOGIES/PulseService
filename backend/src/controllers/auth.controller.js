@@ -21,7 +21,11 @@ const login = async (req, res) => {
         .json({ success: false, error: "Invalid credentials" });
     }
 
-    const valid = await bcrypt.compare(password, user.password);
+    // Accounts auto-provisioned via Microsoft SSO have no password until an
+    // admin sets one -- treat that the same as a wrong password rather than
+    // erroring, and without revealing which case it is.
+    const valid =
+      user.password && (await bcrypt.compare(password, user.password));
     if (!valid) {
       return res
         .status(401)
@@ -102,7 +106,11 @@ const changePassword = async (req, res) => {
     }
 
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-    const valid = await bcrypt.compare(currentPassword, user.password);
+    // No password set yet (Microsoft-SSO-only account) -- an admin needs to
+    // set one first via the Users page's "Reset Password" action before this
+    // account can change its own password.
+    const valid =
+      user.password && (await bcrypt.compare(currentPassword, user.password));
     if (!valid) {
       return res
         .status(401)

@@ -1,6 +1,6 @@
 const bcrypt = require("bcryptjs");
 const prisma = require("../config/database");
-const { paginate, paginatedResponse } = require("../utils/helpers");
+const { paginate, paginatedResponse, nextEmployeeId } = require("../utils/helpers");
 
 const SALT_ROUNDS = 10;
 
@@ -31,12 +31,7 @@ function generateTempPassword() {
   return out;
 }
 
-// Builds the next sequential employee id (EMP-001, EMP-002, ...) for auto-
-// provisioned technician profiles.
-async function nextEmployeeId(tx) {
-  const count = await tx.technician.count();
-  return `EMP-${String(count + 1).padStart(3, "0")}`;
-}
+
 
 const list = async (req, res) => {
   try {

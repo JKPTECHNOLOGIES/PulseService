@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,11 +18,54 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+// Maps the ?error= query param the Microsoft callback redirects back with
+// (see backend microsoftAuth.controller.js) to a human-readable message.
+const MICROSOFT_ERROR_MESSAGES: Record<string, string> = {
+  invalid_state: "Your sign-in attempt expired or was invalid. Please try again.",
+  no_email: "Your Microsoft account has no email address on file.",
+  domain_not_allowed: "That Microsoft account isn't part of this organization.",
+  account_disabled: "This account has been disabled. Contact an admin.",
+  microsoft_login_failed: "Microsoft sign-in failed. Please try again.",
+};
+
+function microsoftErrorMessage(code: string): string {
+  if (code.startsWith("microsoft_") && !(code in MICROSOFT_ERROR_MESSAGES)) {
+    return "Microsoft sign-in failed. Please try again.";
+  }
+  return MICROSOFT_ERROR_MESSAGES[code] ?? "Sign-in failed. Please try again.";
+}
+
+function MicrosoftLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 21 21" aria-hidden="true">
+      <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+      <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+      <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+      <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+    </svg>
+  );
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState("");
+
+  // Surfaces errors the Microsoft sign-in callback redirects back with
+  // (e.g. ?error=domain_not_allowed) as the same inline banner as a failed
+  // password login.
+  useEffect(() => {
+    const errorCode = searchParams.get("error");
+    if (errorCode) {
+      setServerError(microsoftErrorMessage(errorCode));
+    }
+  }, [searchParams]);
+
+  const signInWithMicrosoft = () => {
+    window.location.href = "/api/v1/auth/microsoft/login";
+  };
 
   const {
     register,
@@ -148,6 +191,26 @@ export default function LoginPage() {
               {isSubmitting ? "Signing in..." : "Sign In"}
             </Button>
           </form>
+
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-white px-2 text-gray-400">or</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={signInWithMicrosoft}
+          >
+            <MicrosoftLogo className="h-4 w-4" />
+            Sign in with Microsoft
+          </Button>
         </div>
 
         <p className="text-center text-primary-400 text-xs mt-6">

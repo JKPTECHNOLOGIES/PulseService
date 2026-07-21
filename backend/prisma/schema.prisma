@@ -8,18 +8,25 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(uuid())
-  email     String    @unique
-  password  String
-  firstName String
-  lastName  String
-  role      String    @default("technician")
-  phone     String?
-  avatar    String?
-  isActive  Boolean   @default(true)
-  lastLogin DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id            String    @id @default(uuid())
+  email         String    @unique
+  // Optional: accounts auto-provisioned via Microsoft SSO have no password
+  // until an admin sets one (Users page "Reset Password") -- they sign in
+  // with Microsoft only until then.
+  password      String?
+  // Microsoft Entra ID object id, backfilled on first Microsoft sign-in.
+  // Used to detect/link an account regardless of email changes; the actual
+  // login lookup is still by email.
+  entraObjectId String?   @unique
+  firstName     String
+  lastName      String
+  role          String    @default("technician")
+  phone         String?
+  avatar        String?
+  isActive      Boolean   @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   technician       Technician?
   createdJobs      Job[]             @relation("JobCreatedBy")

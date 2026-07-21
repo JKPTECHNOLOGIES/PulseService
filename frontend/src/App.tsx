@@ -48,6 +48,9 @@ const EquipmentPage = lazy(() => import("./pages/EquipmentPage"));
 const RecurringPage = lazy(() => import("./pages/RecurringPage"));
 const MapPage = lazy(() => import("./pages/MapPage"));
 const PublicEstimatePage = lazy(() => import("./pages/PublicEstimatePage"));
+const MicrosoftCallbackPage = lazy(
+  () => import("./pages/MicrosoftCallbackPage"),
+);
 
 // Technicians land on their field-first agenda; everyone else on the dashboard.
 function HomeRedirect() {
@@ -62,6 +65,10 @@ export default function App() {
     <Suspense fallback={<PageSpinner />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/auth/microsoft/callback"
+          element={<MicrosoftCallbackPage />}
+        />
         {/* Public, token-gated customer estimate approval (no login) */}
         <Route path="/estimate/:id" element={<PublicEstimatePage />} />
         <Route path="/" element={<AppLayout />}>
