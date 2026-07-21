@@ -12,6 +12,28 @@ const quickbooksSync = require("../services/quickbooks/sync-queue.service");
 
 const money = (n) => "$" + Number(n || 0).toFixed(2);
 
+// Once a payment has been recorded, an update is still safe to allow if the
+// only thing changing is which existing lines are included/billed -- that's
+// a reversible presentation flag, not a change to what was actually charged.
+// Anything else (price, quantity, added/removed lines, discount) must go
+// through void & reissue instead so the accounting trail stays trustworthy.
+function isIncludeOnlyLineItemChange(existingLineItems, incomingLineItems) {
+  if (!Array.isArray(incomingLineItems)) return false;
+  if (incomingLineItems.length !== existingLineItems.length) return false;
+  const existingById = new Map(existingLineItems.map((li) => [li.id, li]));
+  return incomingLineItems.every((item) => {
+    const prev = existingById.get(item.id);
+    if (!prev) return false;
+    return (
+      item.type === prev.type &&
+      item.name === prev.name &&
+      (item.description ?? null) === (prev.description ?? null) &&
+      Number(item.quantity) === Number(prev.quantity) &&
+      Number(item.unitPrice) === Number(prev.unitPrice)
+    );
+  });
+}
+
 // Drafts never sync — an invoice only goes to QuickBooks once it's finalized.
 // A void supersedes whatever operation would otherwise apply. Never lets a
 // QuickBooks hiccup break the invoicing API.
@@ -238,8 +260,10 @@ const update = async (req, res) => {
       ...invoiceData
     } = req.body;
 
-    // Lock edits once a payment is applied or the invoice is void, to protect
-    // accounting integrity (void & reissue instead).
+    // Lock edits once the invoice is void (void & reissue instead). Once a
+    // payment is applied, still block genuine content edits, but allow
+    // toggling which existing lines are included/billed -- see
+    // isIncludeOnlyLineItemChange() above.
     const existing = await prisma.invoice.findUnique({
       where: { id: req.params.id },
     });
@@ -248,12 +272,33 @@ const update = async (req, res) => {
         .status(404)
         .json({ success: false, error: "Invoice not found" });
     }
-    if (existing.status === "void" || existing.amountPaid > 0) {
+    if (existing.status === "void") {
       return res.status(400).json({
         success: false,
-        error:
-          "This invoice can't be edited because a payment has been recorded or it is void. Void and reissue instead.",
+        error: "This invoice can't be edited because it is void.",
       });
+    }
+    if (existing.amountPaid > 0) {
+      const noOtherFieldChanges =
+        Object.keys(invoiceData).length === 0 &&
+        dueDate === undefined &&
+        discountType === existing.discountType &&
+        Number(discountValue) === Number(existing.discountValue);
+
+      const existingLineItems = await prisma.invoiceLineItem.findMany({
+        where: { invoiceId: existing.id },
+      });
+      const includeOnlyChange =
+        noOtherFieldChanges &&
+        isIncludeOnlyLineItemChange(existingLineItems, lineItems);
+
+      if (!includeOnlyChange) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "This invoice can't be edited because a payment has been recorded. Toggling which line items are included is still allowed; other changes require voiding and reissuing.",
+        });
+      }
     }
 
     const updateData = {

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { CurrencyDollarIcon } from "@heroicons/react/24/outline";
 import api from "../lib/api";
@@ -65,11 +66,20 @@ export default function PaymentsPage() {
       key: "invoice",
       header: "Invoice",
       exportValue: (p) => (p.invoice ? `#${p.invoice.invoiceNumber}` : ""),
-      render: (p) => (
-        <span className="text-primary-600 font-medium">
-          {p.invoice ? `#${p.invoice.invoiceNumber}` : "-"}
-        </span>
-      ),
+      render: (p) =>
+        p.invoice ? (
+          <Link
+            to={`/invoices/${p.invoice.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+            className="text-primary-600 font-medium hover:underline"
+          >
+            #{p.invoice.invoiceNumber}
+          </Link>
+        ) : (
+          <span className="text-gray-400">-</span>
+        ),
     },
     {
       key: "method",
@@ -168,10 +178,19 @@ export default function PaymentsPage() {
                   <p className="text-sm text-gray-900 mt-0.5">
                     {customerName(p) || "-"}
                     {p.invoice && (
-                      <span className="text-primary-600 font-medium">
+                      <>
                         {" "}
-                        · #{p.invoice.invoiceNumber}
-                      </span>
+                        ·{" "}
+                        <Link
+                          to={`/invoices/${p.invoice.id}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          className="text-primary-600 font-medium hover:underline"
+                        >
+                          #{p.invoice.invoiceNumber}
+                        </Link>
+                      </>
                     )}
                   </p>
                   <div className="mt-1.5 flex items-center gap-2">

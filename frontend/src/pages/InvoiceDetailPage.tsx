@@ -80,13 +80,11 @@ export default function InvoiceDetailPage() {
     includeOnDocument: li.includeOnDocument,
   }));
 
-  // Same rule the Edit/Void buttons already use: once a payment lands or the
-  // invoice is void, the backend refuses edits (accounting integrity), so the
-  // include-on-invoice checkbox becomes a plain indicator instead.
-  const canEditLineItems =
-    can("invoices.manage") &&
-    invoice.amountPaid === 0 &&
-    invoice.status !== "void";
+  // Unlike the full Edit/Void buttons, toggling which lines are included is
+  // still allowed after a payment lands -- it's a safe, reversible flag (not
+  // a change to what was actually charged) and the backend recalculates the
+  // total/balance accordingly. Only a void invoice blocks it entirely.
+  const canEditLineItems = can("invoices.manage") && invoice.status !== "void";
 
   // Toggling a single line's inclusion re-sends the whole line-item set (the
   // backend replaces it wholesale) along with the invoice's current
@@ -336,8 +334,7 @@ export default function InvoiceDetailPage() {
         />
         {!canEditLineItems && (
           <p className="mt-3 text-xs text-gray-400">
-            This invoice can't be changed because a payment has been recorded
-            or it is void.
+            This invoice can't be changed because it is void.
           </p>
         )}
       </div>
