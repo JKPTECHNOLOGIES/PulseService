@@ -3,16 +3,19 @@ import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
 import type {
   ApiResponse,
+  Contact,
   Customer,
   Location,
   PaginatedResponse,
 } from "../types";
 import toast from "../lib/toast";
 
-/** Write payload for creating/updating a customer. `locations` uses a create
- * shape (no id/customerId yet), so it's kept separate from the read model. */
-type CustomerWritePayload = Partial<Omit<Customer, "locations">> & {
+/** Write payload for creating/updating a customer. `locations`/`contacts` use
+ * a create shape (no customerId, id optional), so they're kept separate from
+ * the read model. */
+type CustomerWritePayload = Partial<Omit<Customer, "locations" | "contacts">> & {
   locations?: Partial<Location>[];
+  contacts?: Partial<Contact>[];
 };
 
 interface CustomersParams {
@@ -20,6 +23,8 @@ interface CustomersParams {
   limit?: number;
   search?: string;
   type?: string;
+  /** A-Z index filter: only customers whose first name starts with this letter. */
+  letter?: string;
 }
 
 export function useCustomers(params: CustomersParams = {}) {

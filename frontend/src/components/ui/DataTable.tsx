@@ -152,7 +152,10 @@ export default function DataTable<T>({
   const handleSort = (col: Column<T>) => {
     if (!col.sortValue || !onSortChange) return;
     if (sort?.key === col.key) {
-      onSortChange(sort.dir === "asc" ? { key: col.key, dir: "desc" } : null);
+      onSortChange({
+        key: col.key,
+        dir: sort.dir === "asc" ? "desc" : "asc",
+      });
     } else {
       onSortChange({ key: col.key, dir: "asc" });
     }

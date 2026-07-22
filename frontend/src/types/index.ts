@@ -55,6 +55,7 @@ export interface Customer {
   isActive: boolean;
   createdAt: string;
   locations?: Location[];
+  contacts?: Contact[];
   jobs?: Job[];
   pricingTierId?: string | null;
   pricingTier?: PricingTier;

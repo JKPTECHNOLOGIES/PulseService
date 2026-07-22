@@ -99,7 +99,9 @@ async function main() {
       state: "FL",
       zip: "33407",
       phone: "561-217-4822",
-      email: "info@primecomfortac.com",
+      // Iris is the point of contact printed/emailed on every customer-facing
+      // document (invoices, estimates, agreements) -- not a per-employee inbox.
+      email: "Iris@PrimeComfortAC.com",
       website: "https://www.primecomfortac.com",
       currency: "USD",
       timezone: "America/New_York",

@@ -27,7 +27,10 @@ interface CustomersView {
   search: string;
   type: string;
   sort: SortState | null;
+  letter: string | null;
 }
+
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 const csvColumns = [
   { header: "Number", value: (c: Customer) => c.customerNumber },
@@ -47,6 +50,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [type, setType] = useState("all");
   const [sort, setSort] = useState<SortState | null>(null);
+  const [letter, setLetter] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [importOpen, setImportOpen] = useState(false);
 
@@ -62,6 +66,7 @@ export default function CustomersPage() {
     limit: 20,
     search: search || undefined,
     type: type !== "all" ? type : undefined,
+    letter: letter ?? undefined,
   });
 
   const customers = data?.data ?? [];
@@ -76,6 +81,13 @@ export default function CustomersPage() {
     setSearch(view.search);
     setType(view.type);
     setSort(view.sort);
+    setLetter(view.letter);
+    resetPage();
+  };
+
+  const selectLetter = (l: string) => {
+    setLetter((current) => (current === l ? null : l));
+    setSearch("");
     resetPage();
   };
 
@@ -83,7 +95,7 @@ export default function CustomersPage() {
     {
       key: "name",
       header: "Customer",
-      sortValue: (c) => `${c.lastName} ${c.firstName}`.toLowerCase(),
+      sortValue: (c) => c.firstName.toLowerCase(),
       exportValue: (c) => `${c.firstName} ${c.lastName}`,
       render: (c) => (
         <div>
@@ -210,6 +222,7 @@ export default function CustomersPage() {
           value={search}
           onChange={(v) => {
             setSearch(v);
+            setLetter(null);
             resetPage();
           }}
           placeholder="Search customers..."
@@ -237,20 +250,47 @@ export default function CustomersPage() {
         <div className="sm:ml-auto">
           <SavedViewsMenu<CustomersView>
             tableId="customers"
-            currentState={{ search, type, sort }}
+            currentState={{ search, type, sort, letter }}
             onApply={applyView}
           />
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex">
+        {/* A-Z index: filters to customers whose first name starts with the
+            selected letter (matches the list's default alphabetical sort).
+            Hidden on small screens where there isn't room for it. */}
+        <div className="hidden sm:flex flex-col items-center gap-0.5 py-4 px-1.5 border-r border-gray-100 shrink-0">
+          {ALPHABET.map((l) => (
+            <button
+              key={l}
+              onClick={() => {
+                selectLetter(l);
+              }}
+              title={`Show customers starting with "${l}"`}
+              className={clsx(
+                "w-6 h-6 rounded text-[11px] font-semibold leading-6 transition-colors",
+                letter === l
+                  ? "bg-primary-600 text-white"
+                  : "text-gray-400 hover:bg-primary-50 hover:text-primary-600",
+              )}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 min-w-0">
         {isLoading ? (
           <TableSkeleton rows={8} />
         ) : customers.length === 0 ? (
           <EmptyState
             title="No customers found"
-            description="Get started by adding your first customer"
+            description={
+              letter
+                ? `No customers with a first name starting with "${letter}"`
+                : "Get started by adding your first customer"
+            }
             action={{
               label: "New Customer",
               onClick: () => {
@@ -338,6 +378,7 @@ export default function CustomersPage() {
             )}
           </>
         )}
+        </div>
       </div>
     </div>
   );

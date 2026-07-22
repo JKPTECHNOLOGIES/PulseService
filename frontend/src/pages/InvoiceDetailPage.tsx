@@ -13,7 +13,6 @@ import {
 } from "@heroicons/react/24/outline";
 import {
   useInvoice,
-  useSendInvoice,
   useRecordPayment,
   useVoidInvoice,
   useReversePayment,
@@ -23,6 +22,7 @@ import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
 import { LookupSelect } from "../components/ui/LookupSelect";
 import Modal from "../components/ui/Modal";
+import SendInvoiceModal from "../components/ui/SendInvoiceModal";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import LineItemsTable from "../components/ui/LineItemsTable";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
@@ -47,11 +47,11 @@ export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [paymentModal, setPaymentModal] = useState(false);
+  const [sendModal, setSendModal] = useState(false);
   const [voidConfirm, setVoidConfirm] = useState(false);
   const [reverseConfirm, setReverseConfirm] = useState<string | null>(null);
 
   const { data: invoice, isLoading } = useInvoice(id ?? "");
-  const sendMutation = useSendInvoice();
   const paymentMutation = useRecordPayment();
   const voidMutation = useVoidInvoice();
   const reverseMutation = useReversePayment();
@@ -249,9 +249,8 @@ export default function InvoiceDetailPage() {
                 size="sm"
                 icon={<PaperAirplaneIcon className="h-4 w-4" />}
                 onClick={() => {
-                  sendMutation.mutate(id ?? "");
+                  setSendModal(true);
                 }}
-                loading={sendMutation.isPending}
               >
                 Send
               </Button>
@@ -614,6 +613,14 @@ export default function InvoiceDetailPage() {
           </div>
         </form>
       </Modal>
+
+      <SendInvoiceModal
+        isOpen={sendModal}
+        invoice={invoice}
+        onClose={() => {
+          setSendModal(false);
+        }}
+      />
 
       <ConfirmDialog
         isOpen={voidConfirm}

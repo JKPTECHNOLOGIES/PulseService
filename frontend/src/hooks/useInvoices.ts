@@ -95,8 +95,11 @@ interface SendResult {
 export function useSendInvoice() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.post<SendResult>(`/invoices/${id}/send`),
-    onSuccess: (res, id) => {
+    // `recipients` lets the "Send To" picker choose specific addresses (e.g. a
+    // billing contact); omitting it falls back to the customer's primary email.
+    mutationFn: ({ id, recipients }: { id: string; recipients?: string[] }) =>
+      api.post<SendResult>(`/invoices/${id}/send`, { recipients }),
+    onSuccess: (res, { id }) => {
       void qc.invalidateQueries({ queryKey: ["invoice", id] });
       void qc.invalidateQueries({ queryKey: ["invoices"] });
       if (res.emailWarning) {

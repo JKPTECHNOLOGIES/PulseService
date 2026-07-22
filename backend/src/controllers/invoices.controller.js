@@ -371,7 +371,8 @@ const getPdf = async (req, res) => {
     const invoice = await prisma.invoice.findUnique({
       where: { id: req.params.id },
       include: {
-        customer: true,
+        customer: { include: { locations: true } },
+        job: { include: { location: true } },
         lineItems: { orderBy: { sortOrder: "asc" } },
       },
     });
@@ -401,7 +402,8 @@ const send = async (req, res) => {
     const invoice = await prisma.invoice.findUnique({
       where: { id: req.params.id },
       include: {
-        customer: true,
+        customer: { include: { locations: true } },
+        job: { include: { location: true } },
         lineItems: { orderBy: { sortOrder: "asc" } },
       },
     });
@@ -409,10 +411,20 @@ const send = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, error: "Invoice not found" });
-    if (!invoice.customer?.email) {
+
+    // Defaults to the customer's primary email; the invoice screen's "Send
+    // To" picker can instead pass one or more specific addresses (e.g. a
+    // billing contact) when the customer has more than one on file.
+    const recipients = Array.isArray(req.body.recipients)
+      ? req.body.recipients.map((r) => String(r).trim()).filter(Boolean)
+      : invoice.customer?.email
+        ? [invoice.customer.email]
+        : [];
+
+    if (recipients.length === 0) {
       return res.status(400).json({
         success: false,
-        error: "Customer has no email address on file",
+        error: "No recipient email address selected",
       });
     }
 
@@ -424,7 +436,7 @@ const send = async (req, res) => {
     let emailWarning = null;
     try {
       const result = await sendMail({
-        to: invoice.customer.email,
+        to: recipients.join(", "),
         subject: `${companyName} \u2014 Invoice ${invoice.invoiceNumber}`,
         text: `Hi ${invoice.customer.firstName},\n\nPlease find attached invoice ${invoice.invoiceNumber} for ${money(invoice.total)}. Balance due: ${money(invoice.balance)}.\n\nThank you,\n${companyName}`,
         html: `<p>Hi ${invoice.customer.firstName},</p><p>Please find attached invoice <strong>${invoice.invoiceNumber}</strong> for <strong>${money(invoice.total)}</strong>. Balance due: <strong>${money(invoice.balance)}</strong>.</p><p>Thank you,<br/>${companyName}</p>`,

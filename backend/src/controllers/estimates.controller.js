@@ -226,7 +226,8 @@ const getPdf = async (req, res) => {
     const estimate = await prisma.estimate.findUnique({
       where: { id: req.params.id },
       include: {
-        customer: true,
+        customer: { include: { locations: true } },
+        job: { include: { location: true } },
         lineItems: { orderBy: { sortOrder: "asc" } },
       },
     });
@@ -256,7 +257,8 @@ const send = async (req, res) => {
     const estimate = await prisma.estimate.findUnique({
       where: { id: req.params.id },
       include: {
-        customer: true,
+        customer: { include: { locations: true } },
+        job: { include: { location: true } },
         lineItems: { orderBy: { sortOrder: "asc" } },
       },
     });

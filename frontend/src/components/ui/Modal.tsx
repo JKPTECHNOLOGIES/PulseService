@@ -7,7 +7,7 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl";
 }
 
 const sizeClasses: Record<string, string> = {
@@ -15,6 +15,9 @@ const sizeClasses: Record<string, string> = {
   md: "sm:max-w-md",
   lg: "sm:max-w-2xl",
   xl: "sm:max-w-4xl",
+  // Wide enough to show a real PDF preview alongside a sidebar (e.g. the
+  // invoice "Print / Email" dialog).
+  "2xl": "sm:max-w-6xl",
 };
 
 export default function Modal({

@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import {
   useCustomer,
   useCreateCustomer,
@@ -15,6 +16,27 @@ import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import { PageSpinner } from "../components/ui/Spinner";
 import { useFormDraft } from "../hooks/useFormDraft";
+
+// Extra phone/email contacts and extra addresses beyond the primary ones on
+// the main form - each gets a label so it's clear what it's for ("Spouse",
+// "Billing", "Warehouse", etc.). Kept as plain state (not registered with
+// react-hook-form) to match the LineItemsTable pattern used elsewhere for
+// repeatable rows.
+interface ContactRow {
+  id?: string;
+  label: string;
+  phone: string;
+  email: string;
+}
+
+interface AddressRow {
+  id?: string;
+  label: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+}
 
 const schema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -34,6 +56,12 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+
+interface CustomerDraft {
+  form: Partial<FormData>;
+  contacts: ContactRow[];
+  addresses: AddressRow[];
+}
 
 // See EstimateFormPage: autosave a New Customer draft so navigating away or a
 // reload doesn't lose it. Cleared once the customer is created.
@@ -61,6 +89,51 @@ export default function CustomerFormPage() {
   const { options: customerTypeOptions } = useLookup("customerType");
   const { data: pricingTiers } = usePricingTiers();
 
+  // Extra contacts (beyond the primary phone/mobile/email above) and extra
+  // addresses (beyond the primary address below). The primary location's id
+  // is tracked separately so edits update that same Location row instead of
+  // creating a duplicate.
+  const [contacts, setContacts] = useState<ContactRow[]>([]);
+  const [addresses, setAddresses] = useState<AddressRow[]>([]);
+  const [primaryLocationId, setPrimaryLocationId] = useState<
+    string | undefined
+  >(undefined);
+
+  const addContact = () => {
+    setContacts([...contacts, { label: "", phone: "", email: "" }]);
+  };
+  const removeContact = (index: number) => {
+    setContacts(contacts.filter((_, i) => i !== index));
+  };
+  const updateContact = (
+    index: number,
+    field: keyof ContactRow,
+    value: string,
+  ) => {
+    setContacts(
+      contacts.map((c, i) => (i === index ? { ...c, [field]: value } : c)),
+    );
+  };
+
+  const addAddress = () => {
+    setAddresses([
+      ...addresses,
+      { label: "", address: "", city: "", state: "", zip: "" },
+    ]);
+  };
+  const removeAddress = (index: number) => {
+    setAddresses(addresses.filter((_, i) => i !== index));
+  };
+  const updateAddress = (
+    index: number,
+    field: keyof AddressRow,
+    value: string,
+  ) => {
+    setAddresses(
+      addresses.map((a, i) => (i === index ? { ...a, [field]: value } : a)),
+    );
+  };
+
   const {
     register,
     handleSubmit,
@@ -74,24 +147,30 @@ export default function CustomerFormPage() {
 
   const customerType = watch("type");
 
-  const { restored: draftRestored, clearDraft } = useFormDraft<FormData>({
+  const { restored: draftRestored, clearDraft } = useFormDraft<CustomerDraft>({
     key: DRAFT_KEY,
     enabled: !isEditing,
-    value: watch(),
+    value: { form: watch(), contacts, addresses },
     hasContent: (v) =>
-      Boolean(v.firstName) ||
-      Boolean(v.lastName) ||
-      Boolean(v.companyName) ||
-      Boolean(v.email) ||
-      Boolean(v.phone) ||
-      Boolean(v.address),
+      Boolean(v.form.firstName) ||
+      Boolean(v.form.lastName) ||
+      Boolean(v.form.companyName) ||
+      Boolean(v.form.email) ||
+      Boolean(v.form.phone) ||
+      Boolean(v.form.address) ||
+      v.contacts.length > 0 ||
+      v.addresses.length > 0,
     onRestore: (v) => {
-      reset({ ...DEFAULT_VALUES, ...v });
+      reset({ ...DEFAULT_VALUES, ...v.form });
+      setContacts(v.contacts);
+      setAddresses(v.addresses);
     },
   });
 
   const discardDraft = () => {
     reset(DEFAULT_VALUES);
+    setContacts([]);
+    setAddresses([]);
     clearDraft();
   };
 
@@ -115,6 +194,27 @@ export default function CustomerFormPage() {
         state: primary?.state ?? "",
         zip: primary?.zip ?? "",
       });
+      setPrimaryLocationId(primary?.id);
+      setAddresses(
+        (customer.locations ?? [])
+          .filter((l) => l.id !== primary?.id)
+          .map((l) => ({
+            id: l.id,
+            label: l.name,
+            address: l.address,
+            city: l.city,
+            state: l.state,
+            zip: l.zip,
+          })),
+      );
+      setContacts(
+        (customer.contacts ?? []).map((c) => ({
+          id: c.id,
+          label: c.role ?? "",
+          phone: c.phone ?? "",
+          email: c.email ?? "",
+        })),
+      );
     }
   }, [customer, isEditing, reset]);
 
@@ -136,27 +236,64 @@ export default function CustomerFormPage() {
           ? null
           : customerFields.pricingTierId,
     };
-    const locations = address?.trim()
-      ? [
-          {
-            name: "Primary",
-            address,
-            city: city ?? "",
-            state: state ?? "",
-            zip: zip ?? "",
-            type: "service",
-            isPrimary: true,
-          },
-        ]
+    const primaryLocation = address?.trim()
+      ? {
+          id: isEditing ? primaryLocationId : undefined,
+          name: "Primary",
+          address,
+          city: city ?? "",
+          state: state ?? "",
+          zip: zip ?? "",
+          type: "service",
+          isPrimary: true,
+        }
       : undefined;
 
+    // Drop rows the user added but never filled in.
+    const additionalAddresses = addresses
+      .filter((a) => a.label.trim() || a.address.trim())
+      .map((a) => ({
+        id: a.id,
+        name: a.label.trim() || undefined,
+        address: a.address,
+        city: a.city,
+        state: a.state,
+        zip: a.zip,
+        type: "service",
+      }));
+    const locations = primaryLocation
+      ? [primaryLocation, ...additionalAddresses]
+      : additionalAddresses.length > 0
+        ? additionalAddresses
+        : undefined;
+
+    // Additional contacts don't collect a first/last name of their own -
+    // the label (e.g. "Spouse", "Billing") is what identifies them, so it
+    // doubles as the stored Contact's name.
+    const additionalContacts = contacts
+      .filter((c) => c.label.trim() || c.phone.trim() || c.email.trim())
+      .map((c) => ({
+        id: c.id,
+        firstName: c.label.trim() || "Contact",
+        lastName: "",
+        role: c.label.trim() || undefined,
+        phone: c.phone.trim() || undefined,
+        email: c.email.trim() || undefined,
+      }));
+
     if (isEditing) {
-      await updateMutation.mutateAsync({ id: id, ...payload, locations });
+      await updateMutation.mutateAsync({
+        id: id,
+        ...payload,
+        locations,
+        contacts: additionalContacts,
+      });
       navigate(`/customers/${id}`);
     } else {
       const result = await createMutation.mutateAsync({
         ...payload,
         locations,
+        contacts: additionalContacts,
       });
       clearDraft();
       const newId = result.data.id;
@@ -304,6 +441,79 @@ export default function CustomerFormPage() {
             </div>
 
             <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-gray-700">
+                  Additional Contacts
+                </label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  icon={<PlusIcon className="h-4 w-4" />}
+                  onClick={addContact}
+                >
+                  Add Contact
+                </Button>
+              </div>
+              {contacts.length === 0 ? (
+                <p className="text-xs text-gray-400">
+                  No additional contacts yet.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {contacts.map((c, i) => (
+                    <div
+                      key={i}
+                      className="rounded-lg border border-gray-200 p-3 space-y-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={c.label}
+                          onChange={(e) => {
+                            updateContact(i, "label", e.target.value);
+                          }}
+                          placeholder="Label (e.g. Spouse, Billing)"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            removeContact(i);
+                          }}
+                          aria-label="Remove contact"
+                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input
+                          type="tel"
+                          value={c.phone}
+                          onChange={(e) => {
+                            updateContact(i, "phone", e.target.value);
+                          }}
+                          placeholder="Phone"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        />
+                        <input
+                          type="email"
+                          value={c.email}
+                          onChange={(e) => {
+                            updateContact(i, "email", e.target.value);
+                          }}
+                          placeholder="Email"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Source
               </label>
@@ -409,6 +619,96 @@ export default function CustomerFormPage() {
               </div>
             </div>
           </div>
+        </Card>
+
+        {/* Additional Addresses */}
+        <Card title="Additional Addresses">
+          <div className="flex justify-end mb-3">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              icon={<PlusIcon className="h-4 w-4" />}
+              onClick={addAddress}
+            >
+              Add Address
+            </Button>
+          </div>
+          {addresses.length === 0 ? (
+            <p className="text-xs text-gray-400">
+              No additional addresses yet.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {addresses.map((a, i) => (
+                <div
+                  key={i}
+                  className="rounded-lg border border-gray-200 p-3 space-y-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={a.label}
+                      onChange={(e) => {
+                        updateAddress(i, "label", e.target.value);
+                      }}
+                      placeholder="Label (e.g. Warehouse, Second Home)"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        removeAddress(i);
+                      }}
+                      aria-label="Remove address"
+                      className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={a.address}
+                    onChange={(e) => {
+                      updateAddress(i, "address", e.target.value);
+                    }}
+                    placeholder="Street address"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input
+                      type="text"
+                      value={a.city}
+                      onChange={(e) => {
+                        updateAddress(i, "city", e.target.value);
+                      }}
+                      placeholder="City"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={a.state}
+                      onChange={(e) => {
+                        updateAddress(i, "state", e.target.value);
+                      }}
+                      placeholder="State"
+                      maxLength={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={a.zip}
+                      onChange={(e) => {
+                        updateAddress(i, "zip", e.target.value);
+                      }}
+                      placeholder="ZIP"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* Actions */}

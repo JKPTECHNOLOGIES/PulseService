@@ -7,11 +7,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Popover } from "@headlessui/react";
 import clsx from "clsx";
-import {
-  useInvoices,
-  useInvoiceStats,
-  useSendInvoice,
-} from "../hooks/useInvoices";
+import { useInvoices, useInvoiceStats } from "../hooks/useInvoices";
 import Button from "../components/ui/Button";
 import IconButton from "../components/ui/IconButton";
 import SearchInput from "../components/ui/SearchInput";
@@ -20,6 +16,7 @@ import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import DataTable, { Column, SortState } from "../components/ui/DataTable";
 import SavedViewsMenu from "../components/ui/SavedViewsMenu";
+import SendInvoiceModal from "../components/ui/SendInvoiceModal";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import {
   formatCurrency,
@@ -49,6 +46,7 @@ export default function InvoicesPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState<SortState | null>(null);
+  const [sendInvoiceId, setSendInvoiceId] = useState<string | null>(null);
   const { options: statusOptions } = useLookup("invoiceStatus");
 
   const { data, isLoading } = useInvoices({
@@ -58,11 +56,11 @@ export default function InvoicesPage() {
     status: status !== "all" ? status : undefined,
   });
   const { data: stats } = useInvoiceStats();
-  const sendInvoice = useSendInvoice();
 
   const invoices = data?.data ?? [];
   const pagination = data?.pagination;
   const summary = data?.summary;
+  const invoiceToSend = invoices.find((inv) => inv.id === sendInvoiceId) ?? null;
 
   // Category tabs mirror the office's mental model: All + one per status, with
   // live counts. "overdue" is shown as "Past Due" to match familiar wording.
@@ -396,7 +394,7 @@ export default function InvoicesPage() {
                   <IconButton
                     label="Send invoice"
                     onClick={() => {
-                      sendInvoice.mutate(inv.id);
+                      setSendInvoiceId(inv.id);
                     }}
                   >
                     <PaperAirplaneIcon className="h-4 w-4" />
@@ -440,6 +438,16 @@ export default function InvoicesPage() {
           </>
         )}
       </div>
+
+      {invoiceToSend && (
+        <SendInvoiceModal
+          isOpen={!!sendInvoiceId}
+          invoice={invoiceToSend}
+          onClose={() => {
+            setSendInvoiceId(null);
+          }}
+        />
+      )}
     </div>
   );
 }

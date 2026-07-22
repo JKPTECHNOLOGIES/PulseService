@@ -18,11 +18,14 @@ async function enqueueQuickBooksSync(customerId) {
 
 const list = async (req, res) => {
   try {
-    const { page = 1, limit = 20, search, type } = req.query;
+    const { page = 1, limit = 20, search, type, letter } = req.query;
     const { skip, take } = paginate(page, limit);
 
     const where = { isActive: true };
     if (type) where.type = type;
+    // Powers the A-Z index on the customer list: filters to first names
+    // starting with the given letter (matches the list's default sort).
+    if (letter) where.firstName = { startsWith: letter, mode: "insensitive" };
     if (search) {
       where.OR = [
         { firstName: { contains: search, mode: "insensitive" } },
@@ -44,7 +47,8 @@ const list = async (req, res) => {
           _count: { select: { jobs: true } },
           locations: { where: { isPrimary: true }, take: 1 },
         },
-        orderBy: { createdAt: "desc" },
+        // Alphabetical by first name to match the "Customer" column's sort.
+        orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
       }),
       prisma.customer.count({ where }),
     ]);
@@ -147,6 +151,86 @@ const create = async (req, res) => {
   }
 };
 
+// Sync a customer's Location rows so the primary address plus any number of
+// additional labeled addresses can all be edited from one form. Rows with an
+// id that already belongs to this customer are updated in place (so jobs,
+// equipment, etc. that reference a location keep pointing at it); rows
+// without an id are created; any existing row no longer present in the
+// incoming list is removed. The first entry in the list is always treated as
+// the primary address.
+async function syncLocations(tx, customerId, locations) {
+  if (!Array.isArray(locations)) return;
+
+  const existing = await tx.location.findMany({
+    where: { customerId },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((l) => l.id));
+  const keepIds = new Set();
+
+  for (let i = 0; i < locations.length; i++) {
+    const {
+      id,
+      customerId: _cid,
+      createdAt: _ca,
+      updatedAt: _ua,
+      ...rest
+    } = locations[i];
+    const data = { ...rest, isPrimary: i === 0 };
+    if (id && existingIds.has(id)) {
+      keepIds.add(id);
+      await tx.location.update({ where: { id }, data });
+    } else {
+      const created = await tx.location.create({
+        data: { ...data, customerId },
+      });
+      keepIds.add(created.id);
+    }
+  }
+
+  const toRemove = [...existingIds].filter((id) => !keepIds.has(id));
+  if (toRemove.length > 0) {
+    await tx.location.deleteMany({ where: { id: { in: toRemove } } });
+  }
+}
+
+// Sync a customer's Contact rows the same way. Nothing else references
+// Contact rows, so removed ones can simply be deleted.
+async function syncContacts(tx, customerId, contacts) {
+  if (!Array.isArray(contacts)) return;
+
+  const existing = await tx.contact.findMany({
+    where: { customerId },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((c) => c.id));
+  const keepIds = new Set();
+
+  for (const contact of contacts) {
+    const {
+      id,
+      customerId: _cid,
+      createdAt: _ca,
+      updatedAt: _ua,
+      ...data
+    } = contact;
+    if (id && existingIds.has(id)) {
+      keepIds.add(id);
+      await tx.contact.update({ where: { id }, data });
+    } else {
+      const created = await tx.contact.create({
+        data: { ...data, customerId },
+      });
+      keepIds.add(created.id);
+    }
+  }
+
+  const toRemove = [...existingIds].filter((id) => !keepIds.has(id));
+  if (toRemove.length > 0) {
+    await tx.contact.deleteMany({ where: { id: { in: toRemove } } });
+  }
+}
+
 const update = async (req, res) => {
   try {
     const {
@@ -155,33 +239,15 @@ const update = async (req, res) => {
       createdAt: _ca,
       updatedAt: _ua,
       locations,
-      contacts: _con,
+      contacts,
       ...data
     } = req.body;
 
-    await prisma.customer.update({
-      where: { id: req.params.id },
-      data,
+    await prisma.$transaction(async (tx) => {
+      await tx.customer.update({ where: { id: req.params.id }, data });
+      await syncLocations(tx, req.params.id, locations);
+      await syncContacts(tx, req.params.id, contacts);
     });
-
-    // Upsert the primary location when address details are supplied. Address
-    // fields live on Location (not Customer), so the edit form sends them here.
-    if (Array.isArray(locations) && locations.length > 0) {
-      const { id: _lid, customerId: _lcid, ...primary } = locations[0];
-      const existing = await prisma.location.findFirst({
-        where: { customerId: req.params.id, isPrimary: true },
-      });
-      if (existing) {
-        await prisma.location.update({
-          where: { id: existing.id },
-          data: { ...primary, isPrimary: true },
-        });
-      } else {
-        await prisma.location.create({
-          data: { ...primary, customerId: req.params.id, isPrimary: true },
-        });
-      }
-    }
 
     const customer = await prisma.customer.findUnique({
       where: { id: req.params.id },
