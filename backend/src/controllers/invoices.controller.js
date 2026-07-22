@@ -278,6 +278,7 @@ const update = async (req, res) => {
         error: "This invoice can't be edited because it is void.",
       });
     }
+    let includeOnlyChange = false;
     if (existing.amountPaid > 0) {
       const noOtherFieldChanges =
         Object.keys(invoiceData).length === 0 &&
@@ -288,7 +289,7 @@ const update = async (req, res) => {
       const existingLineItems = await prisma.invoiceLineItem.findMany({
         where: { invoiceId: existing.id },
       });
-      const includeOnlyChange =
+      includeOnlyChange =
         noOtherFieldChanges &&
         isIncludeOnlyLineItemChange(existingLineItems, lineItems);
 
@@ -305,9 +306,12 @@ const update = async (req, res) => {
       ...invoiceData,
       discountType,
       discountValue,
-      // Tax is no longer a supported charge on invoices; always zeroed
-      // whenever the invoice is edited.
-      taxRate: 0,
+      // Tax is no longer a supported charge on invoices, so a genuine edit
+      // always zeroes it going forward. Exception: the payment-safe
+      // "include/exclude a line" toggle above is documented as a reversible
+      // presentation flag that changes nothing financial -- it must not
+      // strip a legacy invoice's real historical tax rate/amount.
+      taxRate: includeOnlyChange ? existing.taxRate : 0,
     };
     if (dueDate !== undefined) {
       updateData.dueDate = dueDate ? new Date(dueDate) : null;
@@ -316,13 +320,19 @@ const update = async (req, res) => {
     if (lineItems) {
       const totals = calculateTotals(lineItems, discountType, discountValue);
 
+      // Re-apply the *existing* tax rate to the recomputed subtotal on the
+      // include-only toggle path, instead of letting calculateTotals zero it.
+      // This preserves legacy tax proportionally (it scales down if a line
+      // gets excluded) rather than silently deleting it.
+      const preservedTaxAmount = includeOnlyChange && existing.taxRate
+        ? Math.round(totals.subtotal * (existing.taxRate / 100) * 100) / 100
+        : 0;
+      const total = totals.total + preservedTaxAmount;
+
       updateData.subtotal = totals.subtotal;
-      updateData.taxAmount = totals.taxAmount;
-      updateData.total = totals.total;
-      updateData.balance = Math.max(
-        0,
-        totals.total - (existing?.amountPaid || 0),
-      );
+      updateData.taxAmount = preservedTaxAmount;
+      updateData.total = total;
+      updateData.balance = Math.max(0, total - (existing?.amountPaid || 0));
 
       await prisma.invoiceLineItem.deleteMany({
         where: { invoiceId: req.params.id },

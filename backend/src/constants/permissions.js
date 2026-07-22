@@ -27,13 +27,13 @@ const PERMISSION_GROUPS = [
     ],
   },
   {
-    group: "Jobs",
+    group: "Work Orders",
     permissions: [
-      { key: "jobs.create", label: "Create jobs" },
-      { key: "jobs.edit", label: "Edit jobs" },
-      { key: "jobs.delete", label: "Delete jobs" },
+      { key: "jobs.create", label: "Create work orders" },
+      { key: "jobs.edit", label: "Edit work orders" },
+      { key: "jobs.delete", label: "Delete work orders" },
       { key: "jobs.assign", label: "Assign technicians" },
-      { key: "jobs.status", label: "Update job status" },
+      { key: "jobs.status", label: "Update work order status" },
     ],
   },
   {
@@ -52,9 +52,9 @@ const PERMISSION_GROUPS = [
     ],
   },
   {
-    group: "Estimates",
+    group: "Quotes",
     permissions: [
-      { key: "estimates.manage", label: "Create & manage estimates" },
+      { key: "estimates.manage", label: "Create & manage quotes" },
     ],
   },
   {

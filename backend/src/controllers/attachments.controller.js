@@ -1,4 +1,5 @@
 const prisma = require("../config/database");
+const permissionsService = require("../services/permissions.service");
 
 // Entity types that may own attachments, mapped to the Prisma delegate used to
 // verify the parent record exists before storing a file. Keeping this list
@@ -10,6 +11,19 @@ const ENTITY_MODELS = {
   inventory: prisma.inventoryItem,
   customer: prisma.customer,
   equipment: prisma.equipment,
+};
+
+// Permission required to delete *someone else's* attachment on each entity
+// type -- mirrors the edit/manage tier already used to write that entity.
+// The uploader can always delete their own attachment regardless (e.g. a
+// technician removing a job photo they just took by mistake).
+const MANAGE_PERMISSION_BY_ENTITY = {
+  job: "jobs.edit",
+  estimate: "estimates.manage",
+  invoice: "invoices.manage",
+  inventory: "inventory.manage",
+  customer: "customers.edit",
+  equipment: "equipment.delete",
 };
 
 const ALLOWED_TYPES = Object.keys(ENTITY_MODELS);
@@ -139,6 +153,37 @@ const getRaw = async (req, res) => {
 
 const remove = async (req, res) => {
   try {
+    const attachment = await prisma.attachment.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, entityType: true, uploadedById: true },
+    });
+    if (!attachment) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Attachment not found" });
+    }
+
+    // Anyone can delete an attachment they uploaded themselves. Deleting
+    // someone else's requires the manage/edit permission for that entity
+    // type -- otherwise any authenticated user could delete any photo/doc
+    // company-wide, which is what this gate closes.
+    const isOwner =
+      attachment.uploadedById && attachment.uploadedById === req.user?.id;
+    if (!isOwner) {
+      const required = MANAGE_PERMISSION_BY_ENTITY[attachment.entityType];
+      const ok =
+        required && req.user?.role
+          ? await permissionsService.hasPermission(req.user.role, required)
+          : false;
+      if (!ok) {
+        return res.status(403).json({
+          success: false,
+          error:
+            "You can only delete attachments you uploaded, unless you have permission to manage this record.",
+        });
+      }
+    }
+
     await prisma.attachment.delete({ where: { id: req.params.id } });
     return res.json({ success: true });
   } catch (err) {

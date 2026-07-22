@@ -30,14 +30,17 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Sensitive fields that must never be persisted in the audit metadata.
-const REDACT = new Set(["password", "currentPassword", "newPassword", "token"]);
+// Matched case-insensitively against a substring, not an exact-string
+// allowlist, so anything shaped like `webConnectorPassword`, `apiSecret`,
+// `refreshToken`, etc. is caught too -- not just the four literal names.
+const REDACT_PATTERN = /password|secret|token/i;
 
 function summarizeBody(body) {
   if (!body || typeof body !== "object") return null;
   try {
     const clean = {};
     for (const [key, value] of Object.entries(body)) {
-      if (REDACT.has(key)) continue;
+      if (REDACT_PATTERN.test(key)) continue;
       clean[key] = value;
     }
     const json = JSON.stringify(clean);

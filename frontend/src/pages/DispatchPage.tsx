@@ -1239,7 +1239,7 @@ export default function DispatchPage() {
               navigate("/jobs/new");
             }}
           >
-            New Job
+            New Work Order
           </Button>
         </div>
       </div>
@@ -1658,7 +1658,7 @@ export default function DispatchPage() {
                     navigate(`/jobs/${selectedJob.id}`);
                   }}
                 >
-                  Open job
+                  Open Work Order
                 </Button>
                 <Can permission="jobs.delete">
                   <Button
@@ -1669,7 +1669,7 @@ export default function DispatchPage() {
                       setConfirmDelete(true);
                     }}
                   >
-                    Archive job
+                    Archive Work Order
                   </Button>
                 </Can>
               </div>

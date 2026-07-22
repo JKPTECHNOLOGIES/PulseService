@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { LockClosedIcon } from "@heroicons/react/24/outline";
 import { usePermissions } from "../../hooks/usePermissions";
+import { useAuthStore } from "../../store/authStore";
 import EmptyState from "../ui/EmptyState";
 
 interface RequirePermissionProps {
@@ -22,18 +23,22 @@ export default function RequirePermission({
   children,
 }: RequirePermissionProps) {
   const { canAny } = usePermissions();
+  const role = useAuthStore((s) => s.user?.role);
   const navigate = useNavigate();
 
   if (!canAny(...perm)) {
+    // Technicians don't have a office/financial "Dashboard" -- send them
+    // somewhere that's actually theirs, same as HomeRedirect does.
+    const isTechnician = role === "technician";
     return (
       <EmptyState
         icon={<LockClosedIcon />}
         title="You don't have access to this page"
         description="If you think this is a mistake, ask an admin to check your role's permissions in Settings."
         action={{
-          label: "Back to Dashboard",
+          label: isTechnician ? "Back to My Day" : "Back to Dashboard",
           onClick: () => {
-            navigate("/dashboard");
+            navigate(isTechnician ? "/my-day" : "/dashboard");
           },
         }}
       />

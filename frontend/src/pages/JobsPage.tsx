@@ -197,14 +197,16 @@ export default function JobsPage() {
         <p className="text-sm text-gray-500">
           {pagination ? `${String(pagination.total)} work orders` : ""}
         </p>
-        <Button
-          icon={<PlusIcon className="h-4 w-4" />}
-          onClick={() => {
-            navigate("/jobs/new");
-          }}
-        >
-          New Work Order
-        </Button>
+        {can("jobs.create") && (
+          <Button
+            icon={<PlusIcon className="h-4 w-4" />}
+            onClick={() => {
+              navigate("/jobs/new");
+            }}
+          >
+            New Work Order
+          </Button>
+        )}
       </div>
 
       {/* Status tabs */}
@@ -270,12 +272,16 @@ export default function JobsPage() {
           <EmptyState
             title="No work orders found"
             description="Create your first work order to get started"
-            action={{
-              label: "New Work Order",
-              onClick: () => {
-                navigate("/jobs/new");
-              },
-            }}
+            action={
+              can("jobs.create")
+                ? {
+                    label: "New Work Order",
+                    onClick: () => {
+                      navigate("/jobs/new");
+                    },
+                  }
+                : undefined
+            }
           />
         ) : (
           <>
@@ -342,14 +348,16 @@ export default function JobsPage() {
               )}
               rowActions={(j) => (
                 <>
-                  <IconButton
-                    label="Edit job"
-                    onClick={() => {
-                      navigate(`/jobs/${j.id}/edit`);
-                    }}
-                  >
-                    <PencilIcon className="h-4 w-4" />
-                  </IconButton>
+                  {can("jobs.edit") && (
+                    <IconButton
+                      label="Edit job"
+                      onClick={() => {
+                        navigate(`/jobs/${j.id}/edit`);
+                      }}
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </IconButton>
+                  )}
                   {can("jobs.delete") &&
                     (j.isArchived ? (
                       <IconButton
