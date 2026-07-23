@@ -329,9 +329,9 @@ export default function LineItemsTable({
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Qty</label>
                 <NumberInput
-                  inputMode="numeric"
+                  inputMode="decimal"
                   min="0"
-                  step="1"
+                  step="any"
                   value={item.quantity}
                   onChange={(n) => {
                     updateItem(i, "quantity", n ?? 0);
@@ -456,9 +456,9 @@ export default function LineItemsTable({
               </td>
               <td className="py-2 pr-2">
                 <NumberInput
-                  inputMode="numeric"
+                  inputMode="decimal"
                   min="0"
-                  step="1"
+                  step="any"
                   value={item.quantity}
                   onChange={(n) => {
                     updateItem(i, "quantity", n ?? 0);
