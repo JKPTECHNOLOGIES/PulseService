@@ -15,6 +15,7 @@ import { useFormDraft } from "../hooks/useFormDraft";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import LineItemsTable, { LineItem } from "../components/ui/LineItemsTable";
+import CustomerCombobox from "../components/ui/CustomerCombobox";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency } from "../utils/formatters";
 
@@ -68,6 +69,7 @@ export default function EstimateFormPage() {
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -182,22 +184,17 @@ export default function EstimateFormPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Customer <span className="text-red-500">*</span>
               </label>
-              <select
-                {...register("customerId")}
-                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
-              >
-                <option value="">Select customer...</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.firstName} {c.lastName}
-                  </option>
-                ))}
-              </select>
-              {errors.customerId && (
-                <p className="mt-1 text-xs text-red-600">
-                  {errors.customerId.message}
-                </p>
-              )}
+              <CustomerCombobox
+                customers={customers}
+                value={customerId}
+                onChange={(id) => {
+                  setValue("customerId", id, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
+                }}
+                error={errors.customerId?.message}
+              />
             </div>
 
             {customerId && customerJobs.length > 0 && (
