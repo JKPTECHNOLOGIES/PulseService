@@ -1,5 +1,6 @@
 const prisma = require("../config/database");
 const { verifyPublicToken } = require("../utils/publicToken");
+const { recordTimelineEvent } = require("../utils/timeline");
 
 // These endpoints are intentionally UNAUTHENTICATED — they back the public
 // "review & approve your estimate" link emailed to a customer. Access is gated
@@ -46,6 +47,16 @@ const getEstimate = async (req, res) => {
         data: { status: "viewed", viewedAt: new Date() },
       });
       estimate.status = "viewed";
+
+      await recordTimelineEvent({
+        customerId: estimate.customerId,
+        entityType: "estimate",
+        entityId: estimate.id,
+        entityLabel: estimate.estimateNumber,
+        action: "viewed",
+        description: "Customer viewed Quote",
+        userId: null,
+      });
     }
 
     const settings = await prisma.companySettings.findFirst();
@@ -110,6 +121,17 @@ const approveEstimate = async (req, res) => {
       where: { id: estimate.id },
       data: { status: "approved", approvedAt: new Date() },
     });
+
+    await recordTimelineEvent({
+      customerId: estimate.customerId,
+      entityType: "estimate",
+      entityId: estimate.id,
+      entityLabel: estimate.estimateNumber,
+      action: "approved",
+      description: "Customer approved Quote online",
+      userId: null,
+    });
+
     return res.json({ success: true, data: { status: "approved" } });
   } catch (err) {
     console.error("public.approveEstimate error:", err);
@@ -127,14 +149,28 @@ const rejectEstimate = async (req, res) => {
         error: `Estimate can no longer be changed (status: ${estimate.status})`,
       });
     }
+    const rejectionReason = req.body?.rejectionReason || null;
     await prisma.estimate.update({
       where: { id: estimate.id },
       data: {
         status: "rejected",
         rejectedAt: new Date(),
-        rejectionReason: req.body?.rejectionReason || null,
+        rejectionReason,
       },
     });
+
+    await recordTimelineEvent({
+      customerId: estimate.customerId,
+      entityType: "estimate",
+      entityId: estimate.id,
+      entityLabel: estimate.estimateNumber,
+      action: "rejected",
+      description: rejectionReason
+        ? `Customer rejected Quote online (${rejectionReason})`
+        : "Customer rejected Quote online",
+      userId: null,
+    });
+
     return res.json({ success: true, data: { status: "rejected" } });
   } catch (err) {
     console.error("public.rejectEstimate error:", err);

@@ -1,5 +1,8 @@
 const prisma = require("../config/database");
 const { paginate, paginatedResponse } = require("../utils/helpers");
+const { recordTimelineEvent } = require("../utils/timeline");
+
+const money = (n) => "$" + Number(n || 0).toFixed(2);
 
 const list = async (req, res) => {
   try {
@@ -114,6 +117,16 @@ const reversePayment = async (req, res) => {
         },
       }),
     ]);
+
+    await recordTimelineEvent({
+      customerId: invoice.customerId,
+      entityType: "invoice",
+      entityId: invoice.id,
+      entityLabel: invoice.invoiceNumber,
+      action: "payment_reversed",
+      description: `reversed a ${money(payment.amount)} payment on Invoice`,
+      userId: req.user?.id,
+    });
 
     return res.json({
       success: true,

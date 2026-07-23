@@ -23,6 +23,7 @@ import { useAgreements } from "../hooks/useAgreements";
 import Button from "../components/ui/Button";
 import Badge, { StatusBadge } from "../components/ui/Badge";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
+import Timeline from "../components/ui/Timeline";
 import { PageSpinner } from "../components/ui/Spinner";
 import {
   formatCurrency,
@@ -33,6 +34,7 @@ import {
 
 const TABS = [
   "Overview",
+  "Timeline",
   "Work Orders",
   "Quotes",
   "Invoices",
@@ -580,6 +582,19 @@ export default function CustomerDetailPage() {
             {/* Photos & Attachments */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <AttachmentGallery entityType="customer" entityId={customer.id} />
+            </div>
+          </Tab.Panel>
+
+          {/* Timeline: merged, narrated activity feed spanning this
+              customer's work orders, invoices, and quotes, plus notes. */}
+          <Tab.Panel>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              <div className="lg:col-span-2">
+                <Timeline customerId={customer.id} />
+              </div>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <AttachmentGallery entityType="customer" entityId={customer.id} />
+              </div>
             </div>
           </Tab.Panel>
 

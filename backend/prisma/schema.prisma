@@ -36,6 +36,8 @@ model User {
   notifications    Notification[]
   timeEntries      TimeEntry[]
   sentMessages     CustomerMessage[]
+  timelineEvents   TimelineEvent[]
+  notes            Note[]
 }
 
 model Customer {
@@ -72,6 +74,8 @@ model Customer {
   serializedUnits   SerializedUnit[]
   pricingTier       PricingTier?       @relation(fields: [pricingTierId], references: [id])
   messages          CustomerMessage[]
+  timelineEvents    TimelineEvent[]
+  timelineNotes     Note[]
 }
 
 model Contact {
@@ -951,6 +955,50 @@ model CustomerMessage {
 
   @@index([customerId])
   @@index([sentAt])
+}
+
+// A merged, customer-scoped activity feed spanning jobs/invoices/estimates.
+// Each row is a specific, human-readable narration of one real event
+// (status change, technician assignment, send, void, payment, etc.) --
+// emitted explicitly by the relevant controller alongside its normal
+// AuditLog entry, not derived by diffing generic request bodies after the
+// fact. Distinct from AuditLog (the company-wide, permission-gated Activity
+// Log): this is the narrower, friendlier, single-customer view of "what
+// happened," readable by anyone who can already see the customer.
+model TimelineEvent {
+  id          String   @id @default(uuid())
+  customerId  String
+  entityType  String // "job" | "invoice" | "estimate"
+  entityId    String
+  entityLabel String // the number shown in the badge/link, e.g. "1629"
+  action      String // short machine key, e.g. "status_change", "assigned"
+  description String // pre-rendered narration, e.g. "edited Work Order Description"
+  userId      String?
+  createdAt   DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id])
+
+  @@index([customerId, createdAt])
+}
+
+// A manually-written note on a customer's merged timeline -- not tied to a
+// specific job/invoice/estimate, so it shows up regardless of which record
+// prompted it. `pinned` notes are always shown above the chronological feed
+// (e.g. a standing service-agreement summary).
+model Note {
+  id          String   @id @default(uuid())
+  customerId  String
+  body        String
+  pinned      Boolean  @default(false)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdBy User?    @relation(fields: [createdById], references: [id])
+
+  @@index([customerId, createdAt])
 }
 
 model Campaign {

@@ -10,8 +10,17 @@ const {
 const { generateEstimatePdf } = require("../services/pdf.service");
 const { sendMail } = require("../services/email.service");
 const { publicToken } = require("../utils/publicToken");
+const {
+  recordTimelineEvent,
+  describeFieldEdits,
+} = require("../utils/timeline");
 
 const money = (n) => "$" + Number(n || 0).toFixed(2);
+
+const ESTIMATE_NARRATED_FIELDS = [
+  { field: "notes", label: "Quote Notes" },
+  { field: "terms", label: "Quote Terms" },
+];
 
 const list = async (req, res) => {
   try {
@@ -149,6 +158,16 @@ const create = async (req, res) => {
       include: { lineItems: { orderBy: { sortOrder: "asc" } }, customer: true },
     });
 
+    await recordTimelineEvent({
+      customerId: estimate.customerId,
+      entityType: "estimate",
+      entityId: estimate.id,
+      entityLabel: estimate.estimateNumber,
+      action: "created",
+      description: "created Quote",
+      userId: req.user?.id,
+    });
+
     return res.status(201).json({ success: true, data: estimate });
   } catch (err) {
     return respondError(res, err, "estimate");
@@ -169,6 +188,21 @@ const update = async (req, res) => {
       updatedAt: _ua,
       ...estimateData
     } = req.body;
+
+    const before = await prisma.estimate.findUnique({
+      where: { id: req.params.id },
+      select: {
+        customerId: true,
+        estimateNumber: true,
+        notes: true,
+        terms: true,
+      },
+    });
+    if (!before) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Estimate not found" });
+    }
 
     const updateData = {
       ...estimateData,
@@ -210,6 +244,34 @@ const update = async (req, res) => {
       data: updateData,
       include: { lineItems: { orderBy: { sortOrder: "asc" } } },
     });
+
+    const fieldEdits = describeFieldEdits(
+      before,
+      estimate,
+      ESTIMATE_NARRATED_FIELDS,
+    );
+    for (const description of fieldEdits) {
+      await recordTimelineEvent({
+        customerId: before.customerId,
+        entityType: "estimate",
+        entityId: estimate.id,
+        entityLabel: before.estimateNumber,
+        action: "edited",
+        description,
+        userId: req.user?.id,
+      });
+    }
+    if (lineItems && fieldEdits.length === 0) {
+      await recordTimelineEvent({
+        customerId: before.customerId,
+        entityType: "estimate",
+        entityId: estimate.id,
+        entityLabel: before.estimateNumber,
+        action: "edited",
+        description: "edited Quote line items",
+        userId: req.user?.id,
+      });
+    }
 
     return res.json({ success: true, data: estimate });
   } catch (err) {
@@ -343,6 +405,19 @@ const send = async (req, res) => {
       where: { id: req.params.id },
       data: { status: "sent", sentAt: new Date() },
     });
+
+    await recordTimelineEvent({
+      customerId: estimate.customerId,
+      entityType: "estimate",
+      entityId: estimate.id,
+      entityLabel: estimate.estimateNumber,
+      action: "sent",
+      description: emailWarning
+        ? "tried to send Quote, but the email failed to deliver"
+        : `emailed Quote to ${recipients.join(", ")}`,
+      userId: req.user?.id,
+    });
+
     return res.json({
       success: true,
       data: updated,
@@ -365,6 +440,17 @@ const approve = async (req, res) => {
       where: { id: req.params.id },
       data: { status: "approved", approvedAt: new Date() },
     });
+
+    await recordTimelineEvent({
+      customerId: estimate.customerId,
+      entityType: "estimate",
+      entityId: estimate.id,
+      entityLabel: estimate.estimateNumber,
+      action: "approved",
+      description: "approved Quote",
+      userId: req.user?.id,
+    });
+
     return res.json({ success: true, data: estimate });
   } catch (err) {
     if (err.code === "P2025")
@@ -382,6 +468,19 @@ const reject = async (req, res) => {
       where: { id: req.params.id },
       data: { status: "rejected", rejectedAt: new Date(), rejectionReason },
     });
+
+    await recordTimelineEvent({
+      customerId: estimate.customerId,
+      entityType: "estimate",
+      entityId: estimate.id,
+      entityLabel: estimate.estimateNumber,
+      action: "rejected",
+      description: rejectionReason
+        ? `rejected Quote (${rejectionReason})`
+        : "rejected Quote",
+      userId: req.user?.id,
+    });
+
     return res.json({ success: true, data: estimate });
   } catch (err) {
     if (err.code === "P2025")
@@ -463,6 +562,25 @@ const convertToInvoice = async (req, res) => {
         data: { status: "approved", approvedAt: new Date() },
       });
     }
+
+    await recordTimelineEvent({
+      customerId: estimate.customerId,
+      entityType: "estimate",
+      entityId: estimate.id,
+      entityLabel: estimate.estimateNumber,
+      action: "converted",
+      description: `converted Quote to Invoice #${invoice.invoiceNumber}`,
+      userId: req.user?.id,
+    });
+    await recordTimelineEvent({
+      customerId: invoice.customerId,
+      entityType: "invoice",
+      entityId: invoice.id,
+      entityLabel: invoice.invoiceNumber,
+      action: "created",
+      description: `created Invoice from Quote #${estimate.estimateNumber}`,
+      userId: req.user?.id,
+    });
 
     return res.status(201).json({ success: true, data: invoice });
   } catch (err) {

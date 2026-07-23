@@ -918,3 +918,28 @@ export interface PaginatedResponse<T> {
     totalPages: number;
   };
 }
+
+// Merged customer timeline (Work Orders + Invoices + Quotes): manually-written
+// notes and narrated, system-recorded events sorted together by date.
+export interface TimelineNoteItem {
+  kind: "note";
+  id: string;
+  createdAt: string;
+  body: string;
+  pinned: boolean;
+  user: { id: string; name: string | null } | null;
+}
+
+export interface TimelineEventItem {
+  kind: "event";
+  id: string;
+  createdAt: string;
+  entityType: "job" | "invoice" | "estimate";
+  entityId: string;
+  entityLabel: string;
+  action: string;
+  description: string;
+  user: { id: string; name: string | null } | null;
+}
+
+export type TimelineItem = TimelineNoteItem | TimelineEventItem;

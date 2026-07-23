@@ -10,8 +10,17 @@ const {
 const { generateInvoicePdf } = require("../services/pdf.service");
 const { sendMail } = require("../services/email.service");
 const quickbooksSync = require("../services/quickbooks/sync-queue.service");
+const {
+  recordTimelineEvent,
+  describeFieldEdits,
+} = require("../utils/timeline");
 
 const money = (n) => "$" + Number(n || 0).toFixed(2);
+
+const INVOICE_NARRATED_FIELDS = [
+  { field: "notes", label: "Invoice Notes" },
+  { field: "terms", label: "Invoice Terms" },
+];
 
 // Once a payment has been recorded, an update is still safe to allow if the
 // only thing changing is which existing lines are included/billed -- that's
@@ -335,6 +344,17 @@ const create = async (req, res) => {
     });
 
     await enqueueQuickBooksInvoiceSync(invoice.id);
+
+    await recordTimelineEvent({
+      customerId: invoice.customerId,
+      entityType: "invoice",
+      entityId: invoice.id,
+      entityLabel: invoice.invoiceNumber,
+      action: "created",
+      description: "created Invoice",
+      userId: req.user?.id,
+    });
+
     return res.status(201).json({ success: true, data: invoice });
   } catch (err) {
     return respondError(res, err, "invoice");
@@ -455,6 +475,47 @@ const update = async (req, res) => {
     });
 
     await enqueueQuickBooksInvoiceSync(invoice.id);
+
+    if (includeOnlyChange) {
+      await recordTimelineEvent({
+        customerId: existing.customerId,
+        entityType: "invoice",
+        entityId: invoice.id,
+        entityLabel: existing.invoiceNumber,
+        action: "edited",
+        description: "updated which line items are billed on Invoice",
+        userId: req.user?.id,
+      });
+    } else {
+      const fieldEdits = describeFieldEdits(
+        existing,
+        invoice,
+        INVOICE_NARRATED_FIELDS,
+      );
+      for (const description of fieldEdits) {
+        await recordTimelineEvent({
+          customerId: existing.customerId,
+          entityType: "invoice",
+          entityId: invoice.id,
+          entityLabel: existing.invoiceNumber,
+          action: "edited",
+          description,
+          userId: req.user?.id,
+        });
+      }
+      if (lineItems && fieldEdits.length === 0) {
+        await recordTimelineEvent({
+          customerId: existing.customerId,
+          entityType: "invoice",
+          entityId: invoice.id,
+          entityLabel: existing.invoiceNumber,
+          action: "edited",
+          description: "edited Invoice line items",
+          userId: req.user?.id,
+        });
+      }
+    }
+
     return res.json({ success: true, data: invoice });
   } catch (err) {
     return respondError(res, err, "invoice");
@@ -575,6 +636,19 @@ const send = async (req, res) => {
       data: { status: "sent", sentAt: new Date() },
     });
     await enqueueQuickBooksInvoiceSync(updated.id);
+
+    await recordTimelineEvent({
+      customerId: invoice.customerId,
+      entityType: "invoice",
+      entityId: invoice.id,
+      entityLabel: invoice.invoiceNumber,
+      action: "sent",
+      description: emailWarning
+        ? "tried to send Invoice, but the email failed to deliver"
+        : `emailed Invoice to ${recipients.join(", ")}`,
+      userId: req.user?.id,
+    });
+
     return res.json({
       success: true,
       data: updated,
@@ -629,6 +703,17 @@ const revertToDraft = async (req, res) => {
       where: { id: req.params.id },
       data: { status: "draft", sentAt: null },
     });
+
+    await recordTimelineEvent({
+      customerId: existing.customerId,
+      entityType: "invoice",
+      entityId: existing.id,
+      entityLabel: existing.invoiceNumber,
+      action: "reverted",
+      description: "reverted Invoice to draft",
+      userId: req.user?.id,
+    });
+
     return res.json({ success: true, data: updated });
   } catch (err) {
     if (err.code === "P2025")
@@ -704,6 +789,16 @@ const recordPayment = async (req, res) => {
     }
     await enqueueQuickBooksPaymentSync(payment.id);
 
+    await recordTimelineEvent({
+      customerId: invoice.customerId,
+      entityType: "invoice",
+      entityId: invoice.id,
+      entityLabel: invoice.invoiceNumber,
+      action: "payment_recorded",
+      description: `recorded a ${money(payment.amount)} ${method} payment on Invoice`,
+      userId: req.user?.id,
+    });
+
     return res.json({
       success: true,
       data: { payment, invoice: updatedInvoice },
@@ -742,6 +837,19 @@ const voidInvoice = async (req, res) => {
       data: { status: "void", voidedAt: new Date(), voidReason },
     });
     await enqueueQuickBooksInvoiceSync(invoice.id);
+
+    await recordTimelineEvent({
+      customerId: existing.customerId,
+      entityType: "invoice",
+      entityId: existing.id,
+      entityLabel: existing.invoiceNumber,
+      action: "voided",
+      description: voidReason
+        ? `voided Invoice (${voidReason})`
+        : "voided Invoice",
+      userId: req.user?.id,
+    });
+
     return res.json({ success: true, data: invoice });
   } catch (err) {
     if (err.code === "P2025")

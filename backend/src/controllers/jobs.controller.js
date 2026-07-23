@@ -7,6 +7,26 @@ const {
 } = require("../utils/helpers");
 const notify = require("../services/notification.service");
 const { LOOKUPS } = require("../constants/lookups");
+const {
+  recordTimelineEvent,
+  describeFieldEdits,
+} = require("../utils/timeline");
+
+// Which Job fields get narrated as "edited X" on the customer timeline, and
+// what to call each one -- matches the labels already used on the Job Detail
+// page/PDF ("Work Order Description", "Work Summary", "Office Notes", "Tech
+// Notes") so the wording is consistent everywhere a user sees it.
+const JOB_NARRATED_FIELDS = [
+  { field: "description", label: "Work Order Description" },
+  { field: "summary", label: "Work Summary" },
+  { field: "notes", label: "Office Notes" },
+  { field: "techNotes", label: "Tech Notes" },
+];
+
+function technicianName(jobTechnician) {
+  const user = jobTechnician?.technician?.user;
+  return user ? `${user.firstName} ${user.lastName}`.trim() : "a technician";
+}
 
 // Status rules:
 //  - scheduled / parts_on_hold / in_progress / on_hold interchange freely.
@@ -247,6 +267,16 @@ const create = async (req, res) => {
     // Notify any technicians assigned at creation time.
     await notify.notifyJobAssigned(technicianIds, job);
 
+    await recordTimelineEvent({
+      customerId: job.customerId,
+      entityType: "job",
+      entityId: job.id,
+      entityLabel: job.jobNumber,
+      action: "created",
+      description: "created Work Order",
+      userId: req.user?.id,
+    });
+
     return res.status(201).json({ success: true, data: job });
   } catch (err) {
     return respondError(res, err, "job");
@@ -292,10 +322,28 @@ const update = async (req, res) => {
       }
     }
 
+    // Snapshot the narrated fields before applying the update, so we can
+    // describe exactly what changed on the customer timeline afterward.
+    const before = await prisma.job.findUnique({
+      where: { id: req.params.id },
+      select: {
+        customerId: true,
+        jobNumber: true,
+        description: true,
+        summary: true,
+        notes: true,
+        techNotes: true,
+      },
+    });
+    if (!before) {
+      return res.status(404).json({ success: false, error: "Job not found" });
+    }
+
     // technicianIds isn't a Job column -- it maps to JobTechnician join rows.
     // Replace the assignments here (and keep it out of the scalar update data,
     // which otherwise breaks Prisma's input typing and 500s the whole save).
     let newlyAssigned = [];
+    let removedTechnicianIds = [];
     if (Array.isArray(technicianIds)) {
       const existingAssignments = await prisma.jobTechnician.findMany({
         where: { jobId: req.params.id },
@@ -305,6 +353,9 @@ const update = async (req, res) => {
         existingAssignments.map((a) => a.technicianId),
       );
       newlyAssigned = technicianIds.filter((tid) => !existingIds.has(tid));
+      removedTechnicianIds = [...existingIds].filter(
+        (tid) => !technicianIds.includes(tid),
+      );
       await prisma.jobTechnician.deleteMany({
         where: { jobId: req.params.id },
       });
@@ -374,6 +425,54 @@ const update = async (req, res) => {
     // Notify only technicians newly added by this edit (not existing ones).
     await notify.notifyJobAssigned(newlyAssigned, job);
 
+    const fieldEdits = describeFieldEdits(before, job, JOB_NARRATED_FIELDS);
+    for (const description of fieldEdits) {
+      await recordTimelineEvent({
+        customerId: before.customerId,
+        entityType: "job",
+        entityId: job.id,
+        entityLabel: before.jobNumber,
+        action: "edited",
+        description,
+        userId: req.user?.id,
+      });
+    }
+
+    if (newlyAssigned.length > 0 || removedTechnicianIds.length > 0) {
+      const changedTechs = await prisma.technician.findMany({
+        where: { id: { in: [...newlyAssigned, ...removedTechnicianIds] } },
+        include: { user: { select: { firstName: true, lastName: true } } },
+      });
+      const nameById = new Map(
+        changedTechs.map((t) => [
+          t.id,
+          t.user ? `${t.user.firstName} ${t.user.lastName}`.trim() : "a technician",
+        ]),
+      );
+      for (const tid of newlyAssigned) {
+        await recordTimelineEvent({
+          customerId: before.customerId,
+          entityType: "job",
+          entityId: job.id,
+          entityLabel: before.jobNumber,
+          action: "assigned",
+          description: `assigned ${nameById.get(tid) ?? "a technician"} to Work Order`,
+          userId: req.user?.id,
+        });
+      }
+      for (const tid of removedTechnicianIds) {
+        await recordTimelineEvent({
+          customerId: before.customerId,
+          entityType: "job",
+          entityId: job.id,
+          entityLabel: before.jobNumber,
+          action: "unassigned",
+          description: `removed ${nameById.get(tid) ?? "a technician"} from Work Order`,
+          userId: req.user?.id,
+        });
+      }
+    }
+
     return res.json({ success: true, data: job });
   } catch (err) {
     return respondError(res, err, "job");
@@ -426,6 +525,18 @@ const updateStatus = async (req, res) => {
       });
     }
 
+    const statusLabel =
+      LOOKUPS.jobStatus.find((o) => o.value === status)?.label ?? status;
+    await recordTimelineEvent({
+      customerId: job.customerId,
+      entityType: "job",
+      entityId: job.id,
+      entityLabel: job.jobNumber,
+      action: "status_change",
+      description: `marked Work Order as "${statusLabel}"`,
+      userId: req.user?.id,
+    });
+
     return res.json({ success: true, data: updated });
   } catch (err) {
     console.error("jobs.updateStatus error:", err);
@@ -469,6 +580,22 @@ const assignTechnician = async (req, res) => {
       await notify.notifyJobAssigned([technicianId], job);
     }
 
+    if (!existing && job) {
+      const tech = await prisma.technician.findUnique({
+        where: { id: technicianId },
+        include: { user: { select: { firstName: true, lastName: true } } },
+      });
+      await recordTimelineEvent({
+        customerId: job.customerId,
+        entityType: "job",
+        entityId: job.id,
+        entityLabel: job.jobNumber,
+        action: "assigned",
+        description: `assigned ${technicianName({ technician: tech })} to Work Order`,
+        userId: req.user?.id,
+      });
+    }
+
     return res.json({ success: true, data: assignment });
   } catch (err) {
     console.error("jobs.assignTechnician error:", err);
@@ -478,6 +605,11 @@ const assignTechnician = async (req, res) => {
 
 const removeTechnician = async (req, res) => {
   try {
+    const tech = await prisma.technician.findUnique({
+      where: { id: req.params.techId },
+      include: { user: { select: { firstName: true, lastName: true } } },
+    });
+
     await prisma.jobTechnician.delete({
       where: {
         jobId_technicianId: {
@@ -494,6 +626,18 @@ const removeTechnician = async (req, res) => {
       io.to(`dispatch:${date}`).emit("job:technicianRemoved", {
         jobId: req.params.id,
         technicianId: req.params.techId,
+      });
+    }
+
+    if (job) {
+      await recordTimelineEvent({
+        customerId: job.customerId,
+        entityType: "job",
+        entityId: job.id,
+        entityLabel: job.jobNumber,
+        action: "unassigned",
+        description: `removed ${technicianName({ technician: tech })} from Work Order`,
+        userId: req.user?.id,
       });
     }
 
@@ -571,6 +715,16 @@ const archiveJob = async (req, res) => {
       io.to(`dispatch:${date}`).emit("job:archived", { id: job.id });
     }
 
+    await recordTimelineEvent({
+      customerId: job.customerId,
+      entityType: "job",
+      entityId: job.id,
+      entityLabel: job.jobNumber,
+      action: "archived",
+      description: "archived Work Order",
+      userId: req.user?.id,
+    });
+
     return res.json({ success: true, data: job });
   } catch (err) {
     if (err.code === "P2025") {
@@ -593,6 +747,16 @@ const unarchiveJob = async (req, res) => {
       const date = new Date(job.scheduledStart).toISOString().split("T")[0];
       io.to(`dispatch:${date}`).emit("job:updated", job);
     }
+
+    await recordTimelineEvent({
+      customerId: job.customerId,
+      entityType: "job",
+      entityId: job.id,
+      entityLabel: job.jobNumber,
+      action: "unarchived",
+      description: "restored Work Order from archive",
+      userId: req.user?.id,
+    });
 
     return res.json({ success: true, data: job });
   } catch (err) {
