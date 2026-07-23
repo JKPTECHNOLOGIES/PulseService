@@ -158,7 +158,7 @@ function render(kind, doc, settings) {
         .font("Helvetica")
         .fontSize(9)
         .fillColor(MUTED)
-        .text("Ship to", shipX, billY, { width: shipW });
+        .text("Location", shipX, billY, { width: shipW });
       pdf
         .font("Helvetica-Bold")
         .fontSize(10)
