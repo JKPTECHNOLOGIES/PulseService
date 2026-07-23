@@ -30,6 +30,11 @@ router.put(
 
 router.post("/:id/send", requirePermission("invoices.manage"), c.send);
 router.post(
+  "/:id/revert-to-draft",
+  requirePermission("invoices.manage"),
+  c.revertToDraft,
+);
+router.post(
   "/:id/payments",
   requirePermission("invoices.manage"),
   validateLookups({ method: "paymentMethod" }),

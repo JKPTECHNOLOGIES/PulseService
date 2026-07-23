@@ -591,6 +591,55 @@ const send = async (req, res) => {
   }
 };
 
+// Undoes "Send" -- puts a sent/viewed/overdue invoice back to draft so it
+// can be edited and sent again. Deliberately as narrow as Void's own guard:
+// only while nothing has been paid against it yet, and never for a voided
+// invoice (that's a terminal state -- reissue a new one instead).
+const revertToDraft = async (req, res) => {
+  try {
+    const existing = await prisma.invoice.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Invoice not found" });
+    }
+    if (existing.status === "draft") {
+      return res
+        .status(400)
+        .json({ success: false, error: "This invoice is already a draft." });
+    }
+    if (existing.status === "void") {
+      return res.status(400).json({
+        success: false,
+        error:
+          "A voided invoice can't be reverted to draft -- create a new invoice instead.",
+      });
+    }
+    if (existing.amountPaid > 0) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "This invoice has a payment recorded and can't be reverted to draft. Reverse the payment (or void the invoice) first.",
+      });
+    }
+
+    const updated = await prisma.invoice.update({
+      where: { id: req.params.id },
+      data: { status: "draft", sentAt: null },
+    });
+    return res.json({ success: true, data: updated });
+  } catch (err) {
+    if (err.code === "P2025")
+      return res
+        .status(404)
+        .json({ success: false, error: "Invoice not found" });
+    console.error("invoices.revertToDraft error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
 const recordPayment = async (req, res) => {
   try {
     const { amount, method, referenceNumber, notes, paidAt } = req.body;
@@ -733,6 +782,7 @@ module.exports = {
   create,
   update,
   send,
+  revertToDraft,
   recordPayment,
   void: voidInvoice,
 };

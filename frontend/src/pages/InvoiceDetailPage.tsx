@@ -15,6 +15,7 @@ import {
   useInvoice,
   useRecordPayment,
   useVoidInvoice,
+  useRevertInvoiceToDraft,
   useReversePayment,
   useUpdateInvoice,
 } from "../hooks/useInvoices";
@@ -49,11 +50,13 @@ export default function InvoiceDetailPage() {
   const [paymentModal, setPaymentModal] = useState(false);
   const [sendModal, setSendModal] = useState(false);
   const [voidConfirm, setVoidConfirm] = useState(false);
+  const [revertConfirm, setRevertConfirm] = useState(false);
   const [reverseConfirm, setReverseConfirm] = useState<string | null>(null);
 
   const { data: invoice, isLoading } = useInvoice(id ?? "");
   const paymentMutation = useRecordPayment();
   const voidMutation = useVoidInvoice();
+  const revertMutation = useRevertInvoiceToDraft();
   const reverseMutation = useReversePayment();
   const updateMutation = useUpdateInvoice();
   const { getLabel: getPaymentMethodLabel } = useLookup("paymentMethod");
@@ -255,6 +258,21 @@ export default function InvoiceDetailPage() {
                 Preview/Send
               </Button>
             )}
+            {can("invoices.manage") &&
+              invoice.status !== "draft" &&
+              invoice.status !== "void" &&
+              invoice.amountPaid === 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<ArrowUturnLeftIcon className="h-4 w-4" />}
+                  onClick={() => {
+                    setRevertConfirm(true);
+                  }}
+                >
+                  Revert to Draft
+                </Button>
+              )}
             {can("invoices.manage") &&
               invoice.balance > 0 &&
               invoice.status !== "void" && (
@@ -636,6 +654,22 @@ export default function InvoiceDetailPage() {
         message="This invoice will be marked void and can no longer be edited, sent, or paid. This cannot be undone."
         confirmLabel="Void Invoice"
         loading={voidMutation.isPending}
+      />
+
+      <ConfirmDialog
+        isOpen={revertConfirm}
+        onClose={() => {
+          setRevertConfirm(false);
+        }}
+        onConfirm={() => {
+          void revertMutation.mutateAsync(id ?? "").then(() => {
+            setRevertConfirm(false);
+          });
+        }}
+        title="Revert to Draft"
+        message="This puts the invoice back to Draft so it can be edited and sent again. It doesn't undo anything that's already been emailed to the customer."
+        confirmLabel="Revert to Draft"
+        loading={revertMutation.isPending}
       />
 
       <ConfirmDialog

@@ -162,6 +162,22 @@ export function useRecordPayment() {
   });
 }
 
+export function useRevertInvoiceToDraft() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post<ApiResponse<Invoice>>(`/invoices/${id}/revert-to-draft`),
+    onSuccess: (_data, id) => {
+      void qc.invalidateQueries({ queryKey: ["invoice", id] });
+      void qc.invalidateQueries({ queryKey: ["invoices"] });
+      toast.success("Invoice reverted to draft");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Failed to revert invoice to draft"));
+    },
+  });
+}
+
 export function useVoidInvoice() {
   const qc = useQueryClient();
   return useMutation({
