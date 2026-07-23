@@ -193,7 +193,13 @@ function render(kind, doc, settings) {
       };
       workBlock("Work Order Description", workOrderDescription);
       workBlock("Work Summary", workSummary);
-      if (ty === workBlockY) ty += 8; // neither block rendered - keep spacing sane
+      // User-entered notes/terms live in this same block (above the
+      // transaction date/document number), not after the totals -- keeps
+      // everything a reader needs before they commit to the line items in
+      // one place, matching the reference invoice layout.
+      workBlock("Notes", doc.notes);
+      workBlock("Terms", doc.terms);
+      if (ty === workBlockY) ty += 8; // nothing rendered - keep spacing sane
 
       // Short payment-terms line, right-aligned near the top of the work
       // order block (mirrors a compact "Terms: Net 30" summary line).
@@ -355,26 +361,6 @@ function render(kind, doc, settings) {
         ty += strong ? 18 : 15;
       });
       pdf.font("Helvetica");
-
-      // ── Notes & terms ──────────────────────────────────────────────────
-      ty += 14;
-      const block = (heading, body) => {
-        if (!body) return;
-        if (ty > 700) {
-          pdf.addPage();
-          ty = 50;
-        }
-        pdf
-          .fontSize(8)
-          .fillColor(FAINT)
-          .font("Helvetica-Bold")
-          .text(heading, LEFT, ty);
-        pdf.font("Helvetica").fontSize(9).fillColor("#374151");
-        pdf.text(body, LEFT, ty + 12, { width: 500 });
-        ty += 12 + pdf.heightOfString(body, { width: 500 }) + 12;
-      };
-      block("NOTES", doc.notes);
-      block("TERMS", doc.terms);
 
       pdf.end();
     } catch (err) {
