@@ -18,6 +18,7 @@ export function usePricebookCategories() {
 
 export function usePricebookItems(
   params: { categoryId?: string; search?: string; customerId?: string } = {},
+  options: { enabled?: boolean } = {},
 ) {
   return useQuery({
     queryKey: ["pricebook", "items", params],
@@ -28,6 +29,7 @@ export function usePricebookItems(
       );
       return res.data;
     },
+    enabled: options.enabled ?? true,
   });
 }
 

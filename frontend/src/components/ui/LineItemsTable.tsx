@@ -1,9 +1,16 @@
-import { useState } from "react";
-import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { Fragment, useEffect, useState } from "react";
+import { Combobox, Transition } from "@headlessui/react";
+import {
+  PlusIcon,
+  TrashIcon,
+  ChevronUpDownIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { formatCurrency } from "../../utils/formatters";
 import { useLookup } from "../../hooks/useMetadata";
 import { usePricebookItems } from "../../hooks/usePricebook";
+import type { PricebookItem } from "../../types";
 import Button from "./Button";
 import { NumberInput } from "./NumberInput";
 
@@ -513,6 +520,11 @@ export default function LineItemsTable({
 
 // Lets a user pick a catalog item instead of typing a line from scratch. When
 // `customerId` is given, prices reflect that customer's pricing tier.
+//
+// Searches the pricebook server-side (name/SKU/description) as you type,
+// rather than loading the entire catalog into one giant <select> -- with a
+// real catalog (hundreds or thousands of items) that dropdown becomes
+// unusable. Nothing is fetched until at least 2 characters are typed.
 function PricebookQuickAdd({
   customerId,
   onAdd,
@@ -520,54 +532,145 @@ function PricebookQuickAdd({
   customerId?: string;
   onAdd: (item: LineItem) => void;
 }) {
-  const { data: pricebookItems } = usePricebookItems({ customerId });
-  const [selectedId, setSelectedId] = useState("");
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [selected, setSelected] = useState<PricebookItem | null>(null);
 
-  if (!pricebookItems || pricebookItems.length === 0) return null;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+    }, 250);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [query]);
+
+  const searching = debouncedQuery.length >= 2;
+  const { data: pricebookItems, isFetching } = usePricebookItems(
+    { customerId, search: debouncedQuery },
+    { enabled: searching },
+  );
+  const results = searching ? (pricebookItems ?? []) : [];
 
   const handleAdd = () => {
-    const item = pricebookItems.find((i) => i.id === selectedId);
-    if (!item) return;
-    const price = item.effectivePrice ?? item.unitPrice;
+    if (!selected) return;
+    const price = selected.effectivePrice ?? selected.unitPrice;
     onAdd({
-      type: item.type,
-      name: item.name,
-      description: item.description,
+      type: selected.type,
+      name: selected.name,
+      description: selected.description,
       quantity: 1,
       unitPrice: price,
       total: price,
     });
-    setSelectedId("");
+    setSelected(null);
+    setQuery("");
+    setDebouncedQuery("");
   };
 
   return (
     <div className="mb-3 flex items-center gap-2">
-      <select
-        value={selectedId}
-        onChange={(e) => {
-          setSelectedId(e.target.value);
+      <Combobox
+        value={selected}
+        onChange={(item: PricebookItem | null) => {
+          setSelected(item);
         }}
-        className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white"
       >
-        <option value="">Add from pricebook…</option>
-        {pricebookItems.map((i) => {
-          const price = i.effectivePrice ?? i.unitPrice;
-          const discounted =
-            i.effectivePrice !== undefined && i.effectivePrice !== i.unitPrice;
-          return (
-            <option key={i.id} value={i.id}>
-              {i.name} — {formatCurrency(price)}
-              {discounted ? ` (catalog ${formatCurrency(i.unitPrice)})` : ""}
-            </option>
-          );
-        })}
-      </select>
+        <div className="relative flex-1">
+          <div className="relative">
+            <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Combobox.Input
+              className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-9 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+              placeholder="Search pricebook to add an item…"
+              displayValue={(item: PricebookItem | null) => item?.name ?? ""}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                if (selected) setSelected(null);
+              }}
+            />
+            <Combobox.Button className="absolute right-2 top-1/2 -translate-y-1/2">
+              <ChevronUpDownIcon className="h-4 w-4 text-gray-400" />
+            </Combobox.Button>
+          </div>
+          <Transition
+            as={Fragment}
+            leave="transition ease-in duration-100"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <Combobox.Options className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-lg focus:outline-none">
+              {query.length > 0 && !searching ? (
+                <div className="px-3.5 py-2 text-gray-400">
+                  Keep typing to search…
+                </div>
+              ) : searching && isFetching ? (
+                <div className="px-3.5 py-2 text-gray-400">Searching…</div>
+              ) : searching && results.length === 0 ? (
+                <div className="px-3.5 py-2 text-gray-400">
+                  No pricebook items match "{debouncedQuery}".
+                </div>
+              ) : !searching ? (
+                <div className="px-3.5 py-2 text-gray-400">
+                  Type at least 2 characters to search the pricebook…
+                </div>
+              ) : (
+                results.map((item) => {
+                  const price = item.effectivePrice ?? item.unitPrice;
+                  const discounted =
+                    item.effectivePrice !== undefined &&
+                    item.effectivePrice !== item.unitPrice;
+                  return (
+                    <Combobox.Option
+                      key={item.id}
+                      value={item}
+                      className={({ active }) =>
+                        clsx(
+                          "cursor-pointer select-none px-3.5 py-2",
+                          active
+                            ? "bg-primary-50 text-primary-900"
+                            : "text-gray-900",
+                        )
+                      }
+                    >
+                      {({ selected: isSelected }) => (
+                        <div className="flex items-center justify-between gap-3">
+                          <span
+                            className={clsx(
+                              "truncate",
+                              isSelected && "font-medium",
+                            )}
+                          >
+                            {item.name}
+                            {item.sku && (
+                              <span className="ml-1.5 text-xs text-gray-400">
+                                {item.sku}
+                              </span>
+                            )}
+                          </span>
+                          <span className="shrink-0 text-gray-500">
+                            {formatCurrency(price)}
+                            {discounted && (
+                              <span className="ml-1 text-xs text-gray-400">
+                                (catalog {formatCurrency(item.unitPrice)})
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    </Combobox.Option>
+                  );
+                })
+              )}
+            </Combobox.Options>
+          </Transition>
+        </div>
+      </Combobox>
       <Button
         type="button"
         variant="outline"
         size="sm"
         onClick={handleAdd}
-        disabled={!selectedId}
+        disabled={!selected}
       >
         Add
       </Button>
