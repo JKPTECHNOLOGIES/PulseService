@@ -75,8 +75,28 @@ interface SendResult {
 export function useSendEstimate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.post<SendResult>(`/estimates/${id}/send`),
-    onSuccess: (res, id) => {
+    // `recipients` lets the "Send To" picker choose specific addresses;
+    // omitting it falls back to the customer's primary email. `subject`/
+    // `message` are the editable email content from the preview dialog;
+    // omitting them falls back to the default template (the approval link
+    // is always included server-side regardless).
+    mutationFn: ({
+      id,
+      recipients,
+      subject,
+      message,
+    }: {
+      id: string;
+      recipients?: string[];
+      subject?: string;
+      message?: string;
+    }) =>
+      api.post<SendResult>(`/estimates/${id}/send`, {
+        recipients,
+        subject,
+        message,
+      }),
+    onSuccess: (res, { id }) => {
       void qc.invalidateQueries({ queryKey: ["estimate", id] });
       void qc.invalidateQueries({ queryKey: ["estimates"] });
       if (res.emailWarning) {

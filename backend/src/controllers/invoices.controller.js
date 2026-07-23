@@ -5,22 +5,13 @@ const {
   paginatedResponse,
   generateNumber,
   calculateTotals,
+  escapeHtml,
 } = require("../utils/helpers");
 const { generateInvoicePdf } = require("../services/pdf.service");
 const { sendMail } = require("../services/email.service");
 const quickbooksSync = require("../services/quickbooks/sync-queue.service");
 
 const money = (n) => "$" + Number(n || 0).toFixed(2);
-
-// Minimal HTML-escaping for plain text (e.g. a sender-typed email message)
-// before it's dropped into an HTML email body.
-const escapeHtml = (s) =>
-  String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 
 // Once a payment has been recorded, an update is still safe to allow if the
 // only thing changing is which existing lines are included/billed -- that's

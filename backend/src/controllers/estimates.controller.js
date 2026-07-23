@@ -5,6 +5,7 @@ const {
   paginatedResponse,
   generateNumber,
   calculateTotals,
+  escapeHtml,
 } = require("../utils/helpers");
 const { generateEstimatePdf } = require("../services/pdf.service");
 const { sendMail } = require("../services/email.service");
@@ -266,10 +267,20 @@ const send = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, error: "Estimate not found" });
-    if (!estimate.customer?.email) {
+
+    // Defaults to the customer's primary email; the quote screen's "Send To"
+    // picker can instead pass one or more specific addresses (e.g. a billing
+    // contact) when the customer has more than one on file.
+    const recipients = Array.isArray(req.body.recipients)
+      ? req.body.recipients.map((r) => String(r).trim()).filter(Boolean)
+      : estimate.customer?.email
+        ? [estimate.customer.email]
+        : [];
+
+    if (recipients.length === 0) {
       return res.status(400).json({
         success: false,
-        error: "Customer has no email address on file",
+        error: "No recipient email address selected",
       });
     }
 
@@ -278,21 +289,41 @@ const send = async (req, res) => {
     const pdf = await generateEstimatePdf(estimate, settings);
 
     // Public, token-gated link the customer can open to review and approve or
-    // reject the estimate online without logging in.
+    // reject the estimate online without logging in. Always included below
+    // regardless of a custom subject/message, since it's the one actionable
+    // link the customer needs -- not just decorative text to edit away.
     const baseUrl = process.env.FRONTEND_URL || "http://localhost:8080";
     const approvalUrl = `${baseUrl}/estimate/${estimate.id}?token=${publicToken(
       "estimate",
       estimate.id,
     )}`;
 
+    // The "Preview Email" dialog lets the sender write their own subject and
+    // message to accompany the attached PDF -- these override the default
+    // canned template when provided, rather than the PDF being the entire
+    // email as before.
+    const customSubject =
+      typeof req.body.subject === "string" ? req.body.subject.trim() : "";
+    const customMessage =
+      typeof req.body.message === "string" ? req.body.message.trim() : "";
+
+    const subject =
+      customSubject ||
+      `${companyName} \u2014 Estimate ${estimate.estimateNumber}`;
+    const body =
+      customMessage ||
+      `Hi ${estimate.customer.firstName},\n\nPlease find attached estimate ${estimate.estimateNumber} for ${money(estimate.total)}.\n\nThank you,\n${companyName}`;
+    const text = `${body}\n\nReview and approve it online: ${approvalUrl}`;
+    const html = `<p>${escapeHtml(body).replace(/\n/g, "<br/>")}</p><p><a href="${approvalUrl}">Review &amp; approve your estimate online</a></p>`;
+
     let emailPreviewUrl = null;
     let emailWarning = null;
     try {
       const result = await sendMail({
-        to: estimate.customer.email,
-        subject: `${companyName} \u2014 Estimate ${estimate.estimateNumber}`,
-        text: `Hi ${estimate.customer.firstName},\n\nPlease find attached estimate ${estimate.estimateNumber} for ${money(estimate.total)}.\n\nReview and approve it online: ${approvalUrl}\n\nThank you,\n${companyName}`,
-        html: `<p>Hi ${estimate.customer.firstName},</p><p>Please find attached estimate <strong>${estimate.estimateNumber}</strong> for <strong>${money(estimate.total)}</strong>.</p><p><a href="${approvalUrl}">Review &amp; approve your estimate online</a></p><p>Thank you,<br/>${companyName}</p>`,
+        to: recipients.join(", "),
+        subject,
+        text,
+        html,
         attachments: [
           {
             filename: `Estimate-${estimate.estimateNumber}.pdf`,

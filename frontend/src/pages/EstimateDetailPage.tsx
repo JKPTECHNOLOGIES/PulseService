@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ChevronRightIcon,
@@ -8,7 +9,6 @@ import {
 } from "@heroicons/react/24/outline";
 import {
   useEstimate,
-  useSendEstimate,
   useApproveEstimate,
   useConvertToInvoice,
 } from "../hooks/useEstimates";
@@ -17,6 +17,7 @@ import { StatusBadge } from "../components/ui/Badge";
 import LineItemsTable from "../components/ui/LineItemsTable";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
 import SignatureCard from "../components/ui/SignatureCard";
+import SendEstimateModal from "../components/ui/SendEstimateModal";
 import { PageSpinner } from "../components/ui/Spinner";
 import { downloadPdf } from "../lib/pdf";
 import { formatCurrency, formatDate } from "../utils/formatters";
@@ -24,8 +25,8 @@ import { formatCurrency, formatDate } from "../utils/formatters";
 export default function EstimateDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [sendModal, setSendModal] = useState(false);
   const { data: estimate, isLoading } = useEstimate(id ?? "");
-  const sendMutation = useSendEstimate();
   const approveMutation = useApproveEstimate();
   const convertMutation = useConvertToInvoice();
 
@@ -107,11 +108,10 @@ export default function EstimateDetailPage() {
                 size="sm"
                 icon={<PaperAirplaneIcon className="h-4 w-4" />}
                 onClick={() => {
-                  sendMutation.mutate(id ?? "");
+                  setSendModal(true);
                 }}
-                loading={sendMutation.isPending}
               >
-                Send
+                Preview/Send
               </Button>
             )}
             {(estimate.status === "sent" || estimate.status === "viewed") && (
@@ -263,6 +263,14 @@ export default function EstimateDetailPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <AttachmentGallery entityType="estimate" entityId={estimate.id} />
       </div>
+
+      <SendEstimateModal
+        isOpen={sendModal}
+        estimate={estimate}
+        onClose={() => {
+          setSendModal(false);
+        }}
+      />
     </div>
   );
 }

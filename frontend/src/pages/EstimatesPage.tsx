@@ -251,7 +251,7 @@ export default function EstimatesPage() {
                     <IconButton
                       label="Send quote"
                       onClick={() => {
-                        sendEstimate.mutate(est.id);
+                        sendEstimate.mutate({ id: est.id });
                       }}
                     >
                       <PaperAirplaneIcon className="h-4 w-4" />

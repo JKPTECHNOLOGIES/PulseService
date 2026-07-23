@@ -2,6 +2,17 @@ function generateNumber(prefix, num) {
   return `${prefix}-${String(num).padStart(4, "0")}`;
 }
 
+// Minimal HTML-escaping for plain text (e.g. a sender-typed email message)
+// before it's dropped into an HTML email body.
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function calculateTotals(lineItems, discountType, discountValue) {
   // Lines explicitly marked as not-included (see InvoiceLineItem.includeOnDocument)
   // stay attached to the document for record-keeping but don't count toward the
@@ -68,6 +79,7 @@ module.exports = {
   calculateTotals,
   csvToArray,
   nextEmployeeId,
+  escapeHtml,
   paginate,
   paginatedResponse,
 };
