@@ -252,7 +252,7 @@ export default function InvoiceDetailPage() {
                   setSendModal(true);
                 }}
               >
-                Send
+                Preview/Send
               </Button>
             )}
             {can("invoices.manage") &&
