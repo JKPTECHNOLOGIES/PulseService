@@ -12,6 +12,16 @@ const quickbooksSync = require("../services/quickbooks/sync-queue.service");
 
 const money = (n) => "$" + Number(n || 0).toFixed(2);
 
+// Minimal HTML-escaping for plain text (e.g. a sender-typed email message)
+// before it's dropped into an HTML email body.
+const escapeHtml = (s) =>
+  String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 // Once a payment has been recorded, an update is still safe to allow if the
 // only thing changing is which existing lines are included/billed -- that's
 // a reversible presentation flag, not a change to what was actually charged.
@@ -527,14 +537,33 @@ const send = async (req, res) => {
     const companyName = settings?.name || "Prime Comfort Solutions";
     const pdf = await generateInvoicePdf(invoice, settings);
 
+    // The "Preview Email" dialog lets the sender write their own subject and
+    // message to accompany the attached PDF -- these override the default
+    // canned template below when provided, rather than the PDF being the
+    // entire email as before.
+    const customSubject =
+      typeof req.body.subject === "string" ? req.body.subject.trim() : "";
+    const customMessage =
+      typeof req.body.message === "string" ? req.body.message.trim() : "";
+
+    const subject =
+      customSubject || `${companyName} \u2014 Invoice ${invoice.invoiceNumber}`;
+    const text =
+      customMessage ||
+      `Hi ${invoice.customer.firstName},\n\nPlease find attached invoice ${invoice.invoiceNumber} for ${money(invoice.total)}. Balance due: ${money(invoice.balance)}.\n\nThank you,\n${companyName}`;
+    // Escaped, then newlines turned into <br/> -- the message is plain text
+    // from a <textarea>, not HTML, so this keeps line breaks without letting
+    // any stray "<"/"&" the sender typed break the rendered email.
+    const html = `<p>${escapeHtml(text).replace(/\n/g, "<br/>")}</p>`;
+
     let emailPreviewUrl = null;
     let emailWarning = null;
     try {
       const result = await sendMail({
         to: recipients.join(", "),
-        subject: `${companyName} \u2014 Invoice ${invoice.invoiceNumber}`,
-        text: `Hi ${invoice.customer.firstName},\n\nPlease find attached invoice ${invoice.invoiceNumber} for ${money(invoice.total)}. Balance due: ${money(invoice.balance)}.\n\nThank you,\n${companyName}`,
-        html: `<p>Hi ${invoice.customer.firstName},</p><p>Please find attached invoice <strong>${invoice.invoiceNumber}</strong> for <strong>${money(invoice.total)}</strong>. Balance due: <strong>${money(invoice.balance)}</strong>.</p><p>Thank you,<br/>${companyName}</p>`,
+        subject,
+        text,
+        html,
         attachments: [
           {
             filename: `Invoice-${invoice.invoiceNumber}.pdf`,

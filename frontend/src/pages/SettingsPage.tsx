@@ -31,6 +31,10 @@ import { formatDateTime } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import { usePermissions } from "../hooks/usePermissions";
 import { resetAllPageHelpSeen } from "../hooks/usePageHelpSeen";
+import {
+  useCompanySettings,
+  useUpdateCompanySettings,
+} from "../hooks/useSettings";
 import { useAuthStore } from "../store/authStore";
 import QuickBooksTab from "../components/settings/QuickBooksTab";
 
@@ -64,30 +68,9 @@ interface BusinessUnitForm {
 }
 
 // ----- Data hooks -----
-function useCompanySettings() {
-  return useQuery({
-    queryKey: ["settings", "company"],
-    queryFn: async () => {
-      const res = await api.get<ApiResponse<CompanySettings>>("/settings");
-      return res.data;
-    },
-  });
-}
-
-function useUpdateCompanySettings() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: Partial<CompanySettings>) =>
-      api.put("/settings", payload),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["settings"] });
-      toast.success("Settings saved");
-    },
-    onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to save settings"));
-    },
-  });
-}
+// useCompanySettings/useUpdateCompanySettings live in ../hooks/useSettings
+// (shared with SendInvoiceModal, which needs the company phone number for
+// its default message).
 
 function useUsers() {
   return useQuery({

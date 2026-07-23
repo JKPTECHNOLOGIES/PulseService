@@ -99,9 +99,20 @@ export function useSendInvoice() {
   const qc = useQueryClient();
   return useMutation({
     // `recipients` lets the "Send To" picker choose specific addresses (e.g. a
-    // billing contact); omitting it falls back to the customer's primary email.
-    mutationFn: ({ id, recipients }: { id: string; recipients?: string[] }) =>
-      api.post<SendResult>(`/invoices/${id}/send`, { recipients }),
+    // billing contact); omitting it falls back to the customer's primary
+    // email. `subject`/`message` are the editable email content from the
+    // preview dialog; omitting them falls back to the default template.
+    mutationFn: ({
+      id,
+      recipients,
+      subject,
+      message,
+    }: {
+      id: string;
+      recipients?: string[];
+      subject?: string;
+      message?: string;
+    }) => api.post<SendResult>(`/invoices/${id}/send`, { recipients, subject, message }),
     onSuccess: (res, { id }) => {
       void qc.invalidateQueries({ queryKey: ["invoice", id] });
       void qc.invalidateQueries({ queryKey: ["invoices"] });
