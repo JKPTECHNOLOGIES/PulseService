@@ -16,6 +16,7 @@ import Button from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/Badge";
 import LineItemsTable from "../components/ui/LineItemsTable";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
+import Timeline from "../components/ui/Timeline";
 import SignatureCard from "../components/ui/SignatureCard";
 import SendEstimateModal from "../components/ui/SendEstimateModal";
 import { PageSpinner } from "../components/ui/Spinner";
@@ -260,8 +261,13 @@ export default function EstimateDetailPage() {
         <SignatureCard entityType="estimate" entityId={estimate.id} />
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <AttachmentGallery entityType="estimate" entityId={estimate.id} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2">
+          <Timeline customerId={estimate.customerId} />
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <AttachmentGallery entityType="estimate" entityId={estimate.id} />
+        </div>
       </div>
 
       <SendEstimateModal

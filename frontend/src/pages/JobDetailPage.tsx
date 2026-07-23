@@ -54,6 +54,7 @@ import ConfirmDialog from "../components/ui/ConfirmDialog";
 // Heavy (camera + decoder) -- only pulled in when a scan is actually started.
 const BarcodeScanner = lazy(() => import("../components/ui/BarcodeScanner"));
 import AttachmentGallery from "../components/ui/AttachmentGallery";
+import Timeline from "../components/ui/Timeline";
 import SignatureCard from "../components/ui/SignatureCard";
 import InstallSerialModal from "../components/ui/InstallSerialModal";
 import { Can } from "../components/ui/Can";
@@ -762,6 +763,12 @@ export default function JobDetailPage() {
             <AttachmentGallery entityType="job" entityId={job.id} />
           </div>
         </div>
+      </div>
+
+      {/* Timeline: merged, narrated activity feed spanning this customer's
+          work orders, invoices, and quotes, plus notes. */}
+      <div>
+        <Timeline customerId={job.customerId} />
       </div>
 
       {/* Update Status Modal */}

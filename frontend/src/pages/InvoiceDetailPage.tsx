@@ -27,6 +27,7 @@ import SendInvoiceModal from "../components/ui/SendInvoiceModal";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import LineItemsTable from "../components/ui/LineItemsTable";
 import AttachmentGallery from "../components/ui/AttachmentGallery";
+import Timeline from "../components/ui/Timeline";
 import { PageSpinner } from "../components/ui/Spinner";
 import { downloadPdf } from "../lib/pdf";
 import {
@@ -559,9 +560,15 @@ export default function InvoiceDetailPage() {
         )}
       </div>
 
-      {/* Photos & Attachments */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <AttachmentGallery entityType="invoice" entityId={invoice.id} />
+      {/* Timeline: merged, narrated activity feed spanning this customer's
+          work orders, invoices, and quotes, plus notes. */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2">
+          <Timeline customerId={invoice.customerId} />
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <AttachmentGallery entityType="invoice" entityId={invoice.id} />
+        </div>
       </div>
 
       {/* Record Payment Modal */}
