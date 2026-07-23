@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { PencilIcon, PlusIcon } from "@heroicons/react/24/outline";
 import Modal from "./Modal";
 import Button from "./Button";
+import IconButton from "./IconButton";
 import Spinner from "./Spinner";
 import api from "../../lib/api";
 import { useCustomer } from "../../hooks/useCustomers";
@@ -19,13 +21,21 @@ interface Recipient {
   label: string;
 }
 
+/** A row in the "Edit Email Recipients" dialog - either one of the
+ * customer's known contacts, or a freeform address the sender typed in. */
+interface RecipientRow {
+  email: string;
+  label: string;
+  selected: boolean;
+}
+
 /**
  * "Print / Email Invoice" dialog: a live PDF preview (the same document the
- * customer would receive) next to a "Send To" picker. A customer often has
+ * customer would receive) next to a "Send To" field. A customer often has
  * more than one contact on file (e.g. an accounts-payable inbox plus a
- * couple of individual contacts) - this lets the sender see exactly what's
- * being sent and choose exactly who gets it, instead of blindly emailing
- * only the customer's primary address.
+ * couple of individual contacts), and the sender may also want to loop in
+ * someone not on file at all - the "Edit Email Recipients" sub-dialog
+ * handles both: check/uncheck known contacts, or add a brand new address.
  */
 export default function SendInvoiceModal({ isOpen, invoice, onClose }: Props) {
   const sendMutation = useSendInvoice();
@@ -39,9 +49,12 @@ export default function SendInvoiceModal({ isOpen, invoice, onClose }: Props) {
     invoice.customer?.companyName ??
     `${invoice.customer?.firstName ?? ""} ${invoice.customer?.lastName ?? ""}`.trim();
 
-  const recipients: Recipient[] = [];
+  const knownRecipients: Recipient[] = [];
   if (primaryEmail) {
-    recipients.push({ email: primaryEmail, label: primaryName || "Primary" });
+    knownRecipients.push({
+      email: primaryEmail,
+      label: primaryName || "Primary",
+    });
   }
   for (const contact of customer?.contacts ?? []) {
     if (!contact.email) continue;
@@ -51,18 +64,19 @@ export default function SendInvoiceModal({ isOpen, invoice, onClose }: Props) {
         ? `${contact.role} \u2013 ${name}`
         : contact.role
       : name || "Contact";
-    recipients.push({ email: contact.email, label });
+    knownRecipients.push({ email: contact.email, label });
   }
   // A contact's email might duplicate the customer's own - keep one entry.
   const seen = new Set<string>();
-  const uniqueRecipients = recipients.filter((r) => {
+  const uniqueKnownRecipients = knownRecipients.filter((r) => {
     const key = r.email.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [recipientRows, setRecipientRows] = useState<RecipientRow[]>([]);
+  const [editRecipientsOpen, setEditRecipientsOpen] = useState(false);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
 
@@ -75,7 +89,12 @@ export default function SendInvoiceModal({ isOpen, invoice, onClose }: Props) {
   const [wasOpen, setWasOpen] = useState(false);
   if (isOpen && !wasOpen) {
     setWasOpen(true);
-    setSelected(new Set(primaryEmail ? [primaryEmail] : []));
+    setRecipientRows(
+      uniqueKnownRecipients.map((r) => ({
+        ...r,
+        selected: r.email.toLowerCase() === primaryEmail?.toLowerCase(),
+      })),
+    );
     setSubject(defaultSubject);
     setMessage(defaultMessage);
   }
@@ -116,20 +135,15 @@ export default function SendInvoiceModal({ isOpen, invoice, onClose }: Props) {
 
   if (!isOpen) return null;
 
-  const toggle = (email: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(email)) next.delete(email);
-      else next.add(email);
-      return next;
-    });
-  };
+  const selectedEmails = recipientRows
+    .filter((r) => r.selected && r.email.trim())
+    .map((r) => r.email.trim());
 
   const submit = () => {
     void sendMutation
       .mutateAsync({
         id: invoice.id,
-        recipients: [...selected],
+        recipients: selectedEmails,
         subject,
         message,
       })
@@ -164,39 +178,38 @@ export default function SendInvoiceModal({ isOpen, invoice, onClose }: Props) {
             ) : null}
           </div>
 
-          {/* Send To picker */}
+          {/* To field - shows who's currently selected; editing recipients
+              (checking/unchecking known contacts, or adding a new address)
+              happens in the "Edit Email Recipients" sub-dialog. */}
           <div className="w-full sm:w-72 shrink-0 flex flex-col">
-            <p className="text-sm font-medium text-gray-700 mb-2">Send To</p>
-            {uniqueRecipients.length === 0 ? (
-              <p className="text-sm text-gray-400">
-                This customer has no email address on file.
-              </p>
-            ) : (
-              <div className="flex-1 max-h-64 sm:max-h-none overflow-y-auto rounded-lg border border-gray-100 divide-y divide-gray-50">
-                {uniqueRecipients.map((r) => (
-                  <label
-                    key={r.email}
-                    className="flex items-start gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected.has(r.email)}
-                      onChange={() => {
-                        toggle(r.email);
-                      }}
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    />
-                    <span className="min-w-0">
-                      <span className="block text-sm text-gray-900 truncate">
-                        {r.email}
-                      </span>
-                      <span className="block text-xs text-gray-500">
-                        {r.label}
-                      </span>
-                    </span>
-                  </label>
-                ))}
+            <p className="text-sm font-medium text-gray-700 mb-1.5">To</p>
+            <div className="flex items-start gap-2">
+              <div
+                className="flex-1 min-h-[42px] px-3.5 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-700"
+                title={selectedEmails.join(", ") || undefined}
+              >
+                {selectedEmails.length > 0 ? (
+                  <span className="line-clamp-3 break-words">
+                    {selectedEmails.join(", ")}
+                  </span>
+                ) : (
+                  <span className="text-gray-400">No recipients selected</span>
+                )}
               </div>
+              <IconButton
+                label="Edit email recipients"
+                onClick={() => {
+                  setEditRecipientsOpen(true);
+                }}
+                className="border border-gray-200 text-primary-600 hover:text-primary-700 hover:bg-primary-50 shrink-0"
+              >
+                <PencilIcon className="h-4 w-4" />
+              </IconButton>
+            </div>
+            {uniqueKnownRecipients.length === 0 && (
+              <p className="text-xs text-gray-400 mt-1.5">
+                This customer has no email address on file - add one to send.
+              </p>
             )}
           </div>
         </div>
@@ -244,11 +257,145 @@ export default function SendInvoiceModal({ isOpen, invoice, onClose }: Props) {
           </Button>
           <Button
             loading={sendMutation.isPending}
-            disabled={selected.size === 0}
+            disabled={selectedEmails.length === 0}
             onClick={submit}
           >
             Send Email
           </Button>
+        </div>
+      </div>
+
+      <EditRecipientsModal
+        isOpen={editRecipientsOpen}
+        initialRows={recipientRows}
+        onCancel={() => {
+          setEditRecipientsOpen(false);
+        }}
+        onSave={(rows) => {
+          setRecipientRows(rows);
+          setEditRecipientsOpen(false);
+        }}
+      />
+    </Modal>
+  );
+}
+
+function EditRecipientsModal({
+  isOpen,
+  initialRows,
+  onCancel,
+  onSave,
+}: {
+  isOpen: boolean;
+  initialRows: RecipientRow[];
+  onCancel: () => void;
+  onSave: (rows: RecipientRow[]) => void;
+}) {
+  const [rows, setRows] = useState<RecipientRow[]>([]);
+
+  // Take a fresh working copy of the current selection every time this
+  // dialog opens, so Cancel never leaks edits back to the parent.
+  const [wasOpen, setWasOpen] = useState(false);
+  if (isOpen && !wasOpen) {
+    setWasOpen(true);
+    setRows(initialRows);
+  }
+  if (!isOpen && wasOpen) setWasOpen(false);
+
+  if (!isOpen) return null;
+
+  const updateRow = (index: number, patch: Partial<RecipientRow>) => {
+    setRows((prev) =>
+      prev.map((r, i) => (i === index ? { ...r, ...patch } : r)),
+    );
+  };
+
+  const addRow = () => {
+    setRows((prev) => [...prev, { email: "", label: "", selected: true }]);
+  };
+
+  const save = () => {
+    // Drop blank ad-hoc rows the sender added but never filled in, and
+    // de-dupe by address (keeping the most recently edited label/selection).
+    const byEmail = new Map<string, RecipientRow>();
+    for (const r of rows) {
+      const email = r.email.trim();
+      if (!email) continue;
+      byEmail.set(email.toLowerCase(), { ...r, email });
+    }
+    onSave([...byEmail.values()]);
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onCancel}
+      title="Edit Email Recipients"
+      size="lg"
+      nested
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-gray-500">
+          Add and select contacts to receive this document. All items with an{" "}
+          <span className="text-red-500">*</span> are mandatory fields.
+        </p>
+
+        <div className="grid grid-cols-[auto_1fr_1fr] gap-x-3 gap-y-2 items-center">
+          <span />
+          <label className="text-sm font-medium text-gray-700">
+            Email Address <span className="text-red-500">*</span>
+          </label>
+          <label className="text-sm font-medium text-gray-700">
+            Email Label
+          </label>
+
+          {rows.map((row, i) => (
+            <div key={i} className="contents">
+              <input
+                type="checkbox"
+                checked={row.selected}
+                onChange={(e) => {
+                  updateRow(i, { selected: e.target.checked });
+                }}
+                className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                aria-label={`Include ${row.email || "this address"}`}
+              />
+              <input
+                type="email"
+                value={row.email}
+                placeholder="Type Here"
+                onChange={(e) => {
+                  updateRow(i, { email: e.target.value });
+                }}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <input
+                type="text"
+                value={row.label}
+                placeholder="Type Here"
+                onChange={(e) => {
+                  updateRow(i, { label: e.target.value });
+                }}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={addRow}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700"
+        >
+          <PlusIcon className="h-4 w-4" />
+          Add Email
+        </button>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button onClick={save}>Save</Button>
         </div>
       </div>
     </Modal>

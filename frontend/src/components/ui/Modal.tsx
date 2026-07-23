@@ -8,6 +8,10 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   size?: "sm" | "md" | "lg" | "xl" | "2xl";
+  /** Raise above another already-open Modal (e.g. a dialog opened from
+   * inside another dialog, like "Edit Email Recipients" on top of the
+   * invoice send dialog). Defaults to the standard z-50. */
+  nested?: boolean;
 }
 
 const sizeClasses: Record<string, string> = {
@@ -26,10 +30,15 @@ export default function Modal({
   title,
   children,
   size = "md",
+  nested = false,
 }: ModalProps) {
   return (
     <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
+      <Dialog
+        as="div"
+        className={nested ? "relative z-[60]" : "relative z-50"}
+        onClose={onClose}
+      >
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-200"
