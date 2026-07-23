@@ -497,7 +497,7 @@ const techniciansHelp: PageHelpContent = {
 
 const pricebookHelp: PageHelpContent = {
   key: "pricebook",
-  title: "Pricebook",
+  title: "Items",
   summary:
     "Manage the catalog of services and parts you charge customers for, organized into categories.",
   sections: [
@@ -506,7 +506,7 @@ const pricebookHelp: PageHelpContent = {
       items: [
         "Categories on the left let you group items like Labor, Parts, or Equipment; click All Items to see everything at once.",
         "Click the + next to Categories to add a new category.",
-        "Click Add Item to create a new pricebook item with a SKU, name, cost, price, and unit.",
+        "Click Add Item to create a new item with a SKU, name, cost, price, and unit.",
         "Click any item row to edit its details, including whether it's taxable or still active.",
         "Use Import to bulk-upload items from a spreadsheet instead of adding them one at a time.",
       ],

@@ -66,7 +66,7 @@ export default function PricebookPage() {
     if (match) openEditItem(match);
     else
       toast.error(
-        `No pricebook item with SKU \u201C${code}\u201D in this category. Try "All" or check the SKU.`,
+        `No item with SKU \u201C${code}\u201D in this category. Try "All" or check the SKU.`,
       );
   };
 
@@ -352,7 +352,7 @@ export default function PricebookPage() {
         onClose={() => {
           setImportOpen(false);
         }}
-        title="Import Pricebook Items"
+        title="Import Items"
         endpoint="/pricebook/items/import"
         invalidateKey={["pricebook"]}
         templateColumns={[

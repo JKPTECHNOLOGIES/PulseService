@@ -13,7 +13,6 @@ import {
   CreditCardIcon,
   WrenchScrewdriverIcon,
   BookOpenIcon,
-  ArchiveBoxIcon,
   TruckIcon,
   ShoppingCartIcon,
   QrCodeIcon,
@@ -105,7 +104,7 @@ const navItems = [
   },
   {
     to: "/pricebook",
-    label: "Pricebook",
+    label: "Items",
     icon: BookOpenIcon,
     perm: ["pricebook.manage"],
   },
@@ -115,12 +114,15 @@ const navItems = [
     icon: TagIcon,
     roles: ["admin"],
   },
-  {
-    to: "/inventory",
-    label: "Inventory",
-    icon: ArchiveBoxIcon,
-    perm: INVENTORY_FIELD,
-  },
+  // Hidden for now - not in use yet. The route/page still exist; this just
+  // keeps it out of the nav. To bring it back: re-add the item below and
+  // re-import ArchiveBoxIcon from @heroicons/react/24/outline above.
+  // {
+  //   to: "/inventory",
+  //   label: "Inventory",
+  //   icon: ArchiveBoxIcon,
+  //   perm: INVENTORY_FIELD,
+  // },
   {
     to: "/purchasing",
     label: "Purchase Orders",

@@ -581,7 +581,7 @@ function PricebookQuickAdd({
             <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Combobox.Input
               className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-9 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-              placeholder="Search pricebook to add an item…"
+              placeholder="Search items to add…"
               displayValue={(item: PricebookItem | null) => item?.name ?? ""}
               onChange={(event) => {
                 setQuery(event.target.value);
