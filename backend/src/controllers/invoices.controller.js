@@ -72,12 +72,30 @@ async function enqueueQuickBooksPaymentSync(paymentId) {
 
 const list = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, customerId, search } = req.query;
+    const { page = 1, limit = 20, status, customerId, search, letter } =
+      req.query;
     const { skip, take } = paginate(page, limit);
 
     const where = {};
     if (status) where.status = status;
     if (customerId) where.customerId = customerId;
+    // Powers the A-Z index on the invoice list. The "Customer" column shows
+    // the company name when one is on file, else first name -- so the filter
+    // has to match whichever of those is actually displayed/sorted on, not
+    // always firstName (unlike the plain customer list).
+    if (letter) {
+      where.customer = {
+        OR: [
+          { companyName: { startsWith: letter, mode: "insensitive" } },
+          {
+            AND: [
+              { OR: [{ companyName: null }, { companyName: "" }] },
+              { firstName: { startsWith: letter, mode: "insensitive" } },
+            ],
+          },
+        ],
+      };
+    }
     if (search) {
       where.OR = [
         { invoiceNumber: { contains: search, mode: "insensitive" } },
@@ -108,7 +126,13 @@ const list = async (req, res) => {
             },
           },
           job: {
-            select: { id: true, jobNumber: true, summary: true, status: true },
+            select: {
+              id: true,
+              jobNumber: true,
+              summary: true,
+              description: true,
+              status: true,
+            },
           },
         },
         orderBy: { createdAt: "desc" },

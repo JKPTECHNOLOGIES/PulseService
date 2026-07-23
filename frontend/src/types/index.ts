@@ -242,6 +242,7 @@ export interface Invoice {
     id: string;
     jobNumber: string;
     summary?: string;
+    description?: string;
     status?: string;
     purchaseOrders?: {
       id: string;

@@ -1,11 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  PlusIcon,
-  PaperAirplaneIcon,
-  InformationCircleIcon,
-} from "@heroicons/react/24/outline";
-import { Popover } from "@headlessui/react";
+import { PlusIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { useInvoices, useInvoiceStats } from "../hooks/useInvoices";
 import Button from "../components/ui/Button";
@@ -18,12 +13,7 @@ import DataTable, { Column, SortState } from "../components/ui/DataTable";
 import SavedViewsMenu from "../components/ui/SavedViewsMenu";
 import SendInvoiceModal from "../components/ui/SendInvoiceModal";
 import { TableSkeleton } from "../components/ui/Skeleton";
-import {
-  formatCurrency,
-  formatDate,
-  statusDotColor,
-  getInvoiceStatusColor,
-} from "../utils/formatters";
+import { formatCurrency, formatDate } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
 import type { Invoice } from "../types";
 
@@ -31,7 +21,10 @@ interface InvoicesView {
   search: string;
   status: string;
   sort: SortState | null;
+  letter: string | null;
 }
+
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 function customerName(inv: Invoice): string {
   if (!inv.customer) return "";
@@ -46,6 +39,7 @@ export default function InvoicesPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState<SortState | null>(null);
+  const [letter, setLetter] = useState<string | null>(null);
   const [sendInvoiceId, setSendInvoiceId] = useState<string | null>(null);
   const { options: statusOptions } = useLookup("invoiceStatus");
 
@@ -54,6 +48,7 @@ export default function InvoicesPage() {
     limit: 20,
     search: search || undefined,
     status: status !== "all" ? status : undefined,
+    letter: letter ?? undefined,
   });
   const { data: stats } = useInvoiceStats();
 
@@ -65,8 +60,7 @@ export default function InvoicesPage() {
   // Category tabs mirror the office's mental model: All + one per status, with
   // live counts. "overdue" is shown as "Past Due" to match familiar wording.
   // "viewed" and "void" are hidden here to keep the bar short -- they're rare
-  // in practice and still reachable via All + the status color/legend; the
-  // color dot still shows on any invoice actually in one of those states.
+  // in practice and still reachable via All + the "Invoice Pay Status" column.
   const HIDDEN_STATUS_TABS = new Set(["viewed", "void"]);
   const tabs = [
     { value: "all", label: "All", count: stats?.total },
@@ -83,41 +77,23 @@ export default function InvoicesPage() {
     setSearch(view.search);
     setStatus(view.status);
     setSort(view.sort);
+    setLetter(view.letter);
     setPage(1);
   };
 
-  // Solid dot color for an invoice's pay status, replacing the old dedicated
-  // "Pay Status" column (see legend rendered above the table).
-  const statusDot = (invoiceStatus: string) => {
-    const opt = statusOptions.find((o) => o.value === invoiceStatus);
-    return statusDotColor(opt?.color ?? getInvoiceStatusColor(invoiceStatus));
+  // A-Z index: filters to invoices whose customer's displayed name (company
+  // name if on file, else first name -- matches the Customer column) starts
+  // with the selected letter. Clicking the same letter again clears it.
+  const selectLetter = (l: string) => {
+    setLetter((current) => (current === l ? null : l));
+    setSearch("");
+    setPage(1);
   };
 
+  // Column order mirrors the office's reference layout left to right:
+  // Customer, WO #, Invoice #, Date, Due Date, Total, Balance, Invoice Pay
+  // Status, WO Description, Summary.
   const columns: Column<Invoice>[] = [
-    {
-      key: "invoice",
-      header: "Invoice #",
-      thClassName: "w-[8%]",
-      sortValue: (inv) => inv.invoiceNumber,
-      exportValue: (inv) => inv.invoiceNumber,
-      render: (inv) => (
-        <span className="inline-flex items-center gap-2">
-          <span
-            className={clsx(
-              "h-2.5 w-2.5 rounded-full shrink-0",
-              statusDot(inv.status),
-            )}
-            title={
-              statusOptions.find((o) => o.value === inv.status)?.label ??
-              inv.status
-            }
-          />
-          <span className="font-medium text-primary-600">
-            #{inv.invoiceNumber}
-          </span>
-        </span>
-      ),
-    },
     {
       key: "customer",
       header: "Customer",
@@ -134,32 +110,31 @@ export default function InvoicesPage() {
       ),
     },
     {
-      key: "workOrder",
-      header: "Work Order",
-      thClassName: "w-[40%]",
+      key: "workOrderNumber",
+      header: "WO #",
+      thClassName: "w-[7%]",
       sortValue: (inv) => inv.job?.jobNumber ?? "",
-      exportValue: (inv) =>
-        inv.job ? `#${inv.job.jobNumber} ${inv.job.summary ?? ""}`.trim() : "",
+      exportValue: (inv) => (inv.job ? `#${inv.job.jobNumber}` : ""),
       render: (inv) =>
         inv.job ? (
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-700">
-                #{inv.job.jobNumber}
-              </span>
-              {inv.job.status && (
-                <StatusBadge status={inv.job.status} type="job" />
-              )}
-            </div>
-            {inv.job.summary && (
-              <p className="text-sm text-gray-500 line-clamp-2 mt-0.5">
-                {inv.job.summary}
-              </p>
-            )}
-          </div>
+          <span className="font-medium text-gray-700 whitespace-nowrap">
+            #{inv.job.jobNumber}
+          </span>
         ) : (
           <span className="text-gray-300">-</span>
         ),
+    },
+    {
+      key: "invoice",
+      header: "Invoice #",
+      thClassName: "w-[8%]",
+      sortValue: (inv) => inv.invoiceNumber,
+      exportValue: (inv) => inv.invoiceNumber,
+      render: (inv) => (
+        <span className="font-medium text-primary-600 whitespace-nowrap">
+          #{inv.invoiceNumber}
+        </span>
+      ),
     },
     {
       key: "date",
@@ -189,7 +164,7 @@ export default function InvoicesPage() {
       key: "total",
       header: "Total",
       align: "right",
-      thClassName: "w-[11%]",
+      thClassName: "w-[9%]",
       sortValue: (inv) => inv.total,
       exportValue: (inv) => inv.total,
       render: (inv) => (
@@ -202,7 +177,7 @@ export default function InvoicesPage() {
       key: "balance",
       header: "Balance",
       align: "right",
-      thClassName: "w-[11%]",
+      thClassName: "w-[9%]",
       sortValue: (inv) => inv.balance,
       exportValue: (inv) => inv.balance,
       render: (inv) => (
@@ -217,14 +192,46 @@ export default function InvoicesPage() {
       ),
     },
     {
-      // Visually replaced by the color-coded dot on the Invoice # column plus
-      // the legend above the table, but kept in CSV exports since color
-      // doesn't survive into a spreadsheet.
       key: "status",
-      header: "Pay Status",
-      exportOnly: true,
+      header: "Invoice Pay Status",
+      thClassName: "w-[10%]",
+      sortValue: (inv) =>
+        statusOptions.find((o) => o.value === inv.status)?.label ?? inv.status,
       exportValue: (inv) => inv.status,
-      render: () => null,
+      render: (inv) => <StatusBadge status={inv.status} type="invoice" />,
+    },
+    {
+      key: "woDescription",
+      header: "WO Description",
+      thClassName: "w-[18%]",
+      exportValue: (inv) => inv.job?.description ?? inv.job?.summary ?? "",
+      render: (inv) => {
+        const text = inv.job?.description ?? inv.job?.summary;
+        return text ? (
+          <p className="text-sm text-gray-600 line-clamp-2" title={text}>
+            {text}
+          </p>
+        ) : (
+          <span className="text-gray-300">-</span>
+        );
+      },
+    },
+    {
+      key: "summary",
+      header: "Summary",
+      thClassName: "w-[18%]",
+      exportValue: (inv) => inv.job?.summary ?? "",
+      render: (inv) =>
+        inv.job?.summary ? (
+          <p
+            className="text-sm text-gray-600 line-clamp-2"
+            title={inv.job.summary}
+          >
+            {inv.job.summary}
+          </p>
+        ) : (
+          <span className="text-gray-300">-</span>
+        ),
     },
   ];
 
@@ -258,16 +265,13 @@ export default function InvoicesPage() {
         <div className="sm:ml-auto">
           <SavedViewsMenu<InvoicesView>
             tableId="invoices"
-            currentState={{ search, status, sort }}
+            currentState={{ search, status, sort, letter }}
             onApply={applyView}
           />
         </div>
       </div>
 
-      {/* Category tabs + status color legend (replaces the old dedicated
-          "Pay Status" column — each invoice's row is color-coded via the dot
-          next to its number instead; this popover explains what each color
-          means without permanently occupying page space). */}
+      {/* Category tabs */}
       <div className="flex items-end justify-between gap-3 border-b border-gray-200">
         <div className="overflow-x-auto">
           <div className="flex min-w-max">
@@ -302,37 +306,42 @@ export default function InvoicesPage() {
             ))}
           </div>
         </div>
-
-        <Popover className="relative mb-1.5 shrink-0">
-          <Popover.Button className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700">
-            <InformationCircleIcon className="h-4 w-4" />
-            Status colors
-          </Popover.Button>
-          <Popover.Panel className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-gray-100 bg-white py-2 shadow-lg">
-            {statusOptions.map((o) => (
-              <div
-                key={o.value}
-                className="flex items-center gap-2 px-3 py-1 text-sm text-gray-600"
-              >
-                <span
-                  className={clsx(
-                    "h-2.5 w-2.5 rounded-full shrink-0",
-                    statusDotColor(o.color ?? ""),
-                  )}
-                />
-                {o.value === "overdue" ? "Past Due" : o.label}
-              </div>
-            ))}
-          </Popover.Panel>
-        </Popover>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex">
+        {/* A-Z index: filters to invoices whose customer's displayed name
+            (company name if on file, else first name) starts with the
+            selected letter. Hidden on small screens where there isn't room. */}
+        <div className="hidden sm:flex flex-col items-center gap-0.5 py-4 px-1.5 border-r border-gray-100 shrink-0">
+          {ALPHABET.map((l) => (
+            <button
+              key={l}
+              onClick={() => {
+                selectLetter(l);
+              }}
+              title={`Show invoices for customers starting with "${l}"`}
+              className={clsx(
+                "w-6 h-6 rounded text-[11px] font-semibold leading-6 transition-colors",
+                letter === l
+                  ? "bg-primary-600 text-white"
+                  : "text-gray-400 hover:bg-primary-50 hover:text-primary-600",
+              )}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 min-w-0">
         {isLoading ? (
           <TableSkeleton rows={8} />
         ) : invoices.length === 0 ? (
           <EmptyState
             title="No invoices found"
+            description={
+              letter
+                ? `No invoices for customers starting with "${letter}"`
+                : undefined
+            }
             action={{
               label: "New Invoice",
               onClick: () => {
@@ -437,6 +446,7 @@ export default function InvoicesPage() {
             )}
           </>
         )}
+        </div>
       </div>
 
       {invoiceToSend && (
