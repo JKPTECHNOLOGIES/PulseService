@@ -1,4 +1,26 @@
 require("dotenv").config();
+
+// This container's network advertises IPv6 addresses for external hosts
+// (e.g. login.microsoftonline.com, graph.microsoft.com) via DNS, but has no
+// actual IPv6 route -- outbound requests (Microsoft Graph mail in
+// particular) were failing with ENETUNREACH because they only ever tried
+// the AAAA (IPv6) addresses and never fell back to IPv4.
+// `dns.setDefaultResultOrder("ipv4first")` does NOT fix this -- undici
+// (which `fetch` uses) doesn't consult it. Force every `dns.lookup` call to
+// resolve IPv4-only instead, which is what `fetch`/undici actually use
+// under the hood. Verified: without this, `fetch()` to
+// login.microsoftonline.com fails every time in this environment; with it,
+// it succeeds.
+const dns = require("dns");
+const originalDnsLookup = dns.lookup;
+dns.lookup = (hostname, options, callback) => {
+  if (typeof options === "function") {
+    callback = options;
+    options = {};
+  }
+  return originalDnsLookup(hostname, { ...options, family: 4 }, callback);
+};
+
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
