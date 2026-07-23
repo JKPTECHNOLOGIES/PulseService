@@ -70,11 +70,62 @@ async function enqueueQuickBooksPaymentSync(paymentId) {
   }
 }
 
+// Columns with a real matching DB column/relation field -- these stay a
+// normal, efficient paginated query with a Prisma `orderBy`. "customer" is
+// handled separately below since the visible name is either the company
+// name or the first name, and Prisma can't express that coalescing in a
+// single `orderBy`.
+const INVOICE_ORDER_BY = {
+  invoice: (dir) => ({ invoiceNumber: dir }),
+  workOrderNumber: (dir) => ({ job: { jobNumber: dir } }),
+  date: (dir) => ({ createdAt: dir }),
+  dueDate: (dir) => ({ dueDate: dir }),
+  total: (dir) => ({ total: dir }),
+  balance: (dir) => ({ balance: dir }),
+  status: (dir) => ({ status: dir }),
+};
+
+const INVOICE_INCLUDE = {
+  customer: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      companyName: true,
+    },
+  },
+  job: {
+    select: {
+      id: true,
+      jobNumber: true,
+      summary: true,
+      description: true,
+      status: true,
+    },
+  },
+};
+
+function invoiceCustomerName(inv) {
+  const c = inv.customer;
+  if (!c) return "";
+  if (c.companyName && c.companyName.trim()) return c.companyName;
+  return `${c.firstName || ""} ${c.lastName || ""}`.trim();
+}
+
 const list = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, customerId, search, letter } =
-      req.query;
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      customerId,
+      search,
+      letter,
+      sortKey,
+      sortDir,
+    } = req.query;
     const { skip, take } = paginate(page, limit);
+    const dir = sortDir === "asc" ? "asc" : "desc";
 
     const where = {};
     if (status) where.status = status;
@@ -111,31 +162,51 @@ const list = async (req, res) => {
       ];
     }
 
+    // Sorting by customer has to look at every matching row (not just the
+    // current page) since the effective name isn't a single DB column --
+    // fetch the whole filtered set, sort/paginate in memory, and derive the
+    // grand totals from the same array instead of a separate query.
+    if (sortKey === "customer") {
+      const all = await prisma.invoice.findMany({
+        where,
+        include: INVOICE_INCLUDE,
+      });
+
+      const factor = dir === "asc" ? 1 : -1;
+      all.sort(
+        (a, b) =>
+          invoiceCustomerName(a)
+            .toLowerCase()
+            .localeCompare(invoiceCustomerName(b).toLowerCase()) * factor,
+      );
+
+      const total = all.length;
+      const pageRows = all.slice(skip, skip + take);
+      const summary = all.reduce(
+        (acc, inv) => {
+          acc.total += inv.total;
+          acc.balance += inv.balance;
+          return acc;
+        },
+        { total: 0, balance: 0 },
+      );
+
+      return res.json({
+        success: true,
+        ...paginatedResponse(pageRows, total, page, limit),
+        summary,
+      });
+    }
+
+    const orderBy = INVOICE_ORDER_BY[sortKey]?.(dir) ?? { createdAt: "desc" };
+
     const [invoices, total, agg] = await Promise.all([
       prisma.invoice.findMany({
         where,
         skip,
         take,
-        include: {
-          customer: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              companyName: true,
-            },
-          },
-          job: {
-            select: {
-              id: true,
-              jobNumber: true,
-              summary: true,
-              description: true,
-              status: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
+        include: INVOICE_INCLUDE,
+        orderBy,
       }),
       prisma.invoice.count({ where }),
       // Grand totals across the whole filtered set (not just this page), for

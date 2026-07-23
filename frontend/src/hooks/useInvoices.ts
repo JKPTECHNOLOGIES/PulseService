@@ -11,6 +11,8 @@ interface InvoicesParams {
   status?: string;
   customerId?: string;
   letter?: string;
+  sortKey?: string;
+  sortDir?: string;
 }
 
 // The list response also carries grand totals for the whole filtered set (all
