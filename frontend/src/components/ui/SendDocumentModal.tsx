@@ -42,6 +42,14 @@ export interface SendDocumentModalProps {
     subject: string;
     message: string;
   }) => void;
+  /** Extra content rendered between the To/preview row and the Subject
+   * field (e.g. the invoice-only Terms toggle). */
+  beforeSubject?: React.ReactNode;
+  /** Included in the PDF-fetch effect's dependency list so a caller can
+   * force the preview to re-fetch after editing the underlying document
+   * (e.g. changing the invoice's due date) without changing `pdfPath`
+   * itself. */
+  pdfRefreshKey?: string | number;
 }
 
 /**
@@ -71,6 +79,8 @@ export default function SendDocumentModal({
   defaultMessage,
   sending,
   onSend,
+  beforeSubject,
+  pdfRefreshKey,
 }: SendDocumentModalProps) {
   // The parent document's own `customer` include often doesn't carry
   // contacts, so fetch the full customer record (which does) here.
@@ -160,7 +170,7 @@ export default function SendDocumentModal({
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [isOpen, pdfPath]);
+  }, [isOpen, pdfPath, pdfRefreshKey]);
 
   if (!isOpen) return null;
 
@@ -228,6 +238,8 @@ export default function SendDocumentModal({
             )}
           </div>
         </div>
+
+        {beforeSubject}
 
         {/* Subject + message - the PDF is attached alongside this, not sent as
             the entire email; both are pre-filled but fully editable before
