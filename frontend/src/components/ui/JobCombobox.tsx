@@ -7,61 +7,56 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
-import type { Customer } from "../../types";
+import type { Job } from "../../types";
 
-function customerLabel(c: Customer): string {
-  const name = `${c.firstName} ${c.lastName}`.trim();
-  return c.companyName ? `${name} (${c.companyName})` : name;
+function jobLabel(j: Job): string {
+  return `#${j.jobNumber} - ${j.summary}`;
 }
 
-interface CustomerComboboxProps {
-  /** Candidate customers to search/select from -- callers keep loading these
-   * the same way they already do (e.g. `useCustomers({ limit: 200 })`); this
-   * component only adds type-to-filter on top of that list. */
-  customers: Customer[];
+interface JobComboboxProps {
+  /** Candidate jobs to search/select from -- callers keep loading these the
+   * same way they already do (e.g. `useJobs({ limit: 100 })`); this component
+   * only adds type-to-filter on top of that list. */
+  jobs: Job[];
   value: string;
-  onChange: (customerId: string) => void;
+  onChange: (jobId: string) => void;
   error?: string;
   disabled?: boolean;
   placeholder?: string;
-  /** Shows a clear (x) button once a customer is selected, for optional
-   * relationships where "no customer" is a valid, reachable state (a
-   * required field never needs this -- there's always a valid choice). */
+  /** Shows a clear (x) button once a job is selected, for optional
+   * relationships where "no job" is a valid, reachable state. */
   clearable?: boolean;
 }
 
-/** Type-to-search customer picker, matching the pricebook item search UX
- * (see `PricebookQuickAdd` in LineItemsTable.tsx) so long customer lists
- * don't force scrolling through a giant native `<select>`. */
-export default function CustomerCombobox({
-  customers,
+/** Type-to-search work order picker, matching CustomerCombobox's UX so a long
+ * job list doesn't force scrolling through a giant native `<select>`. */
+export default function JobCombobox({
+  jobs,
   value,
   onChange,
   error,
   disabled,
-  placeholder = "Search customers...",
+  placeholder = "Search work orders...",
   clearable = false,
-}: CustomerComboboxProps) {
+}: JobComboboxProps) {
   const [query, setQuery] = useState("");
 
   const selected = useMemo(
-    () => customers.find((c) => c.id === value) ?? null,
-    [customers, value],
+    () => jobs.find((j) => j.id === value) ?? null,
+    [jobs, value],
   );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return customers;
-    return customers.filter((c) =>
-      customerLabel(c).toLowerCase().includes(q),
-    );
-  }, [customers, query]);
+    if (!q) return jobs;
+    return jobs.filter((j) => jobLabel(j).toLowerCase().includes(q));
+  }, [jobs, query]);
 
   return (
     <Combobox
       value={selected}
-      onChange={(c: Customer | null) => {
-        onChange(c ? c.id : "");
+      onChange={(j: Job | null) => {
+        onChange(j ? j.id : "");
       }}
       disabled={disabled}
     >
@@ -74,7 +69,7 @@ export default function CustomerCombobox({
               error ? "border-red-300" : "border-gray-300",
             )}
             placeholder={placeholder}
-            displayValue={(c: Customer | null) => (c ? customerLabel(c) : "")}
+            displayValue={(j: Job | null) => (j ? jobLabel(j) : "")}
             onChange={(event) => {
               setQuery(event.target.value);
             }}
@@ -108,13 +103,13 @@ export default function CustomerCombobox({
           <Combobox.Options className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-lg focus:outline-none">
             {filtered.length === 0 ? (
               <div className="px-3.5 py-2 text-gray-400">
-                No customers match "{query}".
+                No work orders match "{query}".
               </div>
             ) : (
-              filtered.map((c) => (
+              filtered.map((j) => (
                 <Combobox.Option
-                  key={c.id}
-                  value={c}
+                  key={j.id}
+                  value={j}
                   className={({ active }) =>
                     clsx(
                       "cursor-pointer select-none px-3.5 py-2",
@@ -130,7 +125,7 @@ export default function CustomerCombobox({
                           isSelected && "font-medium",
                         )}
                       >
-                        {customerLabel(c)}
+                        {jobLabel(j)}
                       </span>
                       {isSelected && (
                         <CheckIcon className="h-4 w-4 text-primary-600 shrink-0" />

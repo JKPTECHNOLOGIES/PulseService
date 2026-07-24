@@ -28,6 +28,8 @@ import { useVendors } from "../hooks/useVendors";
 import { useStockLocations, useInventoryItems } from "../hooks/useInventory";
 import { useCustomers } from "../hooks/useCustomers";
 import { useJobs } from "../hooks/useJobs";
+import CustomerCombobox from "../components/ui/CustomerCombobox";
+import JobCombobox from "../components/ui/JobCombobox";
 import type { PurchaseOrder } from "../types";
 
 const INPUT =
@@ -588,42 +590,28 @@ function CreatePOModal({
             card, and on the invoice raised from it. */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Customer (optional)">
-            <select
+            <CustomerCombobox
+              customers={customers}
               value={customerId}
-              onChange={(e) => {
-                setCustomerId(e.target.value);
+              onChange={(id) => {
+                setCustomerId(id);
                 setJobId("");
               }}
-              className={INPUT}
-            >
-              <option value="">Not linked to a customer</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.companyName?.trim()
-                    ? c.companyName
-                    : `${c.firstName} ${c.lastName}`}
-                </option>
-              ))}
-            </select>
+              placeholder="Not linked to a customer"
+              clearable
+            />
           </Field>
           <Field label="Work order (optional)">
-            <select
+            <JobCombobox
+              jobs={customerJobs}
               value={jobId}
-              onChange={(e) => {
-                setJobId(e.target.value);
-              }}
-              className={INPUT}
+              onChange={setJobId}
+              placeholder={
+                customerId ? "Not linked to a work order" : "Select a customer first"
+              }
               disabled={!customerId}
-            >
-              <option value="">
-                {customerId ? "Not linked to a work order" : "Select a customer first"}
-              </option>
-              {customerJobs.map((j) => (
-                <option key={j.id} value={j.id}>
-                  #{j.jobNumber} - {j.summary}
-                </option>
-              ))}
-            </select>
+              clearable
+            />
           </Field>
         </div>
 
