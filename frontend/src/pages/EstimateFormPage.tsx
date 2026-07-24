@@ -16,6 +16,7 @@ import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import LineItemsTable, { LineItem } from "../components/ui/LineItemsTable";
 import CustomerCombobox from "../components/ui/CustomerCombobox";
+import JobCombobox from "../components/ui/JobCombobox";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatCurrency } from "../utils/formatters";
 
@@ -77,6 +78,7 @@ export default function EstimateFormPage() {
   });
 
   const customerId = watch("customerId");
+  const jobId = watch("jobId") ?? "";
   const discountType = watch("discountType");
   const discountValue = watch("discountValue") ?? 0;
 
@@ -192,29 +194,31 @@ export default function EstimateFormPage() {
                     shouldValidate: true,
                     shouldDirty: true,
                   });
+                  // A job belongs to one customer -- clear a stale pick from
+                  // whoever was previously selected.
+                  setValue("jobId", "", { shouldDirty: true });
                 }}
                 error={errors.customerId?.message}
               />
             </div>
 
-            {customerId && customerJobs.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Related Work Order
-                </label>
-                <select
-                  {...register("jobId")}
-                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
-                >
-                  <option value="">None</option>
-                  {customerJobs.map((j) => (
-                    <option key={j.id} value={j.id}>
-                      #{j.jobNumber} - {j.summary}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Related Work Order
+              </label>
+              <JobCombobox
+                jobs={customerJobs}
+                value={jobId}
+                onChange={(id) => {
+                  setValue("jobId", id, { shouldDirty: true });
+                }}
+                placeholder={
+                  customerId ? "Not linked to a work order" : "Select a customer first"
+                }
+                disabled={!customerId}
+                clearable
+              />
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">

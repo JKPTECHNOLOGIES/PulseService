@@ -191,6 +191,15 @@ export interface Estimate {
   createdAt: string;
   customer?: Customer;
   lineItems?: EstimateLineItem[];
+  // Present when this quote is tied to a specific work order.
+  job?: { id: string; jobNumber: string; summary: string; status: string };
+  // Present once this quote has been converted to an invoice.
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    status: string;
+    total: number;
+  };
 }
 
 export interface InvoiceLineItem {

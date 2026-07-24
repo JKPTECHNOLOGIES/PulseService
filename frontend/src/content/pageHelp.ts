@@ -356,7 +356,7 @@ const estimateDetailHelp: PageHelpContent = {
     {
       heading: "What you'll see",
       items: [
-        "The header shows the quote number, status, customer, and key dates like created and valid-until.",
+        "The header shows the quote number, status, customer, and key dates like created and valid-until, plus a link to the related work order if one is set.",
         "The Line Items table lists every charge with quantity, unit price, and line total.",
         "The Totals section breaks down subtotal, any discount, and the final total.",
         "Notes and Terms & Conditions (if filled in) appear below the totals for the customer to read.",
@@ -370,7 +370,7 @@ const estimateDetailHelp: PageHelpContent = {
         "Once it's Sent or Viewed, click Approve to mark it as accepted (use this if the customer approved by phone or in person).",
         "Once it's Approved, click Convert to Invoice to generate an invoice from it automatically.",
         "Click PDF at any time to download a copy of the quote to save or print.",
-        "Click Edit to change the customer, line items, pricing, or notes.",
+        "Click Edit to change the customer, related work order, line items, pricing, or notes.",
       ],
     },
   ],

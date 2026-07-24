@@ -88,6 +88,28 @@ export default function EstimateDetailPage() {
                 </Link>
               </p>
             )}
+            {estimate.job && (
+              <p className="text-sm text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+                <span>
+                  Work Order:{" "}
+                  <Link
+                    to={`/jobs/${estimate.job.id}`}
+                    className="text-primary-600 hover:text-primary-700 font-medium"
+                  >
+                    #{estimate.job.jobNumber}
+                  </Link>
+                  {estimate.job.summary && (
+                    <span className="text-gray-400">
+                      {" "}
+                      — {estimate.job.summary}
+                    </span>
+                  )}
+                </span>
+                {estimate.job.status && (
+                  <StatusBadge status={estimate.job.status} type="job" />
+                )}
+              </p>
+            )}
           </div>
           <div className="flex gap-2 shrink-0 flex-wrap justify-end">
             <Button
