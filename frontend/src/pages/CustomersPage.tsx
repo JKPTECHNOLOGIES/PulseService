@@ -97,26 +97,27 @@ export default function CustomersPage() {
   const customers = useMemo(() => data?.data ?? [], [data]);
   const pagination = data?.pagination;
 
-  // Faint alternating tint per primary/secondary cluster (rows arrive from
-  // the API already grouped -- see customers.controller.js list()) so a
-  // family of linked customers is visually scannable without reading every
-  // row. Standalone customers (no relationship either way) stay untinted.
+  // Tint per primary/secondary cluster (rows arrive from the API already
+  // grouped -- see customers.controller.js list()) so a family of linked
+  // customers is visually scannable without reading every row. EVERY cluster
+  // member gets one of two bands -- alternating which band, never "no tint"
+  // -- so consecutive clusters (e.g. Ashbritt Inc immediately followed by
+  // Ballenisles) don't visually merge into one family. `gray` (not `primary`)
+  // on purpose: it's the theme's dark-aware neutral ramp (see index.css), so
+  // this stays visible in light mode and doesn't wash out dark mode the way
+  // a fixed-color tint like primary-50 would.
   const rowTintById = useMemo(() => {
     const map = new Map<string, string>();
     let lastKey: string | null = null;
-    let tinted = false;
+    let band = false;
     for (const c of customers) {
       if (!isClusterMember(c)) continue;
       const key = c.primaryCustomerId ?? c.id;
       if (key !== lastKey) {
-        tinted = !tinted;
+        band = !band;
         lastKey = key;
       }
-      // `gray` (not `primary`) on purpose: it's the theme's dark-aware
-      // neutral ramp (see index.css), so this tint stays visible in light
-      // mode and doesn't wash out contrast in dark mode the way a fixed-
-      // color tint like primary-50 would.
-      if (tinted) map.set(c.id, "bg-gray-100");
+      map.set(c.id, band ? "bg-gray-200/70" : "bg-gray-100");
     }
     return map;
   }, [customers]);
