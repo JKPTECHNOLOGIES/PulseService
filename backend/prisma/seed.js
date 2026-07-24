@@ -20,6 +20,12 @@ async function main() {
 
   // ── Cleanup (reverse dependency order) ───────────────────────────────────────
   console.log("  Cleaning existing data...");
+  // Attachment/PushSubscription/RecurringJob have no enforced FK relation to
+  // their owning entity (plain id columns, not Prisma @relation fields), so
+  // they don't cascade-delete and were previously left orphaned by every
+  // reseed. Deleted explicitly here instead.
+  await prisma.attachment.deleteMany();
+  await prisma.pushSubscription.deleteMany();
   await prisma.quickBooksSyncQueue.deleteMany();
   await prisma.quickBooksMapping.deleteMany();
   await prisma.quickBooksItemMapping.deleteMany();
@@ -48,6 +54,7 @@ async function main() {
   await prisma.equipment.deleteMany();
   await prisma.jobTechnician.deleteMany();
   await prisma.job.deleteMany();
+  await prisma.recurringJob.deleteMany();
   await prisma.call.deleteMany();
   await prisma.customerMessage.deleteMany();
   await prisma.contact.deleteMany();
