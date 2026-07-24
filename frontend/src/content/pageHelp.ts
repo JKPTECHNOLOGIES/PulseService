@@ -171,7 +171,8 @@ const jobDetailHelp: PageHelpContent = {
       items: [
         "The status timeline across the top shows progress from New through Scheduled, Parts On Hold, In Progress, to Completed.",
         "Click Update Status to move the job to its next stage (or back if needed).",
-        "Click Assign under Technicians to add another technician to the job.",
+        "Click Assign under Technicians to add another technician to the job. Use the star icon to make a technician the lead, or the X icon to remove them.",
+        "The Sales Reps section is a placeholder for now -- it'll list assigned reps once that roster is added.",
         "Click Edit to change the job's summary, schedule, type, priority, or notes.",
         "Click Archive to hide a finished or cancelled job from active lists, you can Restore it later if needed.",
       ],

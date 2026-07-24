@@ -11,12 +11,16 @@ import {
   ArchiveBoxIcon,
   ArrowUturnLeftIcon,
   QrCodeIcon,
+  StarIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
+import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import clsx from "clsx";
 import { useJob } from "../hooks/useJobs";
 import {
   useUpdateJobStatus,
   useAssignTechnician,
+  useRemoveTechnician,
   useArchiveJob,
   useUnarchiveJob,
 } from "../hooks/useJobs";
@@ -136,8 +140,13 @@ export default function JobDetailPage() {
   const [statusModal, setStatusModal] = useState(false);
   const [assignModal, setAssignModal] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [removeTechConfirm, setRemoveTechConfirm] = useState<{
+    technicianId: string;
+    name: string;
+  } | null>(null);
   const [newStatus, setNewStatus] = useState("");
   const [selectedTech, setSelectedTech] = useState("");
+  const [selectedTechIsLead, setSelectedTechIsLead] = useState(false);
   const [timeEntryModal, setTimeEntryModal] = useState<{
     id?: string;
     technicianId: string;
@@ -160,6 +169,7 @@ export default function JobDetailPage() {
   const deleteTimeEntry = useDeleteTimeEntry();
   const updateStatus = useUpdateJobStatus();
   const assignTech = useAssignTechnician();
+  const removeTech = useRemoveTechnician();
   const archiveJob = useArchiveJob();
   const unarchiveJob = useUnarchiveJob();
   const { options: jobStatusOptions } = useLookup("jobStatus");
@@ -204,10 +214,16 @@ export default function JobDetailPage() {
       await assignTech.mutateAsync({
         jobId: id ?? "",
         technicianId: selectedTech,
+        isLead: selectedTechIsLead,
       });
       setAssignModal(false);
       setSelectedTech("");
+      setSelectedTechIsLead(false);
     }
+  };
+
+  const handleMakeLead = (technicianId: string) => {
+    void assignTech.mutateAsync({ jobId: id ?? "", technicianId, isLead: true });
   };
 
   return (
@@ -542,32 +558,83 @@ export default function JobDetailPage() {
             </div>
             {job.technicians && job.technicians.length > 0 ? (
               <div className="space-y-3">
-                {job.technicians.map((jt) => (
-                  <div key={jt.id} className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-semibold text-gray-600">
-                        {jt.technician?.user
-                          ? `${jt.technician.user.firstName.charAt(0)}${jt.technician.user.lastName.charAt(0)}`
-                          : "?"}
-                      </span>
+                {job.technicians.map((jt) => {
+                  const techName = jt.technician?.user
+                    ? `${jt.technician.user.firstName} ${jt.technician.user.lastName}`
+                    : "Unknown";
+                  return (
+                    <div key={jt.id} className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                        <span className="text-xs font-semibold text-gray-600">
+                          {jt.technician?.user
+                            ? `${jt.technician.user.firstName.charAt(0)}${jt.technician.user.lastName.charAt(0)}`
+                            : "?"}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {techName}
+                        </p>
+                        {jt.isLead && (
+                          <p className="flex items-center gap-0.5 text-xs text-primary-600">
+                            <StarIconSolid className="h-3 w-3" />
+                            Lead
+                          </p>
+                        )}
+                      </div>
+                      <StatusBadge status={jt.status} category="jobTechnicianStatus" />
+                      <Can permission="jobs.assign">
+                        <div className="flex items-center shrink-0">
+                          {!jt.isLead && (
+                            <IconButton
+                              label="Make lead"
+                              onClick={() => {
+                                handleMakeLead(jt.technicianId);
+                              }}
+                            >
+                              <StarIcon className="h-4 w-4" />
+                            </IconButton>
+                          )}
+                          <IconButton
+                            label="Remove technician"
+                            variant="danger"
+                            onClick={() => {
+                              setRemoveTechConfirm({
+                                technicianId: jt.technicianId,
+                                name: techName,
+                              });
+                            }}
+                          >
+                            <XMarkIcon className="h-4 w-4" />
+                          </IconButton>
+                        </div>
+                      </Can>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {jt.technician?.user
-                          ? `${jt.technician.user.firstName} ${jt.technician.user.lastName}`
-                          : "Unknown"}
-                      </p>
-                      {jt.isLead && (
-                        <p className="text-xs text-primary-600">Lead</p>
-                      )}
-                    </div>
-                    <StatusBadge status={jt.status} type="job" />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-gray-400">No technicians assigned</p>
             )}
+          </div>
+
+          {/* Sales Reps */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900">Sales Reps</h3>
+              <button
+                type="button"
+                disabled
+                title="Sales rep roster coming soon"
+                className="inline-flex items-center gap-1 min-h-[44px] sm:min-h-0 px-1 text-xs text-gray-300 font-medium cursor-not-allowed"
+              >
+                <UserPlusIcon className="h-3.5 w-3.5" />
+                Assign
+              </button>
+            </div>
+            <p className="text-sm text-gray-400">
+              No sales reps on the roster yet
+            </p>
           </div>
 
           {/* Financial */}
@@ -824,6 +891,7 @@ export default function JobDetailPage() {
         isOpen={assignModal}
         onClose={() => {
           setAssignModal(false);
+          setSelectedTechIsLead(false);
         }}
         title="Assign Technician"
       >
@@ -840,13 +908,28 @@ export default function JobDetailPage() {
               className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
             >
               <option value="">Choose a technician...</option>
-              {techs.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.user.firstName} {t.user.lastName}
-                </option>
-              ))}
+              {techs
+                .filter(
+                  (t) => !job.technicians?.some((jt) => jt.technicianId === t.id),
+                )
+                .map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.user.firstName} {t.user.lastName}
+                  </option>
+                ))}
             </select>
           </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={selectedTechIsLead}
+              onChange={(e) => {
+                setSelectedTechIsLead(e.target.checked);
+              }}
+              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            Set as lead technician
+          </label>
           <div className="flex justify-end gap-3">
             <Button
               variant="outline"
@@ -1044,6 +1127,29 @@ export default function JobDetailPage() {
         message={`Archive work order #${job.jobNumber}? It's hidden from active lists and the dispatch board, but nothing is deleted -- you can restore it anytime.`}
         confirmLabel="Archive"
         loading={archiveJob.isPending}
+      />
+
+      <ConfirmDialog
+        isOpen={!!removeTechConfirm}
+        onClose={() => {
+          setRemoveTechConfirm(null);
+        }}
+        onConfirm={() => {
+          if (removeTechConfirm) {
+            removeTech.mutate(
+              { jobId: id ?? "", technicianId: removeTechConfirm.technicianId },
+              {
+                onSuccess: () => {
+                  setRemoveTechConfirm(null);
+                },
+              },
+            );
+          }
+        }}
+        title="Remove technician"
+        message={`Remove ${removeTechConfirm?.name ?? "this technician"} from this work order?`}
+        confirmLabel="Remove"
+        loading={removeTech.isPending}
       />
     </div>
   );
