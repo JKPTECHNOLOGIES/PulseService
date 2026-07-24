@@ -1219,8 +1219,14 @@ function JobMaterialsCard({
     }
     return [...byTech.values()];
   })();
+  // Round hours to 2 decimals *before* multiplying by rate, matching the
+  // rounded hour figure actually shown (and matching how this same labor
+  // lands on an invoice, see InvoiceFormPage's addLoggedLaborLines) --
+  // otherwise the displayed "7.23h @ $20/hr" wouldn't multiply out to the
+  // dollar amount shown next to it.
+  const laborHours = (mins: number) => Math.round((mins / 60) * 100) / 100;
   const laborCostTotal = laborRows.reduce(
-    (sum, r) => sum + (r.rate ? (r.minutes / 60) * r.rate : 0),
+    (sum, r) => sum + (r.rate ? laborHours(r.minutes) * r.rate : 0),
     0,
   );
 
@@ -1330,7 +1336,7 @@ function JobMaterialsCard({
                     <span className="text-gray-700">
                       {r.name}
                       <span className="text-xs text-gray-400 ml-1.5">
-                        {(r.minutes / 60).toFixed(2)}h
+                        {laborHours(r.minutes).toFixed(2)}h
                         {r.rate
                           ? ` @ ${formatCurrency(r.rate)}/hr`
                           : " \u2014 no rate set"}
@@ -1338,7 +1344,7 @@ function JobMaterialsCard({
                     </span>
                     <span className="text-gray-600">
                       {r.rate
-                        ? formatCurrency((r.minutes / 60) * r.rate)
+                        ? formatCurrency(laborHours(r.minutes) * r.rate)
                         : "-"}
                     </span>
                   </div>
