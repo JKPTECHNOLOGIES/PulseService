@@ -90,6 +90,9 @@ export interface Technician {
   isAvailable: boolean;
   user: User;
   vehicle?: { id: string; name: string } | null;
+  // Omitted by the API entirely unless the viewer holds
+  // technicians.payRates - absent (not just null) for everyone else.
+  payRate?: number | null;
 }
 
 export interface JobTechnician {

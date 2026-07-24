@@ -1068,6 +1068,8 @@ function JobMaterialsCard({
     { enabled: canViewPurchasing },
   );
   const { data: parts } = useJobParts(jobId);
+  const { data: laborTimeEntries } = useJobTimeEntries(jobId);
+  const { data: laborTechnicians } = useTechnicians();
   const reverseTxn = useReverseTransaction();
   const uninstall = useUninstallSerializedUnit();
   const [installOpen, setInstallOpen] = useState(false);
@@ -1077,6 +1079,37 @@ function JobMaterialsCard({
   const orders = pos?.data ?? [];
   const usedParts = parts ?? [];
   const partsTotal = usedParts.reduce((sum, p) => sum + p.total, 0);
+
+  // Labor cost: each technician's own logged hours on this job x their own
+  // pay rate - not a single blended rate for whoever worked on it. Rows with
+  // no rate set yet are called out rather than silently costed at $0.
+  const laborRows = (() => {
+    const technicians = laborTechnicians?.data ?? [];
+    const byTech = new Map<
+      string,
+      { name: string; minutes: number; rate: number | null }
+    >();
+    for (const e of laborTimeEntries ?? []) {
+      const key = e.technicianId ?? e.userId;
+      const tech = technicians.find((t) => t.id === e.technicianId);
+      const name = tech
+        ? `${tech.user.firstName} ${tech.user.lastName}`
+        : e.user
+          ? `${e.user.firstName} ${e.user.lastName}`
+          : "Technician";
+      const existing = byTech.get(key);
+      byTech.set(key, {
+        name,
+        minutes: (existing?.minutes ?? 0) + (e.duration ?? 0),
+        rate: tech?.payRate ?? existing?.rate ?? null,
+      });
+    }
+    return [...byTech.values()];
+  })();
+  const laborCostTotal = laborRows.reduce(
+    (sum, r) => sum + (r.rate ? (r.minutes / 60) * r.rate : 0),
+    0,
+  );
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -1168,6 +1201,47 @@ function JobMaterialsCard({
             <p className="text-sm text-gray-400">No parts used yet</p>
           )}
         </div>
+
+        {/* Each technician's own logged time on this job, costed at their own
+            pay rate - set from Technicians → Pay Rates (admin only). */}
+        <Can permission="technicians.payRates">
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-2">Labor</p>
+            {laborRows.length > 0 ? (
+              <div className="space-y-1.5">
+                {laborRows.map((r) => (
+                  <div
+                    key={r.name}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span className="text-gray-700">
+                      {r.name}
+                      <span className="text-xs text-gray-400 ml-1.5">
+                        {(r.minutes / 60).toFixed(2)}h
+                        {r.rate
+                          ? ` @ ${formatCurrency(r.rate)}/hr`
+                          : " \u2014 no rate set"}
+                      </span>
+                    </span>
+                    <span className="text-gray-600">
+                      {r.rate
+                        ? formatCurrency((r.minutes / 60) * r.rate)
+                        : "-"}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex justify-between text-sm pt-1.5 border-t border-gray-100">
+                  <span className="text-gray-500">Labor cost total</span>
+                  <span className="font-semibold text-gray-900">
+                    {formatCurrency(laborCostTotal)}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">No time logged yet</p>
+            )}
+          </div>
+        </Can>
 
         <div>
           <p className="text-xs font-medium text-gray-500 mb-2">

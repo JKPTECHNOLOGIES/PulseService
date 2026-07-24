@@ -1,5 +1,19 @@
 const prisma = require("../config/database");
 const { csvToArray } = require("../utils/helpers");
+const permissionsService = require("../services/permissions.service");
+
+// Pay rate is payroll data - GET /technicians has no permission gate at all
+// (it's read by every role for assign/dispatch pickers), so the field itself
+// has to be stripped here for anyone who doesn't hold technicians.payRates,
+// rather than relying on the frontend to simply not render it.
+async function stripPayRateUnlessPermitted(req, rows) {
+  const canView = await permissionsService.hasPermission(
+    req.user.role,
+    "technicians.payRates",
+  );
+  if (canView) return rows;
+  return rows.map(({ payRate: _payRate, ...rest }) => rest);
+}
 
 const list = async (req, res) => {
   try {
@@ -36,12 +50,15 @@ const list = async (req, res) => {
       orderBy: { employeeId: "asc" },
     });
 
-    const result = technicians.map((t) => ({
-      ...t,
-      skills: csvToArray(t.skills),
-      zones: csvToArray(t.zones),
-      jobCountToday: t.jobs.length,
-    }));
+    const result = await stripPayRateUnlessPermitted(
+      req,
+      technicians.map((t) => ({
+        ...t,
+        skills: csvToArray(t.skills),
+        zones: csvToArray(t.zones),
+        jobCountToday: t.jobs.length,
+      })),
+    );
 
     return res.json({ success: true, data: result });
   } catch (err) {
@@ -109,14 +126,14 @@ const get = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, error: "Technician not found" });
-    return res.json({
-      success: true,
-      data: {
+    const [data] = await stripPayRateUnlessPermitted(req, [
+      {
         ...technician,
         skills: csvToArray(technician.skills),
         zones: csvToArray(technician.zones),
       },
-    });
+    ]);
+    return res.json({ success: true, data });
   } catch (err) {
     console.error("technicians.get error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
@@ -232,4 +249,31 @@ const getMyJobs = async (req, res) => {
   }
 };
 
-module.exports = { list, get, getAvailability, getMyJobs };
+// Admin-only (technicians.payRates): set a technician's going hourly pay
+// rate, used to automatically cost out their logged time on a job.
+const updatePayRate = async (req, res) => {
+  try {
+    const { payRate } = req.body;
+    if (payRate !== null && (typeof payRate !== "number" || payRate < 0)) {
+      return res.status(400).json({
+        success: false,
+        error: "payRate must be a non-negative number or null",
+      });
+    }
+    const technician = await prisma.technician.update({
+      where: { id: req.params.id },
+      data: { payRate },
+    });
+    return res.json({ success: true, data: technician });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res
+        .status(404)
+        .json({ success: false, error: "Technician not found" });
+    }
+    console.error("technicians.updatePayRate error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+module.exports = { list, get, getAvailability, getMyJobs, updatePayRate };

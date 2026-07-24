@@ -128,6 +128,10 @@ model Technician {
   currentLng     Float?
   lastLocationAt DateTime?
   isAvailable    Boolean   @default(true)
+  // Going hourly pay rate, set by an admin (technicians.payRates permission).
+  // Used to automatically cost out logged time entries on a job's Materials
+  // & Equipment card - null means no rate has been set yet.
+  payRate        Float?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 

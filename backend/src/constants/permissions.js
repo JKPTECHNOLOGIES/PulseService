@@ -52,6 +52,15 @@ const PERMISSION_GROUPS = [
     ],
   },
   {
+    group: "Technicians",
+    permissions: [
+      {
+        key: "technicians.payRates",
+        label: "View & set technician pay rates",
+      },
+    ],
+  },
+  {
     group: "Quotes",
     permissions: [
       { key: "estimates.manage", label: "Create & manage quotes" },

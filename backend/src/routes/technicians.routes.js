@@ -1,10 +1,12 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth.middleware");
+const { requirePermission } = require("../middleware/permission.middleware");
 const {
   list,
   get,
   getAvailability,
   getMyJobs,
+  updatePayRate,
 } = require("../controllers/technicians.controller");
 
 router.use(auth);
@@ -13,6 +15,11 @@ router.get("/", list);
 // Self-scoped agenda — must precede '/:id' so "me" isn't treated as an id.
 router.get("/me/jobs", getMyJobs);
 router.get("/:id", get);
+router.put(
+  "/:id/pay-rate",
+  requirePermission("technicians.payRates"),
+  updatePayRate,
+);
 // NB: the live GPS-broadcast write endpoint (PATCH /:id/location) was removed
 // -- it had no frontend consumer (no geolocation watcher ever called it, no
 // UI ever listened for the technician:location socket event it broadcast)
