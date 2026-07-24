@@ -64,16 +64,24 @@ export interface Customer {
   primaryCustomerId?: string | null;
   primaryCustomer?: CustomerLink | null;
   subCustomers?: CustomerLink[];
+  // Only populated by the customers list endpoint.
+  _count?: { jobs: number; subCustomers: number };
 }
 
 /** Lightweight cross-link shape (see backend customerLinkSelect) -- never a
- * full Customer, just enough to render a name + link. */
+ * full Customer, just enough to render a name + link. The list endpoint also
+ * includes type/email/createdAt/balance so a secondary's sort position can be
+ * derived from its primary's values (see CustomersPage). */
 export interface CustomerLink {
   id: string;
   customerNumber: string;
   firstName: string;
   lastName: string;
   companyName?: string;
+  type?: Customer["type"];
+  email?: string;
+  createdAt?: string;
+  balance?: number;
 }
 
 export interface PricingTier {

@@ -1,9 +1,5 @@
 const prisma = require("../config/database");
-const {
-  paginate,
-  paginatedResponse,
-  generateNumber,
-} = require("../utils/helpers");
+const { paginatedResponse, generateNumber } = require("../utils/helpers");
 const { geocode } = require("../services/geocode.service");
 const quickbooksSync = require("../services/quickbooks/sync-queue.service");
 
@@ -16,17 +12,23 @@ async function enqueueQuickBooksSync(customerId) {
   }
 }
 
-// Columns with a real matching DB column -- these stay a normal, efficient
-// paginated query with a Prisma `orderBy`. Sorting has to happen server-side
-// across the whole filtered set (not just the current page), same as
-// invoices.controller.js.
-const CUSTOMER_ORDER_BY = {
-  name: (dir) => [{ firstName: dir }, { lastName: dir }],
-  type: (dir) => ({ type: dir }),
-  email: (dir) => ({ email: dir }),
-  created: (dir) => ({ createdAt: dir }),
-  balance: (dir) => ({ balance: dir }),
+// Per-row sort value for each sortable column -- shared by the real DB sort
+// key names the frontend sends. Used against plain customer objects (either
+// a row itself, or -- for a secondary -- its primary, so a whole FieldEdge
+// "multiple customers under one primary" cluster sorts as a unit; see list()).
+const CUSTOMER_SORT_VALUE = {
+  name: (c) => `${c.firstName} ${c.lastName}`.toLowerCase(),
+  type: (c) => c.type,
+  email: (c) => (c.email ?? "").toLowerCase(),
+  created: (c) => new Date(c.createdAt).getTime(),
+  balance: (c) => c.balance,
 };
+
+function compareValues(a, b) {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
 
 const list = async (req, res) => {
   try {
@@ -39,8 +41,10 @@ const list = async (req, res) => {
       sortKey,
       sortDir,
     } = req.query;
-    const { skip, take } = paginate(page, limit);
-    const dir = sortDir === "asc" ? "asc" : "desc";
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const dir = sortDir === "asc" ? 1 : -1;
+    const getSortValue = CUSTOMER_SORT_VALUE[sortKey] ?? CUSTOMER_SORT_VALUE.name;
 
     const where = { isActive: true };
     if (type) where.type = type;
@@ -59,29 +63,94 @@ const list = async (req, res) => {
       ];
     }
 
-    const orderBy =
-      CUSTOMER_ORDER_BY[sortKey]?.(dir) ?? [
-        { firstName: "asc" },
-        { lastName: "asc" },
-      ];
+    // Every matching row is fetched (not paginated at the DB level) so a
+    // FieldEdge "multiple customers under one primary" cluster -- a primary
+    // plus all its secondaries -- always lands together, sorted as a unit by
+    // the primary's value, regardless of where it would otherwise fall across
+    // a page boundary. Customer counts here are small enough (low hundreds)
+    // that this is cheap; revisit if that changes by orders of magnitude.
+    const all = await prisma.customer.findMany({
+      where,
+      include: {
+        _count: { select: { jobs: true, subCustomers: true } },
+        locations: { where: { isPrimary: true }, take: 1 },
+      },
+    });
 
-    const [customers, total] = await Promise.all([
-      prisma.customer.findMany({
-        where,
-        skip,
-        take,
-        include: {
-          _count: { select: { jobs: true } },
-          locations: { where: { isPrimary: true }, take: 1 },
-        },
-        orderBy,
-      }),
-      prisma.customer.count({ where }),
+    const byId = new Map(all.map((c) => [c.id, c]));
+
+    // A secondary can match the filters while its primary doesn't (e.g.
+    // searching for one HOA member's name) -- fetch just the missing
+    // primaries' names so the "Part of X" subtitle still renders correctly.
+    // These don't affect clustering/sort/pagination, only display.
+    const missingPrimaryIds = [
+      ...new Set(
+        all
+          .filter((c) => c.primaryCustomerId && !byId.has(c.primaryCustomerId))
+          .map((c) => c.primaryCustomerId),
+      ),
+    ];
+    const missingPrimaries =
+      missingPrimaryIds.length > 0
+        ? await prisma.customer.findMany({
+            where: { id: { in: missingPrimaryIds } },
+            select: customerLinkSelect,
+          })
+        : [];
+    const primaryDisplayById = new Map([
+      ...all.map((c) => [c.id, c]),
+      ...missingPrimaries.map((c) => [c.id, c]),
     ]);
+
+    // The row whose value actually determines where a cluster sorts: the
+    // primary's, if this row has one and it's part of the fetched set;
+    // otherwise the row's own value.
+    const sortSource = (c) => (c.primaryCustomerId && byId.get(c.primaryCustomerId)) || c;
+
+    const sorted = [...all].sort((a, b) => {
+      const cmp = compareValues(getSortValue(sortSource(a)), getSortValue(sortSource(b)));
+      if (cmp !== 0) return cmp * dir;
+      // Tied (same cluster, or coincidentally equal values): the primary row
+      // always comes first, then secondaries sorted alphabetically among
+      // themselves so a cluster's internal order is stable and predictable.
+      const aIsPrimary = !a.primaryCustomerId;
+      const bIsPrimary = !b.primaryCustomerId;
+      if (aIsPrimary !== bIsPrimary) return aIsPrimary ? -1 : 1;
+      if (!aIsPrimary && !bIsPrimary) {
+        return compareValues(CUSTOMER_SORT_VALUE.name(a), CUSTOMER_SORT_VALUE.name(b));
+      }
+      return 0;
+    });
+
+    const total = sorted.length;
+    const startIdx = (pageNum - 1) * limitNum;
+    const pageRows = sorted.slice(startIdx, startIdx + limitNum);
+
+    const data = pageRows.map((c) => {
+      const primary = c.primaryCustomerId
+        ? primaryDisplayById.get(c.primaryCustomerId)
+        : null;
+      return {
+        ...c,
+        primaryCustomer: primary
+          ? {
+              id: primary.id,
+              customerNumber: primary.customerNumber,
+              firstName: primary.firstName,
+              lastName: primary.lastName,
+              companyName: primary.companyName,
+              type: primary.type,
+              email: primary.email,
+              createdAt: primary.createdAt,
+              balance: primary.balance,
+            }
+          : null,
+      };
+    });
 
     return res.json({
       success: true,
-      ...paginatedResponse(customers, total, page, limit),
+      ...paginatedResponse(data, total, pageNum, limitNum),
     });
   } catch (err) {
     console.error("customers.list error:", err);
@@ -98,6 +167,12 @@ const customerLinkSelect = {
   firstName: true,
   lastName: true,
   companyName: true,
+  // Included so the customer list can determine a secondary's cluster sort
+  // position from its primary's values without a second round-trip.
+  type: true,
+  email: true,
+  createdAt: true,
+  balance: true,
 };
 
 const get = async (req, res) => {

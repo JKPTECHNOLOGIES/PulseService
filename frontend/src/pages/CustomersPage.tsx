@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PlusIcon,
   PencilIcon,
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
+  LinkIcon,
 } from "@heroicons/react/24/outline";
 import { useCustomers } from "../hooks/useCustomers";
 import { useLookup } from "../hooks/useMetadata";
@@ -31,6 +32,25 @@ interface CustomersView {
 }
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+// FieldEdge-style "multiple customers under one primary": a secondary's sort
+// position is derived from its primary's values (see customers.controller.js
+// list()), so the whole cluster sorts and stays adjacent as a unit instead of
+// scattering by each row's own value.
+function sortBasis(c: Customer) {
+  const basis = c.primaryCustomer ?? c;
+  return {
+    name: `${basis.firstName} ${basis.lastName}`.toLowerCase(),
+    type: basis.type ?? c.type,
+    email: (basis.email ?? "").toLowerCase(),
+    created: new Date(basis.createdAt ?? c.createdAt).getTime(),
+    balance: basis.balance ?? c.balance,
+  };
+}
+
+function isClusterMember(c: Customer): boolean {
+  return Boolean(c.primaryCustomer) || (c._count?.subCustomers ?? 0) > 0;
+}
 
 const csvColumns = [
   { header: "Number", value: (c: Customer) => c.customerNumber },
@@ -74,8 +94,28 @@ export default function CustomersPage() {
     sortDir: sort?.dir,
   });
 
-  const customers = data?.data ?? [];
+  const customers = useMemo(() => data?.data ?? [], [data]);
   const pagination = data?.pagination;
+
+  // Faint alternating tint per primary/secondary cluster (rows arrive from
+  // the API already grouped -- see customers.controller.js list()) so a
+  // family of linked customers is visually scannable without reading every
+  // row. Standalone customers (no relationship either way) stay untinted.
+  const rowTintById = useMemo(() => {
+    const map = new Map<string, string>();
+    let lastKey: string | null = null;
+    let tinted = false;
+    for (const c of customers) {
+      if (!isClusterMember(c)) continue;
+      const key = c.primaryCustomerId ?? c.id;
+      if (key !== lastKey) {
+        tinted = !tinted;
+        lastKey = key;
+      }
+      if (tinted) map.set(c.id, "bg-primary-50/40");
+    }
+    return map;
+  }, [customers]);
 
   const resetPage = () => {
     setPage(1);
@@ -100,15 +140,34 @@ export default function CustomersPage() {
     {
       key: "name",
       header: "Customer",
-      sortValue: (c) => c.firstName.toLowerCase(),
+      sortValue: (c) => sortBasis(c).name,
       exportValue: (c) => `${c.firstName} ${c.lastName}`,
       render: (c) => (
         <div>
-          <p className="font-semibold text-gray-900">
-            {c.firstName} {c.lastName}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="font-semibold text-gray-900">
+              {c.firstName} {c.lastName}
+            </p>
+            {(c._count?.subCustomers ?? 0) > 0 && (
+              <span
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary-50 text-primary-700 text-[11px] font-medium"
+                title="Other customers linked to this one"
+              >
+                <LinkIcon className="h-3 w-3" />
+                {c._count?.subCustomers} linked
+              </span>
+            )}
+          </div>
           {c.companyName && (
             <p className="text-xs text-gray-500 mt-0.5">{c.companyName}</p>
+          )}
+          {c.primaryCustomer && (
+            <p className="text-xs text-primary-600 mt-0.5 flex items-center gap-1">
+              <LinkIcon className="h-3 w-3 shrink-0" />
+              Part of{" "}
+              {c.primaryCustomer.companyName ??
+                `${c.primaryCustomer.firstName} ${c.primaryCustomer.lastName}`}
+            </p>
           )}
           <p className="text-xs text-gray-400">#{c.customerNumber}</p>
         </div>
@@ -117,7 +176,7 @@ export default function CustomersPage() {
     {
       key: "type",
       header: "Type",
-      sortValue: (c) => c.type,
+      sortValue: (c) => sortBasis(c).type,
       exportValue: (c) => c.type,
       render: (c) => (
         <Badge className={getCustomerTypeColor(c.type)}>
@@ -136,7 +195,7 @@ export default function CustomersPage() {
     {
       key: "email",
       header: "Email",
-      sortValue: (c) => (c.email ?? "").toLowerCase(),
+      sortValue: (c) => sortBasis(c).email,
       exportValue: (c) => c.email ?? "",
       render: (c) => (
         <span className="text-gray-600 truncate max-w-[180px] inline-block align-middle">
@@ -147,7 +206,7 @@ export default function CustomersPage() {
     {
       key: "created",
       header: "Created",
-      sortValue: (c) => new Date(c.createdAt).getTime(),
+      sortValue: (c) => sortBasis(c).created,
       exportValue: (c) => formatDate(c.createdAt),
       render: (c) => (
         <span className="text-gray-500 text-xs">{formatDate(c.createdAt)}</span>
@@ -157,7 +216,7 @@ export default function CustomersPage() {
       key: "balance",
       header: "Balance",
       align: "right",
-      sortValue: (c) => c.balance,
+      sortValue: (c) => sortBasis(c).balance,
       exportValue: (c) => c.balance,
       render: (c) => (
         <span
@@ -318,6 +377,7 @@ export default function CustomersPage() {
               selectedIds={selectedIds}
               onSelectionChange={setSelectedIds}
               csvFilename="customers"
+              rowClassName={(c) => rowTintById.get(c.id)}
               renderMobileCard={(c) => (
                 <div>
                   <div className="flex items-center justify-between gap-2">
@@ -335,6 +395,20 @@ export default function CustomersPage() {
                   </div>
                   {c.companyName && (
                     <p className="text-xs text-gray-500">{c.companyName}</p>
+                  )}
+                  {c.primaryCustomer && (
+                    <p className="text-xs text-primary-600 flex items-center gap-1">
+                      <LinkIcon className="h-3 w-3 shrink-0" />
+                      Part of{" "}
+                      {c.primaryCustomer.companyName ??
+                        `${c.primaryCustomer.firstName} ${c.primaryCustomer.lastName}`}
+                    </p>
+                  )}
+                  {(c._count?.subCustomers ?? 0) > 0 && (
+                    <p className="text-xs text-primary-700 font-medium flex items-center gap-1">
+                      <LinkIcon className="h-3 w-3 shrink-0" />
+                      {c._count?.subCustomers} linked customers
+                    </p>
                   )}
                   <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                     <Badge className={getCustomerTypeColor(c.type)}>
