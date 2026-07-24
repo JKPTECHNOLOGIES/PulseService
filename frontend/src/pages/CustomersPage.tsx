@@ -112,7 +112,11 @@ export default function CustomersPage() {
         tinted = !tinted;
         lastKey = key;
       }
-      if (tinted) map.set(c.id, "bg-primary-50/40");
+      // `gray` (not `primary`) on purpose: it's the theme's dark-aware
+      // neutral ramp (see index.css), so this tint stays visible in light
+      // mode and doesn't wash out contrast in dark mode the way a fixed-
+      // color tint like primary-50 would.
+      if (tinted) map.set(c.id, "bg-gray-100");
     }
     return map;
   }, [customers]);
@@ -150,7 +154,7 @@ export default function CustomersPage() {
             </p>
             {(c._count?.subCustomers ?? 0) > 0 && (
               <span
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary-50 text-primary-700 text-[11px] font-medium"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary-500/10 text-primary-700 text-[11px] font-medium"
                 title="Other customers linked to this one"
               >
                 <LinkIcon className="h-3 w-3" />

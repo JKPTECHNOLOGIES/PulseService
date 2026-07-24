@@ -287,7 +287,12 @@ export default function DataTable<T>({
                 key={id}
                 className={clsx(
                   "flex items-start gap-3 p-4",
-                  selectedSet.has(id) && "bg-primary-50/40",
+                  // A saturated color at low opacity (rather than a light
+                  // shade at higher opacity) blends correctly on both a white
+                  // and a dark card surface -- a light tint like primary-50
+                  // just washes out/grays a dark background instead of
+                  // reading as a highlight.
+                  selectedSet.has(id) && "bg-primary-500/10",
                   rowClassName?.(row),
                 )}
               >
@@ -390,7 +395,7 @@ export default function DataTable<T>({
                     className={clsx(
                       "transition-colors",
                       onRowClick && "hover:bg-gray-50 cursor-pointer",
-                      selectedSet.has(id) && "bg-primary-50/40",
+                      selectedSet.has(id) && "bg-primary-500/10",
                       rowClassName?.(row),
                     )}
                   >

@@ -111,7 +111,7 @@ export default function CustomerDetailPage() {
       {customer.primaryCustomer && (
         <Link
           to={`/customers/${customer.primaryCustomer.id}`}
-          className="flex items-center gap-2 rounded-xl border border-primary-100 bg-primary-50 px-4 py-3 text-sm text-primary-800 hover:bg-primary-100 transition-colors"
+          className="flex items-center gap-2 rounded-xl border border-primary-500/20 bg-primary-500/10 px-4 py-3 text-sm text-primary-800 hover:bg-primary-500/15 transition-colors"
         >
           <LinkIcon className="h-4 w-4 shrink-0" />
           <span>
