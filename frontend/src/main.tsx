@@ -48,7 +48,12 @@ const updateSW = registerSW({
           <button
             onClick={() => {
               toast.dismiss(t.id);
-              void updateSW(true);
+              // updateSW(true) tells the waiting service worker to activate,
+              // but activation alone doesn't guarantee this tab reloads --
+              // force it explicitly so "Reload" always does something visible.
+              void updateSW(true).finally(() => {
+                window.location.reload();
+              });
             }}
             className="font-semibold text-primary-600 underline underline-offset-2"
           >
