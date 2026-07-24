@@ -16,10 +16,31 @@ async function enqueueQuickBooksSync(customerId) {
   }
 }
 
+// Columns with a real matching DB column -- these stay a normal, efficient
+// paginated query with a Prisma `orderBy`. Sorting has to happen server-side
+// across the whole filtered set (not just the current page), same as
+// invoices.controller.js.
+const CUSTOMER_ORDER_BY = {
+  name: (dir) => [{ firstName: dir }, { lastName: dir }],
+  type: (dir) => ({ type: dir }),
+  email: (dir) => ({ email: dir }),
+  created: (dir) => ({ createdAt: dir }),
+  balance: (dir) => ({ balance: dir }),
+};
+
 const list = async (req, res) => {
   try {
-    const { page = 1, limit = 20, search, type, letter } = req.query;
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      type,
+      letter,
+      sortKey,
+      sortDir,
+    } = req.query;
     const { skip, take } = paginate(page, limit);
+    const dir = sortDir === "asc" ? "asc" : "desc";
 
     const where = { isActive: true };
     if (type) where.type = type;
@@ -38,6 +59,12 @@ const list = async (req, res) => {
       ];
     }
 
+    const orderBy =
+      CUSTOMER_ORDER_BY[sortKey]?.(dir) ?? [
+        { firstName: "asc" },
+        { lastName: "asc" },
+      ];
+
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
         where,
@@ -47,8 +74,7 @@ const list = async (req, res) => {
           _count: { select: { jobs: true } },
           locations: { where: { isPrimary: true }, take: 1 },
         },
-        // Alphabetical by first name to match the "Customer" column's sort.
-        orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+        orderBy,
       }),
       prisma.customer.count({ where }),
     ]);

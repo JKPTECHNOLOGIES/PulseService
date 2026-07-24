@@ -28,6 +28,64 @@ function technicianName(jobTechnician) {
   return user ? `${user.firstName} ${user.lastName}`.trim() : "a technician";
 }
 
+// Columns with a real matching DB column -- these stay a normal, efficient
+// paginated query with a Prisma `orderBy`. "customer" is handled separately
+// below since the visible name isn't a single DB column (see
+// invoices.controller.js for the same pattern).
+const JOB_ORDER_BY = {
+  job: (dir) => ({ jobNumber: dir }),
+  type: (dir) => ({ type: dir }),
+  status: (dir) => ({ status: dir }),
+  priority: (dir) => ({ priority: dir }),
+  scheduled: (dir) => ({ scheduledStart: dir }),
+  amount: (dir) => ({ totalAmount: dir }),
+};
+
+const JOB_INCLUDE = {
+  customer: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+      companyName: true,
+      type: true,
+    },
+  },
+  location: {
+    select: {
+      id: true,
+      address: true,
+      city: true,
+      state: true,
+      zip: true,
+    },
+  },
+  technicians: {
+    include: {
+      technician: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatar: true,
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+function jobCustomerName(job) {
+  const c = job.customer;
+  if (!c) return "";
+  if (c.companyName && c.companyName.trim()) return c.companyName;
+  return `${c.firstName || ""} ${c.lastName || ""}`.trim();
+}
+
 // Status rules:
 //  - scheduled / parts_on_hold / in_progress / on_hold interchange freely.
 //  - No status can move back to "new" (it is only an initial state).
@@ -57,8 +115,11 @@ const list = async (req, res) => {
       technicianId,
       archived,
       recurringJobId,
+      sortKey,
+      sortDir,
     } = req.query;
     const { skip, take } = paginate(page, limit);
+    const dir = sortDir === "asc" ? "asc" : "desc";
 
     const where = {};
     if (status) where.status = status;
@@ -89,49 +150,42 @@ const list = async (req, res) => {
       ];
     }
 
+    // Sorting by customer has to look at every matching row (not just the
+    // current page) since the effective name isn't a single DB column --
+    // fetch the whole filtered set, sort/paginate in memory (same pattern as
+    // invoices.controller.js).
+    if (sortKey === "customer") {
+      const all = await prisma.job.findMany({ where, include: JOB_INCLUDE });
+
+      const factor = dir === "asc" ? 1 : -1;
+      all.sort(
+        (a, b) =>
+          jobCustomerName(a)
+            .toLowerCase()
+            .localeCompare(jobCustomerName(b).toLowerCase()) * factor,
+      );
+
+      const total = all.length;
+      const pageRows = all.slice(skip, skip + take);
+
+      return res.json({
+        success: true,
+        ...paginatedResponse(pageRows, total, page, limit),
+      });
+    }
+
+    const orderBy = JOB_ORDER_BY[sortKey]?.(dir) ?? [
+      { scheduledStart: "asc" },
+      { createdAt: "desc" },
+    ];
+
     const [jobs, total] = await Promise.all([
       prisma.job.findMany({
         where,
         skip,
         take,
-        include: {
-          customer: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              phone: true,
-              companyName: true,
-              type: true,
-            },
-          },
-          location: {
-            select: {
-              id: true,
-              address: true,
-              city: true,
-              state: true,
-              zip: true,
-            },
-          },
-          technicians: {
-            include: {
-              technician: {
-                include: {
-                  user: {
-                    select: {
-                      id: true,
-                      firstName: true,
-                      lastName: true,
-                      avatar: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        orderBy: [{ scheduledStart: "asc" }, { createdAt: "desc" }],
+        include: JOB_INCLUDE,
+        orderBy,
       }),
       prisma.job.count({ where }),
     ]);
@@ -558,11 +612,23 @@ const assignTechnician = async (req, res) => {
       where: { jobId_technicianId: { jobId: req.params.id, technicianId } },
     });
 
-    const assignment = await prisma.jobTechnician.upsert({
-      where: { jobId_technicianId: { jobId: req.params.id, technicianId } },
-      create: { jobId: req.params.id, technicianId, isLead },
-      update: { isLead },
-    });
+    // Only one lead per job -- promoting this tech demotes whoever held it.
+    const txResults = await prisma.$transaction([
+      ...(isLead
+        ? [
+            prisma.jobTechnician.updateMany({
+              where: { jobId: req.params.id, technicianId: { not: technicianId } },
+              data: { isLead: false },
+            }),
+          ]
+        : []),
+      prisma.jobTechnician.upsert({
+        where: { jobId_technicianId: { jobId: req.params.id, technicianId } },
+        create: { jobId: req.params.id, technicianId, isLead },
+        update: { isLead },
+      }),
+    ]);
+    const assignment = txResults[txResults.length - 1];
 
     const job = await prisma.job.findUnique({ where: { id: req.params.id } });
     const io = req.app.get("io");

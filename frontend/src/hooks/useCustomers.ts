@@ -25,6 +25,8 @@ interface CustomersParams {
   type?: string;
   /** A-Z index filter: only customers whose first name starts with this letter. */
   letter?: string;
+  sortKey?: string;
+  sortDir?: string;
 }
 
 export function useCustomers(params: CustomersParams = {}) {

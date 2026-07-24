@@ -22,10 +22,50 @@ const ESTIMATE_NARRATED_FIELDS = [
   { field: "terms", label: "Quote Terms" },
 ];
 
+// Columns with a real matching DB column -- these stay a normal, efficient
+// paginated query with a Prisma `orderBy`. "customer" is handled separately
+// below since the visible name isn't a single DB column (see
+// invoices.controller.js for the same pattern).
+const ESTIMATE_ORDER_BY = {
+  estimate: (dir) => ({ estimateNumber: dir }),
+  title: (dir) => ({ title: dir }),
+  date: (dir) => ({ createdAt: dir }),
+  total: (dir) => ({ total: dir }),
+  status: (dir) => ({ status: dir }),
+};
+
+const ESTIMATE_INCLUDE = {
+  customer: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      companyName: true,
+    },
+  },
+  _count: { select: { lineItems: true } },
+};
+
+function estimateCustomerName(est) {
+  const c = est.customer;
+  if (!c) return "";
+  if (c.companyName && c.companyName.trim()) return c.companyName;
+  return `${c.firstName || ""} ${c.lastName || ""}`.trim();
+}
+
 const list = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, customerId, search } = req.query;
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      customerId,
+      search,
+      sortKey,
+      sortDir,
+    } = req.query;
     const { skip, take } = paginate(page, limit);
+    const dir = sortDir === "asc" ? "asc" : "desc";
 
     const where = {};
     if (status) where.status = status;
@@ -42,23 +82,42 @@ const list = async (req, res) => {
       ];
     }
 
+    // Sorting by customer has to look at every matching row (not just the
+    // current page) since the effective name isn't a single DB column --
+    // fetch the whole filtered set, sort/paginate in memory (same pattern as
+    // invoices.controller.js).
+    if (sortKey === "customer") {
+      const all = await prisma.estimate.findMany({
+        where,
+        include: ESTIMATE_INCLUDE,
+      });
+
+      const factor = dir === "asc" ? 1 : -1;
+      all.sort(
+        (a, b) =>
+          estimateCustomerName(a)
+            .toLowerCase()
+            .localeCompare(estimateCustomerName(b).toLowerCase()) * factor,
+      );
+
+      const total = all.length;
+      const pageRows = all.slice(skip, skip + take);
+
+      return res.json({
+        success: true,
+        ...paginatedResponse(pageRows, total, page, limit),
+      });
+    }
+
+    const orderBy = ESTIMATE_ORDER_BY[sortKey]?.(dir) ?? { createdAt: "desc" };
+
     const [estimates, total] = await Promise.all([
       prisma.estimate.findMany({
         where,
         skip,
         take,
-        include: {
-          customer: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              companyName: true,
-            },
-          },
-          _count: { select: { lineItems: true } },
-        },
-        orderBy: { createdAt: "desc" },
+        include: ESTIMATE_INCLUDE,
+        orderBy,
       }),
       prisma.estimate.count({ where }),
     ]);

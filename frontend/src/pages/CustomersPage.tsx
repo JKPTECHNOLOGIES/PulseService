@@ -67,6 +67,11 @@ export default function CustomersPage() {
     search: search || undefined,
     type: type !== "all" ? type : undefined,
     letter: letter ?? undefined,
+    // Sorting has to happen server-side across the whole filtered set, not
+    // just the 20 rows on the current page -- DataTable's own sort only ever
+    // reorders whatever `rows` it's given.
+    sortKey: sort?.key,
+    sortDir: sort?.dir,
   });
 
   const customers = data?.data ?? [];

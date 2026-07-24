@@ -10,6 +10,8 @@ interface EstimatesParams {
   search?: string;
   status?: string;
   customerId?: string;
+  sortKey?: string;
+  sortDir?: string;
 }
 
 export function useEstimates(params: EstimatesParams = {}) {
