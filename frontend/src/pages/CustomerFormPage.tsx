@@ -68,15 +68,7 @@ interface CustomerDraft {
 const DRAFT_KEY = "draft:customer:new";
 const DEFAULT_VALUES: Partial<FormData> = { type: "residential" };
 
-const SOURCES = [
-  "website",
-  "referral",
-  "google",
-  "yelp",
-  "social_media",
-  "direct_mail",
-  "other",
-];
+
 
 export default function CustomerFormPage() {
   const { id } = useParams<{ id: string }>();
@@ -87,6 +79,7 @@ export default function CustomerFormPage() {
   const createMutation = useCreateCustomer();
   const updateMutation = useUpdateCustomer();
   const { options: customerTypeOptions } = useLookup("customerType");
+  const { options: sourceOptions } = useLookup("leadSource");
   const { data: pricingTiers } = usePricingTiers();
 
   // Extra contacts (beyond the primary phone/mobile/email above) and extra
@@ -522,11 +515,9 @@ export default function CustomerFormPage() {
                 className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
               >
                 <option value="">Select source...</option>
-                {SOURCES.map((s) => (
-                  <option key={s} value={s}>
-                    {s
-                      .replace(/_/g, " ")
-                      .replace(/\b\w/g, (c) => c.toUpperCase())}
+                {sourceOptions.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
                   </option>
                 ))}
               </select>

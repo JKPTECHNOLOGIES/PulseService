@@ -59,6 +59,19 @@ const LOOKUPS = {
     { value: "repair", label: "Repair" },
     { value: "emergency", label: "Emergency" },
   ],
+  // How a customer/work order originated. Mirrors the SOURCES list already
+  // used on the customer form (frontend/src/pages/CustomerFormPage.tsx) --
+  // defined here too so a job's own Source dropdown can be DB-driven like
+  // every other enum instead of a second hardcoded copy.
+  leadSource: [
+    { value: "website", label: "Website" },
+    { value: "referral", label: "Referral" },
+    { value: "google", label: "Google" },
+    { value: "yelp", label: "Yelp" },
+    { value: "social_media", label: "Social Media" },
+    { value: "direct_mail", label: "Direct Mail" },
+    { value: "other", label: "Other" },
+  ],
   jobTechnicianStatus: [
     {
       value: "assigned",

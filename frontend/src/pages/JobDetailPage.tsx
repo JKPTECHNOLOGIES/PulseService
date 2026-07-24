@@ -160,6 +160,7 @@ export default function JobDetailPage() {
 
   const { data: job, isLoading } = useJob(id ?? "");
   const { data: techsData } = useTechnicians();
+  const { getLabel: getSourceLabel } = useLookup("leadSource");
   const { data: currentEntry } = useCurrentTimeEntry();
   const { data: jobTimeEntries } = useJobTimeEntries(id ?? "");
   const clockIn = useClockIn();
@@ -422,6 +423,12 @@ export default function JobDetailPage() {
                   )}
                 >
                   {job.priority}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-gray-500">Source</dt>
+                <dd className="text-sm font-medium text-gray-900 mt-0.5">
+                  {getSourceLabel(job.source)}
                 </dd>
               </div>
               <div>

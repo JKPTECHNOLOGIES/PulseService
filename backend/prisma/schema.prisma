@@ -166,6 +166,10 @@ model Job {
   type            String    @default("service")
   status          String    @default("scheduled")
   priority        String    @default("normal")
+  // How this specific work order came in (lookup: leadSource) -- separate from
+  // Customer.source since a repeat customer's jobs can each originate from a
+  // different channel (e.g. first visit via referral, a later one from an ad).
+  source          String?
   summary         String
   description     String?
   scheduledStart  DateTime?

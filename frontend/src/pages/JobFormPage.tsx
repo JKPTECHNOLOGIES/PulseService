@@ -22,6 +22,7 @@ const schema = z.object({
   type: z.string().min(1),
   priority: z.string().min(1),
   status: z.string().min(1),
+  source: z.string().optional(),
   summary: z.string().min(1, "Summary is required"),
   description: z.string().optional(),
   scheduledStart: z.string().optional(),
@@ -82,6 +83,7 @@ export default function JobFormPage() {
         type: job.type,
         priority: job.priority,
         status: job.status,
+        source: job.source ?? "",
         summary: job.summary,
         description: job.description ?? "",
         scheduledStart: job.scheduledStart
@@ -245,15 +247,27 @@ export default function JobFormPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Status
-              </label>
-              <LookupSelect
-                category="jobStatus"
-                only={["new", "scheduled"]}
-                {...register("status")}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Status
+                </label>
+                <LookupSelect
+                  category="jobStatus"
+                  only={["new", "scheduled"]}
+                  {...register("status")}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Source
+                </label>
+                <LookupSelect
+                  category="leadSource"
+                  placeholder="Select source..."
+                  {...register("source")}
+                />
+              </div>
             </div>
 
             <div>

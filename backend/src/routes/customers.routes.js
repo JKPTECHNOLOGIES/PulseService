@@ -7,7 +7,10 @@ const c = require("../controllers/customers.controller");
 
 router.use(auth);
 
-const validateCustomer = validateLookups({ type: "customerType" });
+const validateCustomer = validateLookups({
+  type: "customerType",
+  source: "leadSource",
+});
 
 router.get("/", c.list);
 router.post(

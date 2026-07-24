@@ -13,6 +13,7 @@ router.use(auth);
 const validateJob = validateLookups({
   status: "jobStatus",
   priority: "jobPriority",
+  source: "leadSource",
 });
 
 router.get("/", c.list);

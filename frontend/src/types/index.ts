@@ -121,6 +121,9 @@ export interface Job {
   type: string;
   status: string;
   priority: string;
+  // How this specific work order originated (lookup: leadSource) -- distinct
+  // from the customer's own Customer.source.
+  source?: string;
   summary: string;
   description?: string;
   scheduledStart?: string;
@@ -807,7 +810,8 @@ export type LookupCategory =
   | "quickbooksSyncStatus"
   | "pricingOverrideType"
   | "messageDirection"
-  | "messageChannel";
+  | "messageChannel"
+  | "leadSource";
 
 export type Metadata = Partial<Record<LookupCategory, LookupOption[]>>;
 
