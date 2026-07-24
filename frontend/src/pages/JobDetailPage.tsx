@@ -683,6 +683,34 @@ export default function JobDetailPage() {
                 </div>
               </div>
             )}
+            {job.estimates && job.estimates.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs font-medium text-gray-500 mb-2">
+                  Quotes
+                </p>
+                <div className="space-y-2">
+                  {job.estimates.map((est) => (
+                    <div
+                      key={est.id}
+                      className="flex items-center justify-between gap-2 text-sm"
+                    >
+                      <Link
+                        to={`/estimates/${est.id}`}
+                        className="font-medium text-primary-600 hover:text-primary-700"
+                      >
+                        #{est.estimateNumber}
+                      </Link>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <StatusBadge status={est.status} type="estimate" />
+                        <span className="font-medium text-gray-900">
+                          {formatCurrency(est.total)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Time Tracking */}

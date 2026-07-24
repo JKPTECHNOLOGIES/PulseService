@@ -155,6 +155,13 @@ export interface Job {
     total: number;
     balance: number;
   }[];
+  // Quotes drawn up for this work order, same idea as invoices above.
+  estimates?: {
+    id: string;
+    estimateNumber: string;
+    status: string;
+    total: number;
+  }[];
 }
 
 export interface EstimateLineItem {
