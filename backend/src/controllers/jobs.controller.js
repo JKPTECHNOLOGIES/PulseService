@@ -107,6 +107,28 @@ const STATUS_TRANSITIONS = {
   cancelled: ["scheduled", "parts_on_hold", "in_progress", "on_hold"],
 };
 
+// Derived bookkeeping fields that go along with a status change (used by both
+// the dedicated Update Status action and a full job edit that happens to
+// change status, so the two paths stay consistent no matter which one is
+// used) -- e.g. stamping completedAt/actualStart/cancelledAt.
+function statusSideEffects(job, status, { cancelReason, completionNotes } = {}) {
+  const data = {};
+  if (status === "completed") {
+    data.completedAt = new Date();
+    if (!job.actualStart) data.actualStart = new Date();
+    data.actualEnd = new Date();
+    if (completionNotes) data.completionNotes = completionNotes;
+  }
+  if (status === "cancelled") {
+    data.cancelledAt = new Date();
+    if (cancelReason) data.cancelReason = cancelReason;
+  }
+  if (status === "in_progress" && !job.actualStart) {
+    data.actualStart = new Date();
+  }
+  return data;
+}
+
 const list = async (req, res) => {
   try {
     const {
@@ -397,6 +419,8 @@ const update = async (req, res) => {
         source: true,
         scheduledStart: true,
         scheduledEnd: true,
+        status: true,
+        actualStart: true,
       },
     });
     if (!before) {
@@ -462,6 +486,24 @@ const update = async (req, res) => {
       }
     }
 
+    // A full edit can change status too now (the job form offers every
+    // status once a job is past New/Scheduled -- see JobFormPage). Apply the
+    // same derived bookkeeping (completedAt/actualStart/cancelledAt) as the
+    // dedicated Update Status action so the two paths stay consistent, and
+    // narrate it the same way. Deliberately skips STATUS_TRANSITIONS here --
+    // a full edit is also how an office user corrects a mistaken status, so
+    // it isn't restricted to the same forward-moving transitions.
+    const statusChanged = data.status && data.status !== before.status;
+    if (statusChanged) {
+      Object.assign(
+        data,
+        statusSideEffects(before, data.status, {
+          cancelReason: data.cancelReason,
+          completionNotes: data.completionNotes,
+        }),
+      );
+    }
+
     const job = await prisma.job.update({
       where: { id: req.params.id },
       data,
@@ -484,10 +526,31 @@ const update = async (req, res) => {
     if (io && job.scheduledStart) {
       const date = new Date(job.scheduledStart).toISOString().split("T")[0];
       io.to(`dispatch:${date}`).emit("job:updated", job);
+      if (statusChanged) {
+        io.to(`dispatch:${date}`).emit("job:statusChanged", {
+          id: job.id,
+          status: job.status,
+        });
+      }
     }
 
     // Notify only technicians newly added by this edit (not existing ones).
     await notify.notifyJobAssigned(newlyAssigned, job);
+
+    if (statusChanged) {
+      const statusLabel =
+        LOOKUPS.jobStatus.find((o) => o.value === job.status)?.label ??
+        job.status;
+      await recordTimelineEvent({
+        customerId: before.customerId,
+        entityType: "job",
+        entityId: job.id,
+        entityLabel: before.jobNumber,
+        action: "status_change",
+        description: `marked Work Order as "${statusLabel}"`,
+        userId: req.user?.id,
+      });
+    }
 
     const fieldEdits = describeFieldEdits(before, job, JOB_NARRATED_FIELDS);
     for (const description of fieldEdits) {
@@ -559,20 +622,7 @@ const updateStatus = async (req, res) => {
       });
     }
 
-    const data = { status };
-    if (status === "completed") {
-      data.completedAt = new Date();
-      if (!job.actualStart) data.actualStart = new Date();
-      data.actualEnd = new Date();
-      if (completionNotes) data.completionNotes = completionNotes;
-    }
-    if (status === "cancelled") {
-      data.cancelledAt = new Date();
-      if (cancelReason) data.cancelReason = cancelReason;
-    }
-    if (status === "in_progress" && !job.actualStart) {
-      data.actualStart = new Date();
-    }
+    const data = { status, ...statusSideEffects(job, status, { cancelReason, completionNotes }) };
 
     const updated = await prisma.job.update({
       where: { id: req.params.id },

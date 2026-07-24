@@ -254,7 +254,13 @@ export default function JobFormPage() {
                 </label>
                 <LookupSelect
                   category="jobStatus"
-                  only={["new", "scheduled"]}
+                  // A brand-new work order can only start as New or
+                  // Scheduled, so keep the picker narrow when creating one.
+                  // Editing an existing job needs every status available --
+                  // restricting it here too used to silently force an
+                  // in-progress/completed/etc. job back to New on save,
+                  // since the field's real value wasn't even a valid option.
+                  only={isEditing ? undefined : ["new", "scheduled"]}
                   {...register("status")}
                 />
               </div>
