@@ -90,10 +90,8 @@ export default function InvoiceFormPage() {
   const discountType = watch("discountType");
   const discountValue = watch("discountValue") ?? 0;
 
-  const { data: jobsData } = useJobs({ limit: 100 });
-  const customerJobs = (jobsData?.data ?? []).filter(
-    (j) => j.customerId === customerId,
-  );
+  const { data: jobsData } = useJobs({ customerId, limit: 100 });
+  const customerJobs = jobsData?.data ?? [];
 
   // Parts issued to the selected job (from truck/warehouse stock) that can be
   // pulled onto the invoice as line items.

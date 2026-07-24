@@ -465,7 +465,6 @@ function CreatePOModal({
   const { data: locations } = useStockLocations({ active: "true" });
   const { data: items } = useInventoryItems();
   const { data: customersData } = useCustomers({ limit: 200 });
-  const { data: jobsData } = useJobs({ limit: 100 });
 
   const [vendorId, setVendorId] = useState("");
   const [shipToLocationId, setShipTo] = useState("");
@@ -474,10 +473,10 @@ function CreatePOModal({
   const [jobId, setJobId] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([]);
 
+  const { data: jobsData } = useJobs({ customerId, limit: 100 });
+
   const customers = customersData?.data ?? [];
-  const customerJobs = (jobsData?.data ?? []).filter(
-    (j) => j.customerId === customerId,
-  );
+  const customerJobs = jobsData?.data ?? [];
 
   // Arriving via a job's "Create PO" shortcut pre-links this PO to that work
   // order + customer, so materials bought for a job stay tied to it.

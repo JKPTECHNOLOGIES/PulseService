@@ -82,10 +82,8 @@ export default function EstimateFormPage() {
   const discountType = watch("discountType");
   const discountValue = watch("discountValue") ?? 0;
 
-  const { data: jobsData } = useJobs({ limit: 100 });
-  const customerJobs = (jobsData?.data ?? []).filter(
-    (j) => j.customerId === customerId,
-  );
+  const { data: jobsData } = useJobs({ customerId, limit: 100 });
+  const customerJobs = jobsData?.data ?? [];
 
   useEffect(() => {
     if (estimate && isEditing) {

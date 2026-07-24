@@ -54,7 +54,7 @@ export default function CustomerDetailPage() {
     await deleteCustomer.mutateAsync(id);
     navigate("/customers");
   };
-  const { data: jobsData } = useJobs({ limit: 50 });
+  const { data: jobsData } = useJobs({ customerId: id, limit: 50 });
   const { data: estimatesData } = useEstimates({ customerId: id, limit: 50 });
   const { data: invoicesData } = useInvoices({ customerId: id, limit: 50 });
   const { data: equipmentData } = useEquipmentList({ customerId: id, limit: 50 });
@@ -66,9 +66,7 @@ export default function CustomerDetailPage() {
     useLookup("equipmentCondition");
   const { getLabel: getBillingLabel } = useLookup("billingFrequency");
 
-  const customerJobs = (jobsData?.data ?? []).filter(
-    (j) => j.customerId === id,
-  );
+  const customerJobs = jobsData?.data ?? [];
   const estimates = estimatesData?.data ?? [];
   const invoices = invoicesData?.data ?? [];
   const equipment = equipmentData?.data ?? [];

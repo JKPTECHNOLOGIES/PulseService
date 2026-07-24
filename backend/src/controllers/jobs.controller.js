@@ -140,6 +140,7 @@ const list = async (req, res) => {
       dateFrom,
       dateTo,
       technicianId,
+      customerId,
       archived,
       recurringJobId,
       sortKey,
@@ -151,6 +152,7 @@ const list = async (req, res) => {
     const where = {};
     if (status) where.status = status;
     if (type) where.type = type;
+    if (customerId) where.customerId = customerId;
     if (recurringJobId) where.recurringJobId = recurringJobId;
     // Archived jobs are hidden by default so they stop cluttering active
     // lists/boards without ever being destroyed; ?archived=true shows only
