@@ -1,7 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/errors";
-import type { ApiResponse, PricebookCategory, PricebookItem } from "../types";
+import type {
+  ApiResponse,
+  PaginatedResponse,
+  PricebookCategory,
+  PricebookItem,
+} from "../types";
 import toast from "../lib/toast";
 
 export function usePricebookCategories() {
@@ -30,6 +35,31 @@ export function usePricebookItems(
       return res.data;
     },
     enabled: options.enabled ?? true,
+  });
+}
+
+interface PricebookItemsPagedParams {
+  categoryId?: string;
+  search?: string;
+  customerId?: string;
+  page?: number;
+  limit?: number;
+  sortKey?: string;
+  sortDir?: string;
+}
+
+// Paginated variant for the Items admin page (the catalog can run into the
+// thousands of rows) -- the backend only pages when `page`/`limit` is given,
+// so this is a separate hook from `usePricebookItems` above, which several
+// other screens (quick-add search, QuickBooks item mapping, pricing tier
+// overrides) rely on to keep returning the full matching set.
+export function usePricebookItemsPaged(params: PricebookItemsPagedParams = {}) {
+  return useQuery({
+    queryKey: ["pricebook", "items", "paged", params],
+    queryFn: () =>
+      api.get<PaginatedResponse<PricebookItem>>("/pricebook/items", {
+        params,
+      }),
   });
 }
 

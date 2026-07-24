@@ -1,5 +1,6 @@
 const prisma = require("../config/database");
 const { withEffectivePrices } = require("../services/pricing.service");
+const { paginate, paginatedResponse } = require("../utils/helpers");
 
 const listCategories = async (req, res) => {
   try {
@@ -66,9 +67,31 @@ const deleteCategory = async (req, res) => {
   }
 };
 
+// Columns with a real matching DB column -- these stay a normal, efficient
+// paginated query with a Prisma `orderBy`, same pattern as the other list
+// endpoints (see invoices.controller.js).
+const PRICEBOOK_ITEM_ORDER_BY = {
+  sku: (dir) => ({ sku: dir }),
+  name: (dir) => ({ name: dir }),
+  type: (dir) => ({ type: dir }),
+  cost: (dir) => ({ unitCost: dir }),
+  price: (dir) => ({ unitPrice: dir }),
+  taxable: (dir) => ({ taxable: dir }),
+  active: (dir) => ({ isActive: dir }),
+};
+
 const listItems = async (req, res) => {
   try {
-    const { categoryId, search, type, customerId } = req.query;
+    const {
+      categoryId,
+      search,
+      type,
+      customerId,
+      page,
+      limit,
+      sortKey,
+      sortDir,
+    } = req.query;
 
     const where = { isActive: true };
     if (categoryId) where.categoryId = categoryId;
@@ -79,6 +102,40 @@ const listItems = async (req, res) => {
         { sku: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
       ];
+    }
+
+    // The Items admin page pages through the (potentially thousands-strong)
+    // catalog, but a few other callers -- the quick-add line item search, the
+    // QuickBooks item-mapping picker, the pricing-tier override picker --
+    // still need the FULL matching set in one shot (they populate a dropdown
+    // or a narrow search result, not a browsable table). Only paginate when
+    // the caller explicitly asks for a page, so those callers are unaffected.
+    const isPaginated = page !== undefined || limit !== undefined;
+
+    if (isPaginated) {
+      const { skip, take } = paginate(page, limit);
+      const dir = sortDir === "asc" ? "asc" : "desc";
+      const orderBy = PRICEBOOK_ITEM_ORDER_BY[sortKey]?.(dir) ?? [
+        { category: { sortOrder: "asc" } },
+        { name: "asc" },
+      ];
+
+      const [items, total] = await Promise.all([
+        prisma.pricebookItem.findMany({
+          where,
+          skip,
+          take,
+          include: { category: { select: { id: true, name: true } } },
+          orderBy,
+        }),
+        prisma.pricebookItem.count({ where }),
+      ]);
+
+      const withPricing = await withEffectivePrices(items, customerId);
+      return res.json({
+        success: true,
+        ...paginatedResponse(withPricing, total, page, limit),
+      });
     }
 
     const items = await prisma.pricebookItem.findMany({

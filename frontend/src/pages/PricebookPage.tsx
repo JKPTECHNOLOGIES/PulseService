@@ -12,7 +12,7 @@ import {
 import clsx from "clsx";
 import {
   usePricebookCategories,
-  usePricebookItems,
+  usePricebookItemsPaged,
   useCreatePricebookItem,
   useUpdatePricebookItem,
   useCreatePricebookCategory,
@@ -22,12 +22,18 @@ import Badge from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
 import ImportModal from "../components/ui/ImportModal";
 import EmptyState from "../components/ui/EmptyState";
+import Pagination from "../components/ui/Pagination";
+import DataTable, { Column, SortState } from "../components/ui/DataTable";
 import { LookupSelect } from "../components/ui/LookupSelect";
 import { PageSpinner } from "../components/ui/Spinner";
+import { TableSkeleton } from "../components/ui/Skeleton";
 import { formatCurrency } from "../utils/formatters";
 import { useLookup } from "../hooks/useMetadata";
+import api from "../lib/api";
 import toast from "../lib/toast";
-import { PricebookItem } from "../types";
+import { ApiResponse, PricebookItem } from "../types";
+
+const PAGE_SIZE = 50;
 
 const BarcodeScanner = lazy(() => import("../components/ui/BarcodeScanner"));
 
@@ -45,6 +51,8 @@ interface ItemForm {
 export default function PricebookPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<SortState | null>(null);
   const [itemModal, setItemModal] = useState(false);
   const [categoryModal, setCategoryModal] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -52,22 +60,52 @@ export default function PricebookPage() {
   const [editingItem, setEditingItem] = useState<PricebookItem | null>(null);
 
   const { data: categories, isLoading: catLoading } = usePricebookCategories();
-  const { data: items, isLoading: itemsLoading } = usePricebookItems({
+  const { data, isLoading: itemsLoading } = usePricebookItemsPaged({
     categoryId: selectedCategory ?? undefined,
     search: search || undefined,
+    page,
+    limit: PAGE_SIZE,
+    // Sorting has to happen server-side across the whole filtered set, not
+    // just the 50 rows on the current page -- DataTable's own sort only ever
+    // reorders whatever `rows` it's given.
+    sortKey: sort?.key,
+    sortDir: sort?.dir,
   });
+  const items = data?.data ?? [];
+  const pagination = data?.pagination;
   const { getLabel: getItemTypeLabel } = useLookup("pricebookItemType");
 
-  // Scanned barcode -> match an item by SKU (within the current category
-  // filter) and open it for editing.
-  const handleScan = (code: string) => {
-    const term = code.trim().toLowerCase();
-    const match = (items ?? []).find((i) => i.sku.toLowerCase() === term);
-    if (match) openEditItem(match);
-    else
-      toast.error(
-        `No item with SKU \u201C${code}\u201D in this category. Try "All" or check the SKU.`,
+  const selectCategory = (categoryId: string | null) => {
+    setSelectedCategory(categoryId);
+    setPage(1);
+  };
+
+  // Scanned barcode -> match an item by SKU. Searches the whole catalog (not
+  // just the currently-displayed page) within the current category filter,
+  // same as the search box.
+  const handleScan = async (code: string) => {
+    const term = code.trim();
+    try {
+      const res = await api.get<ApiResponse<PricebookItem[]>>(
+        "/pricebook/items",
+        {
+          params: {
+            categoryId: selectedCategory ?? undefined,
+            search: term,
+          },
+        },
       );
+      const match = res.data.find(
+        (i) => i.sku.toLowerCase() === term.toLowerCase(),
+      );
+      if (match) openEditItem(match);
+      else
+        toast.error(
+          `No item with SKU \u201C${code}\u201D in this category. Try "All" or check the SKU.`,
+        );
+    } catch {
+      toast.error("Couldn't look up that barcode. Try again.");
+    }
   };
 
   const createItem = useCreatePricebookItem();
@@ -130,6 +168,84 @@ export default function PricebookPage() {
     setCategoryModal(false);
   };
 
+  const columns: Column<PricebookItem>[] = [
+    {
+      key: "sku",
+      header: "SKU",
+      sortValue: (i) => i.sku,
+      exportValue: (i) => i.sku,
+      render: (i) => (
+        <span className="font-mono text-xs text-gray-600">{i.sku}</span>
+      ),
+    },
+    {
+      key: "name",
+      header: "Name",
+      sortValue: (i) => i.name.toLowerCase(),
+      exportValue: (i) => i.name,
+      render: (i) => (
+        <span className="text-gray-900 font-medium">{i.name}</span>
+      ),
+    },
+    {
+      key: "type",
+      header: "Type",
+      sortValue: (i) => i.type,
+      exportValue: (i) => getItemTypeLabel(i.type),
+      render: (i) => (
+        <span className="text-gray-600 text-xs">
+          {getItemTypeLabel(i.type)}
+        </span>
+      ),
+    },
+    {
+      key: "cost",
+      header: "Cost",
+      align: "right",
+      sortValue: (i) => i.unitCost,
+      exportValue: (i) => i.unitCost,
+      render: (i) => (
+        <span className="text-gray-600">{formatCurrency(i.unitCost)}</span>
+      ),
+    },
+    {
+      key: "price",
+      header: "Price",
+      align: "right",
+      sortValue: (i) => i.unitPrice,
+      exportValue: (i) => i.unitPrice,
+      render: (i) => (
+        <span className="font-medium text-gray-900">
+          {formatCurrency(i.unitPrice)}
+        </span>
+      ),
+    },
+    {
+      key: "taxable",
+      header: "Taxable",
+      sortValue: (i) => (i.taxable ? 1 : 0),
+      exportValue: (i) => (i.taxable ? "Yes" : "No"),
+      render: (i) =>
+        i.taxable ? (
+          <Badge className="bg-green-100 text-green-700">Yes</Badge>
+        ) : (
+          <Badge className="bg-gray-100 text-gray-500">No</Badge>
+        ),
+    },
+    {
+      key: "active",
+      header: "Active",
+      sortValue: (i) => (i.isActive ? 1 : 0),
+      exportValue: (i) => (i.isActive ? "Active" : "Inactive"),
+      render: (i) =>
+        i.isActive ? (
+          <Badge className="bg-green-100 text-green-700">Active</Badge>
+        ) : (
+          <Badge className="bg-gray-100 text-gray-500">Inactive</Badge>
+        ),
+    },
+  ];
+
   return (
     <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 lg:h-full">
       {/* Categories: full-width horizontal chip bar on mobile, fixed side rail on desktop */}
@@ -149,7 +265,7 @@ export default function PricebookPage() {
           <div className="lg:flex-1 flex lg:flex-col gap-1 lg:gap-0.5 overflow-x-auto lg:overflow-y-auto p-2">
             <button
               onClick={() => {
-                setSelectedCategory(null);
+                selectCategory(null);
               }}
               className={clsx(
                 "shrink-0 lg:w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left whitespace-nowrap",
@@ -168,7 +284,7 @@ export default function PricebookPage() {
                 <button
                   key={cat.id}
                   onClick={() => {
-                    setSelectedCategory(cat.id);
+                    selectCategory(cat.id);
                   }}
                   className={clsx(
                     "shrink-0 lg:w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left whitespace-nowrap",
@@ -195,12 +311,13 @@ export default function PricebookPage() {
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
+                  setPage(1);
                 }}
                 placeholder="Search SKU or name..."
                 className="px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-64"
               />
               <p className="text-sm text-gray-500">
-                {items?.length ?? 0} items
+                {pagination?.total ?? 0} items
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -243,104 +360,41 @@ export default function PricebookPage() {
             </div>
           </div>
           {itemsLoading ? (
-            <PageSpinner />
-          ) : !items || items.length === 0 ? (
+            <TableSkeleton rows={8} />
+          ) : items.length === 0 ? (
             <EmptyState
               title="No items"
               description="Add items to this category to get started"
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="text-left py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                      SKU
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Name
-                    </th>
-                    <th className="text-left py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Type
-                    </th>
-                    <th className="text-right py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Cost
-                    </th>
-                    <th className="text-right py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Price
-                    </th>
-                    <th className="text-center py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Taxable
-                    </th>
-                    <th className="text-center py-3 px-3 font-medium text-gray-500 text-xs uppercase">
-                      Active
-                    </th>
-                    <th className="text-right py-3 px-5 font-medium text-gray-500 text-xs uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {items.map((item) => (
-                    <tr
-                      key={item.id}
-                      onClick={() => {
-                        openEditItem(item);
-                      }}
-                      className="hover:bg-gray-50 cursor-pointer"
-                    >
-                      <td className="py-3 px-5 font-mono text-xs text-gray-600">
-                        {item.sku}
-                      </td>
-                      <td className="py-3 px-3 text-gray-900 font-medium">
-                        {item.name}
-                      </td>
-                      <td className="py-3 px-3 text-gray-600 text-xs">
-                        {getItemTypeLabel(item.type)}
-                      </td>
-                      <td className="py-3 px-3 text-right text-gray-600">
-                        {formatCurrency(item.unitCost)}
-                      </td>
-                      <td className="py-3 px-3 text-right font-medium text-gray-900">
-                        {formatCurrency(item.unitPrice)}
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        {item.taxable ? (
-                          <Badge className="bg-green-100 text-green-700">
-                            Yes
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-gray-100 text-gray-500">
-                            No
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        {item.isActive ? (
-                          <Badge className="bg-green-100 text-green-700">
-                            Active
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-gray-100 text-gray-500">
-                            Inactive
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="py-3 px-5 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditItem(item);
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <DataTable<PricebookItem>
+              columns={columns}
+              rows={items}
+              getRowId={(i) => i.id}
+              onRowClick={openEditItem}
+              sort={sort}
+              onSortChange={setSort}
+              csvFilename="pricebook-items"
+              rowActions={(i) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openEditItem(i);
+                  }}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </button>
+              )}
+            />
+          )}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="px-5 py-3 border-t border-gray-100">
+              <Pagination
+                page={pagination.page}
+                totalPages={pagination.totalPages}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </div>
@@ -532,7 +586,9 @@ export default function PricebookPage() {
             onClose={() => {
               setScannerOpen(false);
             }}
-            onDetected={handleScan}
+            onDetected={(code) => {
+              void handleScan(code);
+            }}
           />
         </Suspense>
       )}
