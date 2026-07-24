@@ -100,30 +100,12 @@ export default function InvoiceFormPage() {
   const jobId = watch("jobId") ?? "";
   const { data: jobParts } = useJobParts(jobId);
 
-  // Job labor can be billed off two sources: the *scheduled* time (primary
-  // window + additional blocks set in dispatch) or the *actual* logged time
-  // (technician clock-in/out). Either can be dropped onto the invoice as a
-  // single Labor line; the office fills in the hourly rate.
-  const minutesBetween = (s: string, e: string) => {
-    const ms = new Date(e).getTime() - new Date(s).getTime();
-    return ms > 0 ? Math.round(ms / 60000) : 0;
-  };
+  // Job labor is billed off the *actual* logged time (technician clock-in/
+  // out), dropped onto the invoice as one Labor line per technician priced at
+  // their own pay rate (see loggedLaborRows below).
   const toHours = (mins: number) => Math.round((mins / 60) * 100) / 100;
 
   const { data: jobDetail } = useJob(jobId);
-  const scheduledMinutes = (() => {
-    if (!jobDetail) return 0;
-    const primary =
-      jobDetail.scheduledStart && jobDetail.scheduledEnd
-        ? minutesBetween(jobDetail.scheduledStart, jobDetail.scheduledEnd)
-        : 0;
-    const blocks = (jobDetail.scheduleBlocks ?? []).reduce(
-      (sum, b) => sum + minutesBetween(b.start, b.end),
-      0,
-    );
-    return primary + blocks;
-  })();
-  const scheduledHours = toHours(scheduledMinutes);
 
   const { data: jobTimeEntries } = useJobTimeEntries(jobId);
   const loggedMinutes = (jobTimeEntries ?? []).reduce(
@@ -202,28 +184,6 @@ export default function InvoiceFormPage() {
             ),
         ),
     ]);
-  };
-
-  const addScheduledLaborLine = () => {
-    if (scheduledHours <= 0) return;
-    const jobRef = jobDetail ? ` on job #${jobDetail.jobNumber}` : " on job";
-    setLineItems((items) => {
-      const description = `Scheduled time${jobRef}`;
-      if (items.some((li) => li.type === "labor" && li.description === description)) {
-        return items;
-      }
-      return [
-        ...items,
-        {
-          type: "labor",
-          name: "Labor",
-          description,
-          quantity: scheduledHours,
-          unitPrice: 0,
-          total: 0,
-        },
-      ];
-    });
   };
 
   // One line per technician, priced at their actual pay rate -- the same
@@ -456,21 +416,6 @@ export default function InvoiceFormPage() {
                 onClick={importJobParts}
               >
                 Add to invoice
-              </Button>
-            </div>
-          )}
-          {jobId && scheduledMinutes > 0 && (
-            <div className="mb-3 flex items-center justify-between bg-primary-50 border border-primary-100 rounded-lg px-3.5 py-2.5">
-              <p className="text-sm text-primary-800">
-                {scheduledHours} hr(s) of scheduled time on this job.
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={addScheduledLaborLine}
-              >
-                Add scheduled labor
               </Button>
             </div>
           )}
