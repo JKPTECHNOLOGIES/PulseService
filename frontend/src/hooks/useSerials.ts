@@ -15,6 +15,8 @@ export function useSerializedUnits(
     customerId?: string;
     jobId?: string;
     search?: string;
+    sortKey?: string;
+    sortDir?: string;
   } = {},
 ) {
   return useQuery({

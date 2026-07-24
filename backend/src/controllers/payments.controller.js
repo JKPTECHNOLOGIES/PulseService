@@ -4,40 +4,98 @@ const { recordTimelineEvent } = require("../utils/timeline");
 
 const money = (n) => "$" + Number(n || 0).toFixed(2);
 
+// Columns with a real matching DB column -- these stay a normal, efficient
+// paginated query with a Prisma `orderBy`. Sorting has to happen server-side
+// across the whole filtered set (not just the current page), same as
+// invoices.controller.js.
+const PAYMENT_ORDER_BY = {
+  date: (dir) => ({ paidAt: dir }),
+  method: (dir) => ({ method: dir }),
+  status: (dir) => ({ status: dir }),
+  amount: (dir) => ({ amount: dir }),
+};
+
+const PAYMENT_INCLUDE = {
+  invoice: {
+    select: {
+      id: true,
+      invoiceNumber: true,
+      total: true,
+      status: true,
+    },
+  },
+  customer: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      companyName: true,
+    },
+  },
+};
+
+function paymentCustomerName(p) {
+  const c = p.customer;
+  if (!c) return "";
+  if (c.companyName && c.companyName.trim()) return c.companyName;
+  return `${c.firstName || ""} ${c.lastName || ""}`.trim();
+}
+
 const list = async (req, res) => {
   try {
-    const { page = 1, limit = 20, customerId, method, status } = req.query;
+    const {
+      page = 1,
+      limit = 20,
+      customerId,
+      method,
+      status,
+      sortKey,
+      sortDir,
+    } = req.query;
     const { skip, take } = paginate(page, limit);
+    const dir = sortDir === "asc" ? "asc" : "desc";
 
     const where = {};
     if (customerId) where.customerId = customerId;
     if (method) where.method = method;
     if (status) where.status = status;
 
+    // Sorting by customer has to look at every matching row (not just the
+    // current page) since the effective name isn't a single DB column --
+    // fetch the whole filtered set, sort/paginate in memory (same pattern as
+    // invoices.controller.js).
+    if (sortKey === "customer") {
+      const all = await prisma.payment.findMany({
+        where,
+        include: PAYMENT_INCLUDE,
+      });
+
+      const factor = dir === "asc" ? 1 : -1;
+      all.sort(
+        (a, b) =>
+          paymentCustomerName(a)
+            .toLowerCase()
+            .localeCompare(paymentCustomerName(b).toLowerCase()) * factor,
+      );
+
+      const total = all.length;
+      const pageRows = all.slice(skip, skip + take);
+
+      return res.json({
+        success: true,
+        ...paginatedResponse(pageRows, total, page, limit),
+      });
+    }
+
+    const orderBy = PAYMENT_ORDER_BY[sortKey]?.(dir) ?? { createdAt: "desc" };
+
     const [payments, total] = await Promise.all([
       prisma.payment.findMany({
         where,
         skip,
         take,
-        include: {
-          invoice: {
-            select: {
-              id: true,
-              invoiceNumber: true,
-              total: true,
-              status: true,
-            },
-          },
-          customer: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              companyName: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
+        include: PAYMENT_INCLUDE,
+        orderBy,
       }),
       prisma.payment.count({ where }),
     ]);

@@ -53,12 +53,18 @@ export default function SerializedUnitsPage() {
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<SortState | null>(null);
 
   const { data, isLoading } = useSerializedUnits({
     page,
     limit: 20,
     ...(status ? { status } : {}),
     ...(search ? { search } : {}),
+    // Sorting has to happen server-side across the whole filtered set, not
+    // just the 20 rows on the current page -- DataTable's own sort only ever
+    // reorders whatever `rows` it's given.
+    sortKey: sort?.key,
+    sortDir: sort?.dir,
   });
   const createUnit = useCreateSerializedUnit();
   const updateUnit = useUpdateSerializedUnit();
@@ -73,7 +79,6 @@ export default function SerializedUnitsPage() {
     null,
   );
   const [bulkDelete, setBulkDelete] = useState<SerializedUnit[]>([]);
-  const [sort, setSort] = useState<SortState | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const units = data?.data ?? [];

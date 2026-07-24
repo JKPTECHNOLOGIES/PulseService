@@ -11,6 +11,8 @@ interface EquipmentParams {
   customerId?: string;
   condition?: string;
   warranty?: string;
+  sortKey?: string;
+  sortDir?: string;
 }
 
 export function useEquipmentList(params: EquipmentParams = {}) {

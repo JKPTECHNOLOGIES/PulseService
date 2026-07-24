@@ -15,12 +15,26 @@ function omitCost(unit) {
   return rest;
 }
 
+// Columns with a real matching DB column (or, for item/location, a single
+// real column on the related model) -- these stay a normal, efficient
+// paginated query with a Prisma `orderBy`. Sorting has to happen server-side
+// across the whole filtered set (not just the current page), same as
+// invoices.controller.js.
+const SERIAL_ORDER_BY = {
+  serialNumber: (dir) => ({ serialNumber: dir }),
+  item: (dir) => ({ inventoryItem: { name: dir } }),
+  status: (dir) => ({ status: dir }),
+  location: (dir) => ({ stockLocation: { code: dir } }),
+  warranty: (dir) => ({ warrantyExpiresAt: dir }),
+};
+
 const list = async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, sortKey, sortDir } = req.query;
     const { skip, take } = paginate(page, limit);
     const { itemId, status, stockLocationId, customerId, jobId, search } =
       req.query;
+    const dir = sortDir === "asc" ? "asc" : "desc";
 
     const where = {};
     if (itemId) where.inventoryItemId = itemId;
@@ -30,12 +44,14 @@ const list = async (req, res) => {
     if (jobId) where.installedJobId = jobId;
     if (search) where.serialNumber = { contains: search, mode: "insensitive" };
 
+    const orderBy = SERIAL_ORDER_BY[sortKey]?.(dir) ?? { createdAt: "desc" };
+
     const [units, total] = await Promise.all([
       prisma.serializedUnit.findMany({
         where,
         skip,
         take,
-        orderBy: { createdAt: "desc" },
+        orderBy,
         include: {
           inventoryItem: {
             select: {

@@ -18,12 +18,12 @@ type PaymentWithRelations = Payment & {
   invoice?: Invoice;
 };
 
-function usePayments(page: number) {
+function usePayments(page: number, sortKey?: string, sortDir?: string) {
   return useQuery({
-    queryKey: ["payments", page],
+    queryKey: ["payments", page, sortKey, sortDir],
     queryFn: () =>
       api.get<PaginatedResponse<PaymentWithRelations>>("/payments", {
-        params: { page, limit: 20 },
+        params: { page, limit: 20, sortKey, sortDir },
       }),
   });
 }
@@ -35,7 +35,7 @@ function customerName(p: PaymentWithRelations): string {
 export default function PaymentsPage() {
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<SortState | null>(null);
-  const { data, isLoading } = usePayments(page);
+  const { data, isLoading } = usePayments(page, sort?.key, sort?.dir);
   const { getLabel: getMethodLabel, getColor: getMethodColor } =
     useLookup("paymentMethod");
 

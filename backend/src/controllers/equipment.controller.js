@@ -8,11 +8,38 @@ const locationSelect = {
   select: { id: true, name: true, address: true, city: true, state: true },
 };
 
+// Columns with a real matching DB column -- these stay a normal, efficient
+// paginated query with a Prisma `orderBy`. Sorting has to happen server-side
+// across the whole filtered set (not just the current page), same as
+// invoices.controller.js.
+const EQUIPMENT_ORDER_BY = {
+  equipment: (dir) => ({ name: dir }),
+  installed: (dir) => ({ installDate: dir }),
+  warranty: (dir) => ({ warrantyExpiry: dir }),
+  condition: (dir) => ({ condition: dir }),
+};
+
+function equipmentCustomerName(eq) {
+  const c = eq.customer;
+  if (!c) return "";
+  if (c.companyName && c.companyName.trim()) return c.companyName;
+  return `${c.firstName || ""} ${c.lastName || ""}`.trim();
+}
+
 const list = async (req, res) => {
   try {
-    const { page = 1, limit = 20, search, customerId, condition, warranty } =
-      req.query;
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      customerId,
+      condition,
+      warranty,
+      sortKey,
+      sortDir,
+    } = req.query;
     const { skip, take } = paginate(page, limit);
+    const dir = sortDir === "asc" ? "asc" : "desc";
 
     const where = {};
     if (customerId) where.customerId = customerId;
@@ -39,13 +66,42 @@ const list = async (req, res) => {
       ];
     }
 
+    // Sorting by customer has to look at every matching row (not just the
+    // current page) since the effective name isn't a single DB column --
+    // fetch the whole filtered set, sort/paginate in memory (same pattern as
+    // invoices.controller.js).
+    if (sortKey === "customer") {
+      const all = await prisma.equipment.findMany({
+        where,
+        include: { customer: customerSelect, location: locationSelect },
+      });
+
+      const factor = dir === "asc" ? 1 : -1;
+      all.sort(
+        (a, b) =>
+          equipmentCustomerName(a)
+            .toLowerCase()
+            .localeCompare(equipmentCustomerName(b).toLowerCase()) * factor,
+      );
+
+      const total = all.length;
+      const pageRows = all.slice(skip, skip + take);
+
+      return res.json({
+        success: true,
+        ...paginatedResponse(pageRows, total, page, limit),
+      });
+    }
+
+    const orderBy = EQUIPMENT_ORDER_BY[sortKey]?.(dir) ?? { createdAt: "desc" };
+
     const [equipment, total] = await Promise.all([
       prisma.equipment.findMany({
         where,
         skip,
         take,
         include: { customer: customerSelect, location: locationSelect },
-        orderBy: { createdAt: "desc" },
+        orderBy,
       }),
       prisma.equipment.count({ where }),
     ]);

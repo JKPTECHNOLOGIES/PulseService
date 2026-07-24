@@ -14,6 +14,8 @@ interface AgreementsParams {
   limit?: number;
   status?: string;
   customerId?: string;
+  sortKey?: string;
+  sortDir?: string;
 }
 
 export function useAgreements(params: AgreementsParams = {}) {
