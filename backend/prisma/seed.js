@@ -6,11 +6,12 @@ const { LOOKUPS } = require("../src/constants/lookups");
 const { DEFAULT_ROLE_PERMISSIONS } = require("../src/constants/permissions");
 const { parseItemsCsv } = require("./seed-data/parseItemsCsv");
 const { parseCustomersCsv, normalizeCustomerName, parseFullAddress } = require("./seed-data/parseCustomersCsv");
+const CUSTOMER_PRIMARY_LINKS = require("./seed-data/customerPrimaryLinks");
 const { parseQuotesCsv } = require("./seed-data/parseQuotesCsv");
 const { parseWorkOrdersCsv } = require("./seed-data/parseWorkOrdersCsv");
 const { parseInvoicesCsv } = require("./seed-data/parseInvoicesCsv");
 const { parseEquipmentCsv } = require("./seed-data/parseEquipmentCsv");
-const CUSTOMER_NAME_ALIASES = require("./seed-data/customerNameAliases");
+
 
 const prisma = new PrismaClient();
 
@@ -657,6 +658,11 @@ async function main() {
   // the source export. Lets importers with per-property rows (e.g. equipment)
   // pick the right one of a merged customer's several locations.
   const rawNameToAddress = new Map();
+  // "normalized name|full address" -> created Customer. Only needed to
+  // disambiguate the handful of rows that share an identical Display Name
+  // (see customerPrimaryLinks.js) -- customerByRawName can't tell those
+  // apart since it's keyed by name alone.
+  const customerByNameAndAddress = new Map();
   for (const c of importedCustomers) {
     const created = await prisma.customer.create({
       data: {
@@ -687,6 +693,10 @@ async function main() {
     }
     for (const [rawName, address] of Object.entries(c.nameToAddress)) {
       rawNameToAddress.set(normalizeCustomerName(rawName), address);
+      customerByNameAndAddress.set(
+        `${normalizeCustomerName(rawName)}|${address}`,
+        created,
+      );
     }
   }
   await prisma.companySettings.update({
@@ -695,16 +705,55 @@ async function main() {
   });
   console.log(`  Imported ${importedCustomers.length} customers.`);
 
-  // Shared by every CSV importer below: resolves a customer by the raw,
-  // pre-dedup "Display Name" text used in the source exports, falling back
-  // to customerNameAliases.js for names that were merged/dropped entirely.
-  function resolveCustomerByRawName(rawName) {
-    const key = normalizeCustomerName(rawName);
-    const aliasedName = CUSTOMER_NAME_ALIASES[rawName];
+  // FieldEdge "multiple customers under one primary" (see
+  // customerPrimaryLinks.js): link each secondary's primaryCustomerId to its
+  // primary. Every row is already its own Customer above -- this just adds
+  // the reference, no data is merged or moved.
+  console.log("  Linking primary/secondary customers...");
+  function resolveLinkEntry(entry) {
+    if (typeof entry === "string") {
+      return customerByRawName.get(normalizeCustomerName(entry));
+    }
     return (
-      customerByRawName.get(key) ||
-      (aliasedName && customerByRawName.get(normalizeCustomerName(aliasedName)))
+      customerByNameAndAddress.get(
+        `${normalizeCustomerName(entry.name)}|${entry.address}`,
+      ) || customerByRawName.get(normalizeCustomerName(entry.name))
     );
+  }
+  let primaryLinksApplied = 0;
+  for (const group of CUSTOMER_PRIMARY_LINKS) {
+    const primary = resolveLinkEntry(group.primary);
+    if (!primary) {
+      console.warn(
+        `  [customerPrimaryLinks] primary not found: ${JSON.stringify(group.primary)}`,
+      );
+      continue;
+    }
+    for (const secondaryEntry of group.secondaries) {
+      const secondary = resolveLinkEntry(secondaryEntry);
+      if (!secondary) {
+        console.warn(
+          `  [customerPrimaryLinks] secondary not found: ${JSON.stringify(secondaryEntry)}`,
+        );
+        continue;
+      }
+      await prisma.customer.update({
+        where: { id: secondary.id },
+        data: { primaryCustomerId: primary.id },
+      });
+      primaryLinksApplied += 1;
+    }
+  }
+  console.log(`  Linked ${primaryLinksApplied} secondary customers.`);
+
+  // Shared by every CSV importer below: resolves a customer by the raw
+  // "Display Name" text used in the source exports. Every row in
+  // customers.csv is created as its own Customer now (see
+  // customerPrimaryLinks.js for the FieldEdge "multiple customers under one
+  // primary" feature -- a reference, not a merge), so this is always a
+  // direct lookup.
+  function resolveCustomerByRawName(rawName) {
+    return customerByRawName.get(normalizeCustomerName(rawName));
   }
 
   // ── Real quotes (from QuickBooks export) ──────────────────────────────

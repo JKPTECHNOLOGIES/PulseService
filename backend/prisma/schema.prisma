@@ -41,26 +41,33 @@ model User {
 }
 
 model Customer {
-  id             String   @id @default(uuid())
-  customerNumber String   @unique
-  firstName      String
-  lastName       String
-  email          String?
-  phone          String
-  mobilePhone    String?
-  type           String   @default("residential")
-  companyName    String?
-  tags           String?
-  source         String?
-  notes          String?
-  doNotContact   Boolean  @default(false)
-  creditLimit    Float?
-  balance        Float    @default(0)
-  isActive       Boolean  @default(true)
-  pricingTierId  String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                String   @id @default(uuid())
+  customerNumber    String   @unique
+  firstName         String
+  lastName          String
+  email             String?
+  phone             String
+  mobilePhone       String?
+  type              String   @default("residential")
+  companyName       String?
+  tags              String?
+  source            String?
+  notes             String?
+  doNotContact      Boolean  @default(false)
+  creditLimit       Float?
+  balance           Float    @default(0)
+  isActive          Boolean  @default(true)
+  pricingTierId     String?
+  // FieldEdge-style "multiple customers under one primary": every row stays
+  // its own full Customer (own number, own jobs/invoices/quotes) but a
+  // secondary/sub-account points back at its primary for display/navigation.
+  // No merging of records or data -- just a reference.
+  primaryCustomerId String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
+  primaryCustomer   Customer?          @relation("CustomerPrimary", fields: [primaryCustomerId], references: [id])
+  subCustomers      Customer[]         @relation("CustomerPrimary")
   locations         Location[]
   jobs              Job[]
   estimates         Estimate[]

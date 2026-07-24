@@ -1,6 +1,7 @@
 Display Name,Customer Type,Full Address,Phone,Email,Lead Source
-100 Emerald Beach Way,Residential,100 Emerald BeachWay - Palm Beach FL 33480,6099546685,laleksiejuk@yahoo.com,Existing Customer
+100 Emerald Beach Way,Residential,100 Emerald BeachWay - Palm Beach FL 33480,5613888786,,Existing Customer
 6767 N Ocean Blvd.,Residential,6767 N Ocean Blvd - Ocean Ridge FL 33435,5616549518,6767nob@att.net,Existing Customer
+6767 N Ocean Blvd. - 1010,Residential,6767 N Ocean Blvd - Ocean Ridge FL 33435,5616549518,6767nob@att.net,Existing Customer
 """Aarsand, Kurt & Jeanne""",Residential,128 Macfarlane Drive - Delray Beach FL 33483,,,Referral
 Abreu Wanda,Residential,2176 Dorson Way - Delray Beach FL 33445,5615422209,Chichibun@yahoo.com,Existing Customer
 """Aleksiejuk, Lukasz""",Residential,7030 Isla Vista Drive - West Palm Beach FL 33412,6099546685,laleksiejuk@yahoo.com,Referral
@@ -14,6 +15,9 @@ Ashbritt Inc,Residential,565 E Hillsboro Blvd. - Deerfield Beach Fl 33441,954725
 1171,Residential,1171 S Ocean Blvd - Delray Beach FL 33483,5611111111,,Existing Customer
 """Bachmann, Eviejoy & Chris""",Residential,10177 157th Street N - Jupiter FL 33478,5612132030,eviejoy@everylittledetail.com,Referral
 Ballenisles Country Club-Main,Commercial,100 Ballenisles Circle - Palm Beach Gardens FL 33418,5614416957,rsvenson@Ballenisles.Org,Existing Customer
+"""Ballenisles CC-Cult, Mem Lge, Rac Cntr""",Commercial,100 Ballenisles Circle - Palm Beach Gardens FL 33418,5614416957,rsvenson@Ballenisles.Org,Existing Customer
+"""Ballenisles CC-SE Crse, Golf Lrn/Resrms""",Commercial,100 Ballenisles Circle - Palm Beach Gardens FL 33418,5614416957,rsvenson@Ballenisles.Org,Existing Customer
+Ballenisles CC-Sports/Pool Bldg,Commercial,100 Ballenisles Circle - Palm Beach Gardens FL 33418,5614416957,rsvenson@Ballenisles.Org,Existing Customer
 Barnes Susannah Scott,Residential,555 Pelican Lane - Delray Beach FL 33483,5617062629,Griekshomemgmt@aol.com,Existing Customer
 Bayshore,Commercial,1800 Northwest 93 Avenue - Doral FL 33172,3055940747,,Referral
 Bear Lakes Country Club,Commercial,1901 Village Blvd. - West Palm Beach FL 33409,5616575866,maintenance@bearlakes.org,Referral
@@ -28,6 +32,7 @@ Bowe Clint,Residential,234 Umbrella Place - Jupiter Florida 33458,5612392987,cmb
 Bush Jim & Angie,Residential,5833 Sun Pointe Circle - Boynton Beach FL 33437,5617152605,jbushhog1@aol.com,Existing Customer
 """Capano, Louis""",Residential,6373 N Ocean Blvd - Ocean Ridge FL 33435,5612395010,robertoleveroni@comcast.net,Referral
 """Capo, James""",Residential,148 Intracoastal Circle - Tequesta FL 33469,7724183584,jacapos@gmail.com,Referral
+"""Cartin, Janice""",Residential,7816 Talavera Place - Delray Beach FL 33446,5612395010,robertoleveroni@comcast.net,Referral
 Cary Brown/SLLE 2025 LLC,Residential,1 Driftwood Landing - Gulfstream FL 33483,5617062629,Griekshomemgmt@aol.com,Referral
 """Castillo, Nabor Gerardo & Brittany""",Residential,1007 White Drive - Delray Beach FL 33483,5125653704,gcastillo@ashbritt.com,Existing Customer
 """Cepeda, Omar""",Residential,216 Preserve Court - Royal Palm Beach FL 33411,5616019256,omarcepeda@gmail.com,Referral
@@ -51,17 +56,22 @@ Ennis Dr. Scott -Res 1889,Residential,1889 Sabal Palm Drive - Boca Raton FL 3343
 """Farino, Kenneth & Kim""",Residential,4901 S Flagler Drive - West Palm Beach FL 33405,5613399645,,Referral
 """Ford, Kevin""",Residential,225 Shores Pointe Drive - Jupiter FL 33458,5616323341,Buylow@bellsouth.net,Existing Customer
 Fox Timothy,Residential,8476 SE Mangrove Street - Hobe Sound FL 33455,6177652100,tom.obrien@trove.net,Existing Customer
+Fox Timothy - 1004,Residential,8476 SE Mangrove Street - Hobe Sound FL 33455,6177652100,tom.obrien@trove.net,Existing Customer
 Frenchman's Reserve Country Club,Commercial,3370 Grande Corniche - Palm Beach Gardens FL 33410,5614025635,cmercado@frenchmansreservecc.com,Existing Customer
+Frenchman's  Hole # 5- 1001,Commercial,3370 Grande Corniche - Palm Beach Gardens FL 33410,5614025635,cmercado@frenchmansreservecc.com,Existing Customer
+Frenchman's Reserve Ladies  - 1011,Commercial,3370 Grande Corniche - Palm Beach Gardens FL 33410,5614025635,cmercado@frenchmansreservecc.com,Existing Customer
 """Friedman, Ariel & Matthew""",Residential,17082 Boca Club Boulevard - Boca Raton FL 33487Mark,9174535307,mark@nafoodgroup.com,Referral
 Gegnas Robert,Residential,198 Locha Drive - Jupiter FL 33458,7722858443,sbelanger@loxclub.com,Existing Customer
 """Geyer, Robert & Barbara""",Residential,4717 SABAL PALM DR - Boynton Beach FL 33436,5617040057,rfgeyer@gmail.com,Referral
 """Gillings, Dan""",Residential,5840 Sun Pointe Circle - Boynton Beach FL 33437,5618598463,dkgillings@gmail.com,Referral
+"""Golub, Golda""",Residential,7876 Montecito Place - Delray Beach FL 33446,9174535307,mark@nafoodgroup.com,Referral
 """Gonzalez, David""",Residential,7944 Texas Trail - Boca Raton FL 33487,5614454892,info@apachemgmt.com,Existing Customer
 """Gonzalez, Nimia""",Residential,2075 Tigris Drive - West Palm Beach FL 33411,5613587593,nimiagonzalez0@gmail.com,Referral
 """Green, Stephen & Nancy""",Residential,180/182 Bears Club Drive - Jupiter FL 33477,6099546655,Martap85@yahoo.com,Referral
 Griek Christopher & Allison,Residential,280 N Country Club Blvd - Boca Raton FL 33487,5617062629,Griekshomemgmt@aol.com,Existing Customer
 """Guerrero, Edgar""",Residential,4314 N W 9th Avenue - Pompano Beach FL 33064,9546000988,,Referral
-"""Gulick, Jessica""",Residential,205 Windsor Road West - Jupiter Fl 33469,7724800054,,Existing Customer
+"""Gulick, Jessica""",Residential,205 Windsor Road West - Jupiter Fl 33469,7724800054,realestate@jessicagulick.com,Existing Customer
+"""Haney, Jade & Richard (Andy)""",Residential,121 Adobe Circle - Jupiter FL 33458,5613397593,haney0713@gmail.com,Referral
 """Haney, John""",Residential,5904 Senegal Drive - Jupiter FL 33458,5618186285,jhaney4101@me.com,Referral
 Head First Hair,Residential,4956 Le Chalet Boulevard - Boynton Beach FL 33436,5613851416,,Existing Customer
 HOSHISAKI AMERICA-Warr,Commercial,10125 116th Way Ste I - Miami Fl 33178,8002372811,asuarez@hoshizaki.com,Existing Customer
@@ -76,6 +86,7 @@ Kobus Barbara,Residential,520 North C Street - Lake Worth FL 33460,5615068968,ba
 Labetti Denise -100,Residential,100 Paradise Harbour Blvd - North Palm Beach FL 33408,5614937128,Deniselabetti@yahoo.com,Existing Customer
 Labetti Denise -105,Residential,105 Paradise Harbour Blvd - North Palm Beach FL 33408,5614937128,Deniselabetti@yahoo.com,Existing Customer
 """Lamontagne, Richard""",Property Manager,10360 PRESTWICK RD - BOYNTON BEACH FL 33436,5617564810,richard@lauryan.com,Existing Customer
+ROONEY 2-1 TON MINI SPLIT SYSTEMS- 1002,Property Manager,10360 PRESTWICK RD - BOYNTON BEACH FL 33436,5617564810,richard@lauryan.com,Existing Customer
 """Laverriere, Marc & Lori""",Residential,6376 Bridgeport Lane - Lake Fl 33463,5613015060,,Referral
 """Leveroni, Roberto-Brother's house""",Residential,7912 Sonoma Springs Cir - Boynton Beach FL 33463,5612395010,robertoleveroni@comcast.net,Referral
 """Lewis, Brian""",Residential,1170 N W 8 Court - Boynton Beach FL 33426,6183670850,,Referral
@@ -94,6 +105,7 @@ Monakee Chad,Residential,13270 Camero Way - Palm Beach Gardens FL 33418,56130175
 Musselman Residence,,1010 Harbor Drive - Delray Beach FL 33483,5612395010,robertoleveroni@comcast.net,
 """Narr, David & Amanda""",Residential,2512 S W Regency Road - Stuart FL 34997,7722858443,sbelanger@loxclub.com,Existing Customer
 """Narr, George & Christine""",Residential,2131 N W Golden Oak Trail - Jensen Beach FL 34957,6159430244,gnarr77@gmail.com,Existing Customer
+"""Narr, George & Christine - 1008""",Residential,2131 N W Golden Oak Trail - Jensen Beach FL 34957,6159430244,gnarr77@gmail.com,Existing Customer
 """Navarro, Jose & Rosa""",Residential,914 S W 10 Avenue - Delray Beach FL 33444,5617031010,,Referral
 """Navarro, Wilfredo""",Residential,918 S W 10 Avenue - Delray Beach FL 33444,5617031010,,Referral
 Nicholl Ramon & Sheree,Residential,544 Banyan Road - Delray Beach FL 33483,5617062629,Griekshomemgmt@aol.com,Existing Customer
@@ -110,7 +122,9 @@ Fischbein-12801,Residential,12801 Marsh Landing - Palm Beach Gardens FL 33418,56
 Fletcher Ralph,Residential,13181 Oakmeade - Palm Beach Gardens FL 33418,5612227250,karnowitt@oldmarshgolf.com,Existing Customer
 """Lucarelli, Donald & Barbara""",Residential,13080 Marsh Landing - Palm Beach Gardens FL 33418,5612227250,karnowitt@oldmarshgolf.com,Referral
 """Malave, Jesus & Janine""",Residential,13223 Marsh Landing - Palm Beach Gardens FL 33418,5612227250,karnowitt@oldmarshgolf.com,Existing Customer
+"""Malave, Jesus & Janine - 1003""",Residential,13223 Marsh Landing - Palm Beach Gardens FL 33418,5612227250,karnowitt@oldmarshgolf.com,Existing Customer
 """Mancosh, Douglas & Kathy""",Residential,13340 Marsh Landing - Palm Beach Gardens FL 33418,5612227250,karnowitt@oldmarshgolf.com,Existing Customer
+"""Perkins, Donna""",Residential,7501 Marsh Cove - Palm Beach Gardens FL 33418,5612227250,karnowitt@oldmarshgolf.com,Referral
 """Sears, Edgar & Crystle""",Residential,12961 Marsh Landing - Palm Beach Gardens FL 33418,5612227250,karnowitt@oldmarshgolf.com,Referral
 Slyh John & Ann,Residential,12840 Marsh Landing - Palm Beach Gardens FL 33418,5612227250,karnowitt@oldmarshgolf.com,Existing Customer
 """Tapper, Al""",Residential,13381 Oakmeade - West Palm Beach Fl 33418,5612227250,karnowitt@oldmarshgolf.com,Referral
@@ -133,17 +147,23 @@ Prime Comfort Solutions LLC,Commercial,6670 White Dr - West Palm Beach FL 33407,
 Riggs Family Dentistry,Commercial,900 S E Ocean Blvd - Stuart FL 34994,7722204171,CRiggsdmd@bellsouth.net,Referral
 """Rooney Jr, Timothy""",Residential,10360 Prestwick Rd - Boynton Beach FL 33436,9146717669,trjr@mac.com,Referral
 """Rubbone, Joseph & Melissa""",Residential,12872 Pennell Pines Road - Boynton Beach FL 33436,9737695976,jmrubbone@gmail.com,Referral
+"""Rudes, Lisa""",Residential,7886 Dunvagen Court - Boca Raton FL 33496,3109030399,spanisheyes1@mac.com,Referral
+"""Sanabia, Robert""",Residential,4286 Weymouth Street - Lake Worth FL 33461,5619066000,robert@primecomfortac.com,Referral
 Sanabia Luis,Residential,135 Yacht Club Way - Hypoluxo FL 33462,3865034486,,Existing Customer
 Schonfeld Trust,Residential,183 Arlington Road - West Palm Beach FL 33405,6462930443,rfranqui@schonfeld.com,Referral
 """Serinsky, Craig""",Residential,4865 S W Golfside Drive - Palm City FL 34990,5613395545,craig.serinsky@JWCemail.com,Referral
 """Sheehan, Matthew & Jessica""",Residential,6240 Vireo Court - Lake Worth FL 33463,5613730529,msheehan1026@gmail.com,Existing Customer
 """Siladke, Blair""",Residential,336 Winged Foot Road - Palm Springs FL 33461,5611111111,darryl@primecomfortac.com,Referral
 """Slatter, Danielle""",Residential,13179 Camero Way - Palm Beach Gardens FL 33418,5617779294,Daniellex1@hotmail.com,Referral
+"""Slatter, Danielle - 1006""",Residential,13179 Camero Way - Palm Beach Gardens FL 33418,5617779294,Daniellex1@hotmail.com,Referral
 """Smith, Jimmy & Donna""",Residential,444 Via Del Orso - Jupiter FL 33477,4103759099,Jmsmith6814@gmail.com,Existing Customer
 """Smith, Joshua & Christina""",Residential,2 Whitney Way - Ocean Ridge FL 33435,5618012642,JsmithBPBFO@bpbcpa.com,Existing Customer
 """Smith, Tyler & Alison""",Residential,7140 Sandgrace Lane - Lake Worth FL 33463,5618883027,tysmitheng@gmail.com,Referral
 """Soto, Paulina""",Residential,709 SW 5 Avenue - Delray Beach FL 33444,5612790872,,Referral
 """SS Palm Beach, LLC""",Residential,1415 S Ocean Blvd - Palm Beach FL 33480,6462930443,rfranqui@schonfeld.com,Existing Customer
+"""SS Palm Beach, LLC - 1005""",Residential,1415 S Ocean Blvd - Palm Beach FL 33480,6462930443,rfranqui@schonfeld.com,Existing Customer
+"""SS Palm Beach, LLC - 1007""",Residential,1415 S Ocean Blvd - Palm Beach FL 33480,6462930443,rfranqui@schonfeld.com,Existing Customer
+"""SS Palm Beach, LLC - 1013""",Residential,1415 S Ocean Blvd - Palm Beach FL 33480,6462930443,rfranqui@schonfeld.com,Existing Customer
 Steffen Donald,Residential,155 Sota Drive - Jupiter FL 33458,7722858443,sbelanger@loxclub.com,Existing Customer
 """Stenzel, Darryl & Pilar""",Residential,11692 Beech Avenue - Palm Beach Gardens FL 33410,5617152608,darryl@PrimeComfortAC.com,Existing Customer
 """Stenzel, Karen""",Residential,1303 13th Lane - Greenacres Fl 33463,5617152608,darryl@primecomfortac.com,Existing Customer
@@ -153,7 +173,9 @@ Swanson Judith,Residential,128 Sota Drive - Jupiter FL 33458,5615966474,ptsswan@
 The Addison,Commercial,1500 S Ocean Blvd - Boca Raton FL 33432,5612393785,maintenance@addisonboca.com,Referral
 The Sailfish Club of Florida,Commercial,1338 N Lake Way - Palm Beach FL 33480,5618440206,janebess@sailfishclub.com,Existing Customer
 Sailfish Club of Florida (Storage),Commercial,2727 Rosemary Ave Suite 14 & 15 - West Palm Beach FL 33480,5618440206,janebess@sailfishclub.com,Existing Customer
+The Sailfish Club of Florida - 1012,Commercial,1338 N Lake Way - Palm Beach FL 33480,5618440206,janebess@sailfishclub.com,Existing Customer
 """Thornton, John & Margaret-A/C""",Residential,1236 S Ocean Blvd - Palm Beach fl 33480,2024604084,adumit.fo@gmail.com,Existing Customer
+"""Thornton, John & Margaret-Water Tower""",Residential,1236 S Ocean Blvd - Palm Beach FL 33480,2024604084,adumit.fo@gmail.com,Existing Customer
 True Manufacturing Company,Commercial,2001East Terra Lane - O'Fallon MO 63366,8003256152,,Existing Customer
 U. S. Health,,3350 N W 2nd Avenue - Boca Raton FL 33431,9544489654,chriskopphealth@gmail.com,
 U.S. Composites White Dr,Commercial,6670 White Dr - West Palm Beach FL 33407,5617075796,mark@uscomposites.com,Existing Customer
@@ -161,16 +183,17 @@ Valenti Fortunato & Linda,Residential,150 Clarke Avenue - Palm Beach FL 33480,66
 VJC Holdings (Loan),,,,,Existing Customer
 VJC WPB Holdings (auto loan 1),,,,,Existing Customer
 Walter Residence,Residential,2423 N Ocean Boulevard - Gulfstream FL 33483,5613054935,gs@talismancp.com,Referral
+"""Webster, Hale""",Residential,13648 Dumont Road - Palm Beach Gardens FL 33418,9785058309,halewebster@mac.com,Referral
 """Webster, Jeff & Marion""",Residential,5831 Warhol Terrace - Palm Beach Gardens FL 33418,5088787411,,Referral
+"""Webster, Jeff & Marion - 1016""",Residential,5831 Warhol Terrace - Palm Beach Gardens FL 33418,5088787411,,Referral
 """Wilkinson, Brad & Ashley""",Residential,19554 Red Gum Trail - Jupiter FL 33458,5619721102,bradwgvi@gmail.com,Referral
 """Winchip, Nicole""",Residential,7502 SE Sandpiper Street - Hobe Sound FL 33455,7725281004,,Referral
 """Woodward Const, Mgmt""",Commercial,16935 128th Trail North - Jupiter FL 33478,,brentwood71@hotmail.com,Existing Customer
 """Balek, Philip""",Residential,400 Ocean Trail Way - Jupiter FL 33477,5612675617,brentwood71@hotmail.com,Referral
 Haney Residence,Residential,5904 Senegal Drive - Jupiter FL 33458,5612675617,info@woodwardconstructionmanagement.com,Referral
+Haney Residence - 1009,Residential,5904 Senegal Drive - Jupiter FL 33458,5612675617,info@woodwardconstructionmanagement.com,Referral
 Savoy Residence,Residential,8169 SE Double Tree Drive - Hobe Sound FL 33455,5612675617,info@woodwardconstructionmanagement.com,Existing Customer
+Savoy Residence - 1000,Residential,8169 SE Double Tree Drive - Hobe Sound FL 33455,5612675617,info@woodwardconstructionmanagement.com,Existing Customer
 Weissman Residence,Residential,5370 Pennock Point Road - Jupiter FL 33410,5612675617,info@woodwardconstructionmanagement.com,Existing Customer
 """Woodward, Brent""",Residential,110 N Delaware Blvd 16D - Jupiter FL 33458,5612675617,info@woodwardconstructionmanagement.com,Referral
 Yandell Marian,Residential,,,,Existing Customer
-"""Cartin, Janice""",Residential,,,,
-"""Golub, Golda""",Residential,,,,
-"""Sanabia, Robert""",Residential,,,,

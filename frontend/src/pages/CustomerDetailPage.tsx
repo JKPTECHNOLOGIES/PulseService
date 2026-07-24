@@ -10,10 +10,19 @@ import {
   EnvelopeIcon,
   MapPinIcon,
   TrashIcon,
+  LinkIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
-import { useCustomer, useDeleteCustomer } from "../hooks/useCustomers";
+import {
+  useCustomer,
+  useCustomers,
+  useDeleteCustomer,
+  useUpdateCustomer,
+} from "../hooks/useCustomers";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import Modal from "../components/ui/Modal";
+import CustomerCombobox from "../components/ui/CustomerCombobox";
 import { useLookup } from "../hooks/useMetadata";
 import { useJobs } from "../hooks/useJobs";
 import { useEstimates } from "../hooks/useEstimates";
@@ -45,9 +54,11 @@ export default function CustomerDetailPage() {
   const navigate = useNavigate();
   const [selectedTab, setSelectedTab] = useState(0);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showLinkModal, setShowLinkModal] = useState(false);
 
   const { data: customer, isLoading } = useCustomer(id ?? "");
   const deleteCustomer = useDeleteCustomer();
+  const updateCustomer = useUpdateCustomer();
 
   const handleDelete = async () => {
     if (!id) return;
@@ -93,6 +104,26 @@ export default function CustomerDetailPage() {
           {customer.firstName} {customer.lastName}
         </span>
       </div>
+
+      {/* FieldEdge-style "multiple customers under one primary" -- this
+          customer is a secondary/sub-account of another. Fully its own
+          customer either way; this is just a reference back to the primary. */}
+      {customer.primaryCustomer && (
+        <Link
+          to={`/customers/${customer.primaryCustomer.id}`}
+          className="flex items-center gap-2 rounded-xl border border-primary-100 bg-primary-50 px-4 py-3 text-sm text-primary-800 hover:bg-primary-100 transition-colors"
+        >
+          <LinkIcon className="h-4 w-4 shrink-0" />
+          <span>
+            Part of{" "}
+            <span className="font-semibold">
+              {customer.primaryCustomer.companyName ??
+                `${customer.primaryCustomer.firstName} ${customer.primaryCustomer.lastName}`}
+            </span>
+          </span>
+          <ChevronRightIcon className="h-3.5 w-3.5 ml-auto" />
+        </Link>
+      )}
 
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -575,6 +606,78 @@ export default function CustomerDetailPage() {
               </div>
             </div>
 
+            {/* Linked Customers -- FieldEdge-style "multiple customers under
+                one primary": every entry here is its own full customer, this
+                just lists/manages the ones that reference this one as their
+                primary. */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900">
+                  Linked Customers
+                </h3>
+                {!customer.primaryCustomer && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<PlusIcon className="h-4 w-4" />}
+                    onClick={() => {
+                      setShowLinkModal(true);
+                    }}
+                  >
+                    Link Customer
+                  </Button>
+                )}
+              </div>
+              {customer.primaryCustomer ? (
+                <p className="text-sm text-gray-400">
+                  This customer is itself a secondary, so it can't have its
+                  own linked customers.
+                </p>
+              ) : !customer.subCustomers || customer.subCustomers.length === 0 ? (
+                <p className="text-sm text-gray-400">
+                  No customers linked yet -- use "Link Customer" to attach an
+                  existing customer as a sub-account of this one (e.g. an HOA
+                  member, a building unit, or a department).
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  {customer.subCustomers.map((sub) => (
+                    <div
+                      key={sub.id}
+                      className="flex items-center justify-between gap-3 py-2 px-2 -mx-2 rounded-lg border-b border-gray-50 last:border-0 hover:bg-gray-50"
+                    >
+                      <div
+                        className="min-w-0 cursor-pointer"
+                        onClick={() => {
+                          navigate(`/customers/${sub.id}`);
+                        }}
+                      >
+                        <p className="text-sm font-medium text-primary-600 truncate">
+                          {sub.companyName ?? `${sub.firstName} ${sub.lastName}`}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          #{sub.customerNumber}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        title="Unlink from this primary customer"
+                        onClick={() => {
+                          void updateCustomer.mutateAsync({
+                            id: sub.id,
+                            primaryCustomerId: null,
+                          });
+                        }}
+                        className="shrink-0 text-gray-400 hover:text-red-600 p-1"
+                      >
+                        <XMarkIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Photos & Attachments */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <AttachmentGallery entityType="customer" entityId={customer.id} />
@@ -949,6 +1052,76 @@ export default function CustomerDetailPage() {
         confirmLabel="Delete customer"
         loading={deleteCustomer.isPending}
       />
+
+      <LinkCustomerModal
+        isOpen={showLinkModal}
+        onClose={() => {
+          setShowLinkModal(false);
+        }}
+        primaryId={customer.id}
+      />
     </div>
+  );
+}
+
+interface LinkCustomerModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  primaryId: string;
+}
+
+// Link an existing, unrelated customer as a secondary of this one. Both stay
+// fully separate customers -- this only sets primaryCustomerId on the picked
+// customer, same as editing it directly would.
+function LinkCustomerModal({
+  isOpen,
+  onClose,
+  primaryId,
+}: LinkCustomerModalProps) {
+  const [pickedId, setPickedId] = useState("");
+  const { data: candidatesData } = useCustomers({ limit: 500 });
+  const updateCustomer = useUpdateCustomer();
+  const candidates = (candidatesData?.data ?? []).filter(
+    (c) => c.id !== primaryId,
+  );
+
+  const handleLink = async () => {
+    if (!pickedId) return;
+    await updateCustomer.mutateAsync({
+      id: pickedId,
+      primaryCustomerId: primaryId,
+    });
+    setPickedId("");
+    onClose();
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Link Customer" size="sm">
+      <p className="text-sm text-gray-600 mb-4">
+        Search for an existing customer to attach as a secondary of this one
+        (e.g. an HOA member, a building unit, or a department). It stays its
+        own full customer -- this only adds a reference back to this primary.
+      </p>
+      <CustomerCombobox
+        customers={candidates}
+        value={pickedId}
+        onChange={setPickedId}
+        placeholder="Search customers..."
+        clearable
+      />
+      <div className="flex justify-end gap-3 mt-6">
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          onClick={() => void handleLink()}
+          disabled={!pickedId}
+          loading={updateCustomer.isPending}
+        >
+          Link Customer
+        </Button>
+      </div>
+    </Modal>
   );
 }

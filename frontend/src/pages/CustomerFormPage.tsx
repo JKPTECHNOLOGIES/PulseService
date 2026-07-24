@@ -6,6 +6,7 @@ import { z } from "zod";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import {
   useCustomer,
+  useCustomers,
   useCreateCustomer,
   useUpdateCustomer,
 } from "../hooks/useCustomers";
@@ -14,6 +15,7 @@ import { usePricingTiers } from "../hooks/usePricingTiers";
 import type { Customer } from "../types";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
+import CustomerCombobox from "../components/ui/CustomerCombobox";
 import { PageSpinner } from "../components/ui/Spinner";
 import { useFormDraft } from "../hooks/useFormDraft";
 
@@ -53,6 +55,7 @@ const schema = z.object({
   zip: z.string().optional(),
   source: z.string().optional(),
   pricingTierId: z.string().optional(),
+  primaryCustomerId: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -81,6 +84,12 @@ export default function CustomerFormPage() {
   const { options: customerTypeOptions } = useLookup("customerType");
   const { options: sourceOptions } = useLookup("leadSource");
   const { data: pricingTiers } = usePricingTiers();
+  // Candidates for the "Primary Customer" picker (FieldEdge-style linking --
+  // see CustomerDetailPage for the reverse "linked customers" view).
+  const { data: allCustomersData } = useCustomers({ limit: 500 });
+  const primaryCustomerCandidates = (allCustomersData?.data ?? []).filter(
+    (c) => c.id !== id,
+  );
 
   // Extra contacts (beyond the primary phone/mobile/email above) and extra
   // addresses (beyond the primary address below). The primary location's id
@@ -132,6 +141,7 @@ export default function CustomerFormPage() {
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -139,6 +149,7 @@ export default function CustomerFormPage() {
   });
 
   const customerType = watch("type");
+  const primaryCustomerId = watch("primaryCustomerId") ?? "";
 
   const { restored: draftRestored, clearDraft } = useFormDraft<CustomerDraft>({
     key: DRAFT_KEY,
@@ -182,6 +193,7 @@ export default function CustomerFormPage() {
         notes: customer.notes ?? "",
         source: customer.source ?? "",
         pricingTierId: customer.pricingTierId ?? "",
+        primaryCustomerId: customer.primaryCustomerId ?? "",
         address: primary?.address ?? "",
         city: primary?.city ?? "",
         state: primary?.state ?? "",
@@ -228,6 +240,10 @@ export default function CustomerFormPage() {
         customerFields.pricingTierId === ""
           ? null
           : customerFields.pricingTierId,
+      primaryCustomerId:
+        customerFields.primaryCustomerId === ""
+          ? null
+          : customerFields.primaryCustomerId,
     };
     const primaryLocation = address?.trim()
       ? {
@@ -521,6 +537,29 @@ export default function CustomerFormPage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Primary Customer
+              </label>
+              <CustomerCombobox
+                customers={primaryCustomerCandidates}
+                value={primaryCustomerId}
+                onChange={(newId) => {
+                  setValue("primaryCustomerId", newId, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
+                }}
+                placeholder="Not a secondary of another customer"
+                clearable
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Only set this if this customer is a sub-account of another
+                (e.g. an HOA member, a building unit, or a department under a
+                company) -- both stay fully separate customers either way.
+              </p>
             </div>
 
             <div>

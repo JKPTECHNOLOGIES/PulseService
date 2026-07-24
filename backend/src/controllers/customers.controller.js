@@ -89,11 +89,27 @@ const list = async (req, res) => {
   }
 };
 
+// Shared select for the lightweight primary/secondary cross-links --
+// deliberately small (no jobs/invoices/etc.) since this is only ever used to
+// render a name + link, never a full customer record.
+const customerLinkSelect = {
+  id: true,
+  customerNumber: true,
+  firstName: true,
+  lastName: true,
+  companyName: true,
+};
+
 const get = async (req, res) => {
   try {
     const customer = await prisma.customer.findUnique({
       where: { id: req.params.id },
       include: {
+        primaryCustomer: { select: customerLinkSelect },
+        subCustomers: {
+          select: customerLinkSelect,
+          orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+        },
         locations: { orderBy: { isPrimary: "desc" } },
         contacts: { orderBy: { isPrimary: "desc" } },
         pricingTier: {
@@ -136,8 +152,44 @@ const get = async (req, res) => {
   }
 };
 
+// FieldEdge "multiple customers under one primary": a secondary just points
+// at its primary via primaryCustomerId, no data is merged. Keeps the
+// relationship to one level -- a primary can't itself be someone else's
+// secondary, and a customer can't be set as its own primary.
+async function validatePrimaryCustomerId(primaryCustomerId, selfId) {
+  if (!primaryCustomerId) return null;
+  if (primaryCustomerId === selfId) {
+    return "A customer can't be its own primary customer";
+  }
+  const target = await prisma.customer.findUnique({
+    where: { id: primaryCustomerId },
+    select: { id: true, primaryCustomerId: true },
+  });
+  if (!target) return "Primary customer not found";
+  if (target.primaryCustomerId) {
+    return "That customer is itself a secondary of another primary -- only one level of linking is supported";
+  }
+  if (selfId) {
+    const hasSubCustomers = await prisma.customer.count({
+      where: { primaryCustomerId: selfId },
+    });
+    if (hasSubCustomers > 0) {
+      return "This customer already has its own linked secondary customers -- it can't also become a secondary";
+    }
+  }
+  return null;
+}
+
 const create = async (req, res) => {
   try {
+    if (req.body.primaryCustomerId) {
+      const error = await validatePrimaryCustomerId(
+        req.body.primaryCustomerId,
+        null,
+      );
+      if (error) return res.status(400).json({ success: false, error });
+    }
+
     const settings = await prisma.companySettings.findFirst();
     if (!settings) {
       return res
@@ -268,6 +320,14 @@ const update = async (req, res) => {
       contacts,
       ...data
     } = req.body;
+
+    if ("primaryCustomerId" in data && data.primaryCustomerId) {
+      const error = await validatePrimaryCustomerId(
+        data.primaryCustomerId,
+        req.params.id,
+      );
+      if (error) return res.status(400).json({ success: false, error });
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.customer.update({ where: { id: req.params.id }, data });

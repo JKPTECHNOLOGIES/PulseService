@@ -1,11 +1,10 @@
-// Parses the (deduplicated) customers.csv export and turns it into a list of
-// customer specs ready to feed to `prisma.customer.create` — including
-// splitting "Full Address" into address/city/state/zip, guessing
-// firstName/lastName from "Display Name", and folding known multi-property
-// customers (see customerMerges.js) into a single customer with multiple
-// locations instead of one customer per row.
+// Parses the customers.csv export and turns it into a list of customer specs
+// ready to feed to `prisma.customer.create` — including splitting "Full
+// Address" into address/city/state/zip and guessing firstName/lastName from
+// "Display Name". Every row becomes its own Customer (FieldEdge's "multiple
+// customers under one primary" feature -- see customerPrimaryLinks.js -- is
+// a reference between two separately-created customers, not a merge).
 const fs = require("fs");
-const CUSTOMER_MERGES = require("./customerMerges");
 
 function parseCsv(text) {
   const rows = [];
@@ -157,15 +156,6 @@ function parseCustomersCsv(filePath) {
     source: header.indexOf("Lead Source"),
   };
 
-  // Full Address (exact text) -> merge group, so rows belonging to a known
-  // multi-property customer get routed together instead of becoming their
-  // own separate customer.
-  const addressToMerge = new Map();
-  for (const merge of CUSTOMER_MERGES) {
-    for (const addr of merge.addresses) addressToMerge.set(addr, merge);
-  }
-
-  const mergeGroupsUsed = new Map(); // merge.key -> accumulated customer spec
   const customers = [];
 
   for (const r of rows.slice(1)) {
@@ -177,43 +167,7 @@ function parseCustomersCsv(filePath) {
     const source = (r[idx.source] || "").trim() || null;
 
     const location = parseFullAddress(fullAddress);
-    const merge = addressToMerge.get(fullAddress);
     const cleanRawName = rawName.replace(/^"+|"+$/g, "").trim();
-
-    if (merge) {
-      let spec = mergeGroupsUsed.get(merge.key);
-      if (!spec) {
-        spec = {
-          firstName: merge.firstName,
-          lastName: merge.lastName,
-          companyName: merge.companyName || null,
-          type: merge.type,
-          phone: merge.phone,
-          email: merge.email,
-          source: merge.source || null,
-          locations: [],
-          // Every raw Display Name / Full Address that feeds into this
-          // customer, so other CSV imports (e.g. quotes) that reference the
-          // customer by its original per-row name can resolve it too.
-          sourceNames: [],
-          sourceAddresses: [],
-          // raw Display Name (normalized-ready, pre-lowercasing) -> the exact
-          // Full Address that name was tied to, so other importers (e.g.
-          // equipment) can pick the right one of this customer's several
-          // locations instead of just defaulting to the first.
-          nameToAddress: {},
-        };
-        mergeGroupsUsed.set(merge.key, spec);
-        customers.push(spec);
-      }
-      if (location) spec.locations.push(location);
-      spec.sourceNames.push(cleanRawName);
-      if (fullAddress) {
-        spec.sourceAddresses.push(fullAddress);
-        spec.nameToAddress[cleanRawName] = fullAddress;
-      }
-      continue;
-    }
 
     const { firstName, lastName, companyName } = splitName(rawName, csvType);
     const type = mapCustomerType(csvType) || (looksLikeBusiness(rawName, csvType) ? "commercial" : "residential");
@@ -227,6 +181,9 @@ function parseCustomersCsv(filePath) {
       email: email || null,
       source,
       locations: location ? [location] : [],
+      // Every raw Display Name / Full Address for this row, in the same shape
+      // other CSV importers (quotes, work orders, equipment) already expect
+      // when resolving a customer by its original per-row name.
       sourceNames: [cleanRawName],
       sourceAddresses: fullAddress ? [fullAddress] : [],
       nameToAddress: fullAddress ? { [cleanRawName]: fullAddress } : {},

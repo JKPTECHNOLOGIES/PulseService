@@ -59,6 +59,21 @@ export interface Customer {
   jobs?: Job[];
   pricingTierId?: string | null;
   pricingTier?: PricingTier;
+  // FieldEdge-style "multiple customers under one primary": a reference
+  // between two separately-standing customers, not a merge.
+  primaryCustomerId?: string | null;
+  primaryCustomer?: CustomerLink | null;
+  subCustomers?: CustomerLink[];
+}
+
+/** Lightweight cross-link shape (see backend customerLinkSelect) -- never a
+ * full Customer, just enough to render a name + link. */
+export interface CustomerLink {
+  id: string;
+  customerNumber: string;
+  firstName: string;
+  lastName: string;
+  companyName?: string;
 }
 
 export interface PricingTier {
