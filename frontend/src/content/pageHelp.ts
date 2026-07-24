@@ -188,7 +188,7 @@ const jobDetailHelp: PageHelpContent = {
     },
   ],
   tips: [
-    "To bill a completed job, go to Invoices > New Invoice, pick the same customer, and select this job, any parts used on it can be pulled in automatically as line items.",
+    "To bill a completed job, go to Invoices > New Invoice, pick the same customer, and select this job -- parts used, installed equipment, and logged labor (priced at each tech's actual rate) can all be pulled in automatically as line items.",
     "If you're clocked into a different job, clock out there first, you can't be clocked into two jobs at once.",
   ],
 };
@@ -401,7 +401,7 @@ const invoicesHelp: PageHelpContent = {
       heading: "Creating or Editing an Invoice",
       items: [
         "Click New Invoice to start one, then choose the customer it belongs to.",
-        "If the customer has a related job, you can link the invoice to it and pull in the parts used on that job automatically.",
+        "If the customer has a related job, you can link the invoice to it and pull in the parts used, installed equipment, and logged labor from that job automatically.",
         "Add line items for labor, parts, or other charges, and set quantities and prices for each.",
         "Add a discount (flat amount or percentage); the subtotal and total update automatically.",
         "Add any notes or terms you want the customer to see on the invoice.",

@@ -20,6 +20,7 @@ import { useLookup } from "../hooks/useMetadata";
 import { useJobParts } from "../hooks/useInventory";
 import { useSerializedUnits } from "../hooks/useSerials";
 import { useJobTimeEntries } from "../hooks/useTime";
+import { useTechnicians } from "../hooks/useTechnicians";
 import { usePurchaseOrders } from "../hooks/usePurchasing";
 import { useFormDraft } from "../hooks/useFormDraft";
 
@@ -131,6 +132,34 @@ export default function InvoiceFormPage() {
   );
   const loggedHours = toHours(loggedMinutes);
 
+  // Per-technician logged hours + pay rate, exactly like the job's Materials
+  // & Equipment "Labor" breakdown -- so labor pulled onto the invoice bills at
+  // the same rate shown there instead of a manually-priced lump sum.
+  const { data: laborTechsData } = useTechnicians();
+  const loggedLaborRows = (() => {
+    const technicians = laborTechsData?.data ?? [];
+    const byTech = new Map<
+      string,
+      { name: string; minutes: number; rate: number | null }
+    >();
+    for (const e of jobTimeEntries ?? []) {
+      const key = e.technicianId ?? e.userId;
+      const tech = technicians.find((t) => t.id === e.technicianId);
+      const name = tech
+        ? `${tech.user.firstName} ${tech.user.lastName}`
+        : e.user
+          ? `${e.user.firstName} ${e.user.lastName}`
+          : "Technician";
+      const existing = byTech.get(key);
+      byTech.set(key, {
+        name,
+        minutes: (existing?.minutes ?? 0) + (e.duration ?? 0),
+        rate: tech?.payRate ?? existing?.rate ?? null,
+      });
+    }
+    return [...byTech.values()];
+  })();
+
   // Serialized units installed on the job = billable equipment. Priced at the
   // catalog sale price when the unit's item is mapped to the pricebook.
   const { data: jobUnits } = useSerializedUnits({ jobId, limit: 100 });
@@ -175,23 +204,57 @@ export default function InvoiceFormPage() {
     ]);
   };
 
-  const addLaborLine = (kind: "scheduled" | "logged") => {
-    const hours = kind === "scheduled" ? scheduledHours : loggedHours;
-    if (hours <= 0) return;
+  const addScheduledLaborLine = () => {
+    if (scheduledHours <= 0) return;
+    const jobRef = jobDetail ? ` on job #${jobDetail.jobNumber}` : " on job";
+    setLineItems((items) => {
+      const description = `Scheduled time${jobRef}`;
+      if (items.some((li) => li.type === "labor" && li.description === description)) {
+        return items;
+      }
+      return [
+        ...items,
+        {
+          type: "labor",
+          name: "Labor",
+          description,
+          quantity: scheduledHours,
+          unitPrice: 0,
+          total: 0,
+        },
+      ];
+    });
+  };
+
+  // One line per technician, priced at their actual pay rate -- the same
+  // breakdown the job's Materials & Equipment card shows (see JobDetailPage's
+  // JobMaterialsCard). A tech with no rate set still lands on the invoice at
+  // $0/hr so the office can fill it in rather than being silently skipped.
+  const addLoggedLaborLines = () => {
+    if (loggedLaborRows.length === 0) return;
     const jobRef = jobDetail ? ` on job #${jobDetail.jobNumber}` : " on job";
     setLineItems((items) => [
       ...items,
-      {
-        type: "labor",
-        name: "Labor",
-        description:
-          kind === "scheduled"
-            ? `Scheduled time${jobRef}`
-            : `Logged time${jobRef}`,
-        quantity: hours,
-        unitPrice: 0,
-        total: 0,
-      },
+      ...loggedLaborRows
+        .filter((r) => r.minutes > 0)
+        .map((r) => {
+          const hours = toHours(r.minutes);
+          const rate = r.rate ?? 0;
+          return {
+            type: "labor",
+            name: "Labor",
+            description: `${r.name} \u2014 logged time${jobRef}`,
+            quantity: hours,
+            unitPrice: rate,
+            total: Math.round(hours * rate * 100) / 100,
+          };
+        })
+        .filter(
+          (line) =>
+            !items.some(
+              (li) => li.type === "labor" && li.description === line.description,
+            ),
+        ),
     ]);
   };
   const importJobParts = () => {
@@ -405,9 +468,7 @@ export default function InvoiceFormPage() {
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  addLaborLine("scheduled");
-                }}
+                onClick={addScheduledLaborLine}
               >
                 Add scheduled labor
               </Button>
@@ -437,9 +498,7 @@ export default function InvoiceFormPage() {
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  addLaborLine("logged");
-                }}
+                onClick={addLoggedLaborLines}
               >
                 Add logged labor
               </Button>
