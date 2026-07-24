@@ -189,6 +189,11 @@ const create = async (req, res) => {
     const estimate = await prisma.estimate.create({
       data: {
         ...estimateData,
+        // The job picker submits "" (not null/undefined) when no job is
+        // linked -- an empty string is still a non-null FK value to Prisma,
+        // so left as-is it fails with "job doesn't exist" on every jobless
+        // quote instead of just leaving the relation unset.
+        jobId: estimateData.jobId || null,
         // `validUntil` arrives as a date-only string (YYYY-MM-DD) from the
         // <input type="date">; Prisma's DateTime needs a full instant.
         validUntil: validUntil ? new Date(validUntil) : null,
@@ -265,6 +270,10 @@ const update = async (req, res) => {
 
     const updateData = {
       ...estimateData,
+      // See create() -- the job picker submits "" rather than
+      // null/undefined when no job is linked, which Prisma treats as a real
+      // (non-existent) foreign key instead of "no job".
+      jobId: estimateData.jobId || null,
       discountType,
       discountValue,
       // Tax is no longer a supported charge on estimates; always zeroed

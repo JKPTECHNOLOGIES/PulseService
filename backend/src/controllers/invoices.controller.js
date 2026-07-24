@@ -314,6 +314,11 @@ const create = async (req, res) => {
     const invoice = await prisma.invoice.create({
       data: {
         ...invoiceData,
+        // The job picker submits "" (not null/undefined) when no job is
+        // linked -- an empty string is still a non-null FK value to Prisma,
+        // so left as-is it fails with "job doesn't exist" on every jobless
+        // invoice instead of just leaving the relation unset.
+        jobId: invoiceData.jobId || null,
         // Date-only string from <input type="date"> -> full DateTime for Prisma.
         dueDate: dueDate ? new Date(dueDate) : null,
         invoiceNumber,
@@ -420,6 +425,10 @@ const update = async (req, res) => {
 
     const updateData = {
       ...invoiceData,
+      // See create() -- the job picker submits "" rather than
+      // null/undefined when no job is linked, which Prisma treats as a real
+      // (non-existent) foreign key instead of "no job".
+      jobId: invoiceData.jobId || null,
       discountType,
       discountValue,
       // Tax is no longer a supported charge on invoices, so a genuine edit
