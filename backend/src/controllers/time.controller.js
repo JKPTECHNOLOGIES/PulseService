@@ -1,4 +1,5 @@
 const prisma = require("../config/database");
+const { recordTimelineEvent } = require("../utils/timeline");
 
 // Link a time entry to the logged-in user's technician profile when they have
 // one (so it shows up in technician reports), in addition to the user id.
@@ -8,6 +9,34 @@ async function techIdForUser(userId) {
     select: { id: true },
   });
   return tech?.id ?? null;
+}
+
+// Narrate a time-tracking action on the job's customer timeline, best-effort
+// (never blocks the response -- see recordTimelineEvent). No-ops when the
+// entry isn't linked to a job, since there's nothing to attach it to.
+async function narrateTimeEntry(jobId, description, userId) {
+  if (!jobId) return;
+  const job = await prisma.job.findUnique({
+    where: { id: jobId },
+    select: { customerId: true, jobNumber: true },
+  });
+  if (!job) return;
+  await recordTimelineEvent({
+    customerId: job.customerId,
+    entityType: "job",
+    entityId: jobId,
+    entityLabel: job.jobNumber,
+    action: "time",
+    description,
+    userId,
+  });
+}
+
+function formatHm(mins) {
+  const m = Math.max(0, Math.round(mins ?? 0));
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return h > 0 ? `${String(h)}h ${String(rem)}m` : `${String(rem)}m`;
 }
 
 // The user's currently-open time entry (clocked in, not yet out), or null.
@@ -55,6 +84,7 @@ const clockIn = async (req, res) => {
         job: { select: { id: true, jobNumber: true, summary: true } },
       },
     });
+    await narrateTimeEntry(entry.jobId, "clocked in on Work Order", req.user.id);
     return res.status(201).json({ success: true, data: entry });
   } catch (err) {
     console.error("time.clockIn error:", err);
@@ -86,6 +116,11 @@ const clockOut = async (req, res) => {
         job: { select: { id: true, jobNumber: true, summary: true } },
       },
     });
+    await narrateTimeEntry(
+      entry.jobId,
+      `clocked out of Work Order (${formatHm(duration)} logged)`,
+      req.user.id,
+    );
     return res.json({ success: true, data: entry });
   } catch (err) {
     console.error("time.clockOut error:", err);
@@ -163,6 +198,16 @@ const create = async (req, res) => {
         job: { select: { id: true, jobNumber: true, summary: true } },
       },
     });
+    const techName = entry.user
+      ? `${entry.user.firstName} ${entry.user.lastName}`.trim()
+      : "a technician";
+    await narrateTimeEntry(
+      entry.jobId,
+      duration !== null
+        ? `logged ${formatHm(duration)} of time for ${techName} on Work Order`
+        : `logged an open time entry for ${techName} on Work Order`,
+      req.user.id,
+    );
     return res.status(201).json({ success: true, data: entry });
   } catch (err) {
     console.error("time.create error:", err);
@@ -234,6 +279,14 @@ const update = async (req, res) => {
         job: { select: { id: true, jobNumber: true, summary: true } },
       },
     });
+    const editTechName = entry.user
+      ? `${entry.user.firstName} ${entry.user.lastName}`.trim()
+      : "a technician";
+    await narrateTimeEntry(
+      entry.jobId,
+      `edited a time entry for ${editTechName} on Work Order`,
+      req.user.id,
+    );
     return res.json({ success: true, data: entry });
   } catch (err) {
     console.error("time.update error:", err);
@@ -244,7 +297,24 @@ const update = async (req, res) => {
 // Admin-only (time.manage): remove an incorrect or duplicate entry.
 const remove = async (req, res) => {
   try {
+    const existing = await prisma.timeEntry.findUnique({
+      where: { id: req.params.id },
+      include: { user: { select: { firstName: true, lastName: true } } },
+    });
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Time entry not found" });
+    }
     await prisma.timeEntry.delete({ where: { id: req.params.id } });
+    const techName = existing.user
+      ? `${existing.user.firstName} ${existing.user.lastName}`.trim()
+      : "a technician";
+    await narrateTimeEntry(
+      existing.jobId,
+      `deleted a time entry for ${techName} from Work Order`,
+      req.user.id,
+    );
     return res.json({ success: true });
   } catch (err) {
     console.error("time.remove error:", err);

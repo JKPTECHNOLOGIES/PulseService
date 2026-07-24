@@ -2,6 +2,25 @@ const prisma = require("../config/database");
 const permissionsService = require("../services/permissions.service");
 const { paginate, paginatedResponse } = require("../utils/helpers");
 const { money } = require("../services/inventory.service");
+const { recordTimelineEvent } = require("../utils/timeline");
+
+async function narrateSerialUnit(jobId, description, userId) {
+  if (!jobId) return;
+  const job = await prisma.job.findUnique({
+    where: { id: jobId },
+    select: { customerId: true, jobNumber: true },
+  });
+  if (!job) return;
+  await recordTimelineEvent({
+    customerId: job.customerId,
+    entityType: "job",
+    entityId: jobId,
+    entityLabel: job.jobNumber,
+    action: "unit",
+    description,
+    userId,
+  });
+}
 
 // The list/detail stay open to any authenticated user (a technician needs
 // the list to pick a unit to install), but purchase cost isn't something
@@ -244,7 +263,13 @@ const install = async (req, res) => {
           warrantyExpiresAt: new Date(warrantyExpiresAt),
         }),
       },
+      include: { inventoryItem: { select: { name: true } } },
     });
+    await narrateSerialUnit(
+      unit.installedJobId,
+      `installed ${unit.inventoryItem?.name ?? "a unit"} (S/N ${unit.serialNumber}) on Work Order`,
+      req.user?.id,
+    );
     return res.json({ success: true, data: unit });
   } catch (err) {
     if (err.code === "P2025")
@@ -265,6 +290,16 @@ const install = async (req, res) => {
 // links. Non-destructive (the physical asset record is kept).
 const uninstall = async (req, res) => {
   try {
+    // Grab the job link before it's cleared -- otherwise there's nothing left
+    // to narrate the removal against.
+    const before = await prisma.serializedUnit.findUnique({
+      where: { id: req.params.id },
+      select: {
+        installedJobId: true,
+        serialNumber: true,
+        inventoryItem: { select: { name: true } },
+      },
+    });
     const unit = await prisma.serializedUnit.update({
       where: { id: req.params.id },
       data: {
@@ -276,6 +311,13 @@ const uninstall = async (req, res) => {
         installedAt: null,
       },
     });
+    if (before) {
+      await narrateSerialUnit(
+        before.installedJobId,
+        `removed ${before.inventoryItem?.name ?? "a unit"} (S/N ${before.serialNumber}) from Work Order`,
+        req.user?.id,
+      );
+    }
     return res.json({ success: true, data: unit });
   } catch (err) {
     if (err.code === "P2025")

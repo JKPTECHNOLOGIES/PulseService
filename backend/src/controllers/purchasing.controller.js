@@ -11,6 +11,7 @@ const {
   money,
   qty,
 } = require("../services/inventory.service");
+const { recordTimelineEvent } = require("../utils/timeline");
 
 // Compute PO money totals from its (open) lines + tax + shipping.
 function computeTotals(lines, taxAmount = 0, shippingCost = 0) {
@@ -200,6 +201,24 @@ const create = async (req, res) => {
       });
       return created;
     });
+
+    if (order.jobId) {
+      const job = await prisma.job.findUnique({
+        where: { id: order.jobId },
+        select: { customerId: true, jobNumber: true },
+      });
+      if (job) {
+        await recordTimelineEvent({
+          customerId: job.customerId,
+          entityType: "job",
+          entityId: order.jobId,
+          entityLabel: job.jobNumber,
+          action: "po",
+          description: `created Purchase Order #${order.poNumber} for Work Order`,
+          userId: req.user?.id,
+        });
+      }
+    }
 
     return res.status(201).json({ success: true, data: order });
   } catch (err) {

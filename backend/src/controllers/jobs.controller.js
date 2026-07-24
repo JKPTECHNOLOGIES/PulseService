@@ -21,6 +21,11 @@ const JOB_NARRATED_FIELDS = [
   { field: "summary", label: "Work Summary" },
   { field: "notes", label: "Office Notes" },
   { field: "techNotes", label: "Tech Notes" },
+  { field: "type", label: "Work Order Type" },
+  { field: "priority", label: "Priority" },
+  { field: "source", label: "Source" },
+  { field: "scheduledStart", label: "Scheduled Start" },
+  { field: "scheduledEnd", label: "Scheduled End" },
 ];
 
 function technicianName(jobTechnician) {
@@ -387,6 +392,11 @@ const update = async (req, res) => {
         summary: true,
         notes: true,
         techNotes: true,
+        type: true,
+        priority: true,
+        source: true,
+        scheduledStart: true,
+        scheduledEnd: true,
       },
     });
     if (!before) {
@@ -646,20 +656,34 @@ const assignTechnician = async (req, res) => {
       await notify.notifyJobAssigned([technicianId], job);
     }
 
-    if (!existing && job) {
+    if (job) {
       const tech = await prisma.technician.findUnique({
         where: { id: technicianId },
         include: { user: { select: { firstName: true, lastName: true } } },
       });
-      await recordTimelineEvent({
-        customerId: job.customerId,
-        entityType: "job",
-        entityId: job.id,
-        entityLabel: job.jobNumber,
-        action: "assigned",
-        description: `assigned ${technicianName({ technician: tech })} to Work Order`,
-        userId: req.user?.id,
-      });
+      if (!existing) {
+        await recordTimelineEvent({
+          customerId: job.customerId,
+          entityType: "job",
+          entityId: job.id,
+          entityLabel: job.jobNumber,
+          action: "assigned",
+          description: `assigned ${technicianName({ technician: tech })} to Work Order`,
+          userId: req.user?.id,
+        });
+      } else if (isLead && !existing.isLead) {
+        // Promoting an already-assigned tech to lead -- worth its own note,
+        // distinct from the initial assignment above.
+        await recordTimelineEvent({
+          customerId: job.customerId,
+          entityType: "job",
+          entityId: job.id,
+          entityLabel: job.jobNumber,
+          action: "assigned",
+          description: `made ${technicianName({ technician: tech })} the lead technician on Work Order`,
+          userId: req.user?.id,
+        });
+      }
     }
 
     return res.json({ success: true, data: assignment });

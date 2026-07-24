@@ -10,6 +10,7 @@ const {
   qty,
   money,
 } = require("../services/inventory.service");
+const { recordTimelineEvent } = require("../utils/timeline");
 
 // Sum on-hand across every location for a loaded item (item.stock included).
 function totalFromStock(stock = []) {
@@ -393,7 +394,7 @@ const issueToJob = async (req, res) => {
     const [job, item] = await Promise.all([
       prisma.job.findUnique({
         where: { id: jobId },
-        select: { id: true, jobNumber: true },
+        select: { id: true, jobNumber: true, customerId: true },
       }),
       prisma.inventoryItem.findUnique({
         where: { id: inventoryItemId },
@@ -424,6 +425,16 @@ const issueToJob = async (req, res) => {
     const suggestedPrice = item.pricebookItem
       ? Number(item.pricebookItem.unitPrice)
       : Number(item.unitCost);
+
+    await recordTimelineEvent({
+      customerId: job.customerId,
+      entityType: "job",
+      entityId: job.id,
+      entityLabel: job.jobNumber,
+      action: "part",
+      description: `issued ${qty(amount)}x ${item.name} to Work Order`,
+      userId: req.user?.id,
+    });
 
     return res.status(201).json({
       success: true,
@@ -578,6 +589,30 @@ const reverseTransaction = async (req, res) => {
         },
       });
     });
+
+    if (result.jobId) {
+      const [job, item] = await Promise.all([
+        prisma.job.findUnique({
+          where: { id: result.jobId },
+          select: { customerId: true, jobNumber: true },
+        }),
+        prisma.inventoryItem.findUnique({
+          where: { id: result.inventoryItemId },
+          select: { name: true },
+        }),
+      ]);
+      if (job) {
+        await recordTimelineEvent({
+          customerId: job.customerId,
+          entityType: "job",
+          entityId: result.jobId,
+          entityLabel: job.jobNumber,
+          action: "part",
+          description: `reversed ${qty(Math.abs(Number(result.quantity)))}x ${item?.name ?? "a part"} on Work Order`,
+          userId: req.user?.id,
+        });
+      }
+    }
 
     return res.json({ success: true, data: result });
   } catch (err) {

@@ -1,5 +1,50 @@
 const prisma = require("../config/database");
 const permissionsService = require("../services/permissions.service");
+const { recordTimelineEvent } = require("../utils/timeline");
+
+// Only these entity types feed the customer timeline -- they're the ones with
+// a direct customerId to attach to (a "customer" attachment IS the customer,
+// and "inventory" attachments aren't tied to a customer at all).
+const TIMELINE_ENTITY = {
+  job: { model: prisma.job, numberField: "jobNumber", label: "Work Order" },
+  invoice: {
+    model: prisma.invoice,
+    numberField: "invoiceNumber",
+    label: "Invoice",
+  },
+  estimate: {
+    model: prisma.estimate,
+    numberField: "estimateNumber",
+    label: "Quote",
+  },
+};
+
+const SIGNATURE_PREFIX = "signature-";
+
+async function narrateAttachment(entityType, entityId, action, userId, filename) {
+  const config = TIMELINE_ENTITY[entityType];
+  if (!config) return;
+  const parent = await config.model.findUnique({
+    where: { id: entityId },
+    select: { customerId: true, [config.numberField]: true },
+  });
+  if (!parent) return;
+  const isSignature = filename?.startsWith(SIGNATURE_PREFIX);
+  const what = isSignature ? "a signature" : "a photo";
+  const description =
+    action === "add"
+      ? `captured ${what} on ${config.label}`
+      : `removed ${what} from ${config.label}`;
+  await recordTimelineEvent({
+    customerId: parent.customerId,
+    entityType,
+    entityId,
+    entityLabel: parent[config.numberField],
+    action: "attachment",
+    description,
+    userId,
+  });
+}
 
 // Entity types that may own attachments, mapped to the Prisma delegate used to
 // verify the parent record exists before storing a file. Keeping this list
@@ -116,6 +161,14 @@ const create = async (req, res) => {
       select: META_SELECT,
     });
 
+    await narrateAttachment(
+      entityType,
+      entityId,
+      "add",
+      req.user?.id,
+      created.filename,
+    );
+
     return res.status(201).json({ success: true, data: created });
   } catch (err) {
     console.error("attachments.create error:", err);
@@ -155,7 +208,13 @@ const remove = async (req, res) => {
   try {
     const attachment = await prisma.attachment.findUnique({
       where: { id: req.params.id },
-      select: { id: true, entityType: true, uploadedById: true },
+      select: {
+        id: true,
+        entityType: true,
+        entityId: true,
+        filename: true,
+        uploadedById: true,
+      },
     });
     if (!attachment) {
       return res
@@ -185,6 +244,13 @@ const remove = async (req, res) => {
     }
 
     await prisma.attachment.delete({ where: { id: req.params.id } });
+    await narrateAttachment(
+      attachment.entityType,
+      attachment.entityId,
+      "remove",
+      req.user?.id,
+      attachment.filename,
+    );
     return res.json({ success: true });
   } catch (err) {
     if (err.code === "P2025") {
